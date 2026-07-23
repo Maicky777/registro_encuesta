@@ -7,7 +7,6 @@
 **/.env.local
 
 # Opcional: Ignorar archivos de bases de datos locales (como tu SQLite) si no quieres subirlos
-*.db
 *.sqlite
 *.sqlite3
 
