@@ -35,20 +35,6 @@
   background-color: #334155;
 }
 
-.btn-secondary {
-  background-color: #64748b;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-
-.btn-secondary:hover {
-  background-color: #475569;
-}
-
 .btn-action {
   border: none;
   background: transparent;
@@ -156,6 +142,13 @@ body {
 
 .form-group.full-width {
   grid-column: 1 / -1;
+}
+
+.form-group-button {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  grid-column: 2;
 }
 
 .form-group label {
@@ -311,4 +304,42 @@ body {
   background: #ffffff;
   border-radius: 8px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.form-group-corregido {
+  display: flex;
+  gap: 10px;
+  margin: 20px;
+  justify-content: center;
+}
+
+.btn-submit-corregido {
+  background-color: #0f172a;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.8rem;
+  width: 30%;
+}
+
+.btn-submit-corregido:hover {
+  background-color: #38414e;
+}
+
+.btn-secondary {
+  background-color: #64748b;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  width: 30%;
+}
+
+.btn-secondary:hover {
+  background-color: #475569;
 }

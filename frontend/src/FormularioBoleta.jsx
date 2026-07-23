@@ -39,7 +39,7 @@ export default function FormularioBoleta({ sessionUser }) {
     upm: '',
     upmReemplazo: '',
     upmAdicional: '',
-    semana: '',
+    semana: 3,
     visita: '',
     panel: '',
     numeroCorrelativo: 1,
@@ -282,276 +282,301 @@ export default function FormularioBoleta({ sessionUser }) {
           )}
         </h2>
 
-        <form onSubmit={handleSubmit} className="form-grid">
-          <div className="form-group">
-            <label>Departamento</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.departamento}
-              disabled
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Brigada</label>
-            <select
-              className="form-control"
-              value={formData.brigada}
-              onChange={(e) => handleBrigadaChange(e.target.value)}
-            >
-              {sessionUser.brigadas.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Folio (Obligatorio)</label>
-            <input
-              className="form-control"
-              type="text"
-              required
-              value={formData.folio}
-              onChange={(e) => handleFolioChange(e.target.value)}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>UPM (Primeros 17)</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.upm}
-              readOnly
-              disabled
-            />
-          </div>
-
-          <div className="form-group">
-            <label>VOE (Últimos 4)</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.voe}
-              readOnly
-              disabled
-            />
-          </div>
-
-          <div className="form-group">
-            <label>N° Correlativo</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.numeroCorrelativo}
-              readOnly
-              disabled
-            />
-          </div>
-
-          <div className="form-group">
-            <label>UPM Reemplazo</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.upmReemplazo || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, upmReemplazo: e.target.value })
-              }
-            />
-          </div>
-
-          <div className="form-group">
-            <label>UPM Adicional</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.upmAdicional || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, upmAdicional: e.target.value })
-              }
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Semana (Requisito)</label>
-            <input
-              className="form-control"
-              type="text"
-              required
-              value={formData.semana}
-              onChange={(e) =>
-                setFormData({ ...formData, semana: e.target.value })
-              }
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Visita (Requisito)</label>
-            <input
-              className="form-control"
-              type="number"
-              min="1"
-              max="4"
-              required
-              value={formData.visita}
-              onChange={(e) => handleVisitaChange(e.target.value)}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Panel</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.panel}
-              readOnly
-              disabled
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Usuario Encuestador</label>
-            <select
-              className="form-control"
-              value={formData.usuarioEncuestador}
-              onChange={(e) => handleUsuarioEncuestadorChange(e.target.value)}
-            >
-              {Object.keys(BRIGADAS_DATA[formData.brigada] || {}).map(
-                (user) => (
-                  <option key={user} value={user}>
-                    {user}
+        <form onSubmit={handleSubmit}>
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="cod-brigada">Brigada</label>
+              <select
+                className="form-control"
+                autoFocus
+                id="cod-brigada"
+                value={formData.brigada}
+                onChange={(e) => handleBrigadaChange(e.target.value)}
+              >
+                {sessionUser.brigadas.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
                   </option>
-                ),
-              )}
-            </select>
-          </div>
+                ))}
+              </select>
+            </div>
 
-          <div className="form-group">
-            <label>Nombre Encuestador</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.nombreEncuestador}
-              readOnly
-              disabled
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="cod-folio">Codigo de Folio</label>
+              <input
+                className="form-control"
+                type="text"
+                id="cod-folio"
+                required
+                value={formData.folio}
+                onChange={(e) => handleFolioChange(e.target.value)}
+              />
+            </div>
 
-          <div className="form-group">
-            <label>Incidencia</label>
-            <select
-              className="form-control"
-              value={formData.incidencia}
-              onChange={(e) =>
-                setFormData({ ...formData, incidencia: e.target.value })
-              }
-            >
-              {INCIDENCIAS.map((inc) => (
-                <option key={inc} value={inc}>
-                  {inc}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className="form-group">
+              <label htmlFor="cod-usuario">Usuario Encuestador</label>
+              <select
+                id="cod-usuario"
+                className="form-control"
+                value={formData.usuarioEncuestador}
+                onChange={(e) => handleUsuarioEncuestadorChange(e.target.value)}
+              >
+                {Object.keys(BRIGADAS_DATA[formData.brigada] || {}).map(
+                  (user) => (
+                    <option key={user} value={user}>
+                      {user}
+                    </option>
+                  ),
+                )}
+              </select>
+            </div>
 
-          <div className="form-group full-width">
-            <label>Detalle Observaciones (Separadas por ;)</label>
-            <textarea
-              className="form-control"
-              rows="2"
-              value={formData.detalleObservaciones || ''}
-              onChange={(e) => handleObservacionesChange(e.target.value)}
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="cod-visita">Numero de Visita</label>
+              <input
+                id="cod-visita"
+                className="form-control"
+                type="number"
+                min="1"
+                max="4"
+                required
+                value={formData.visita}
+                onChange={(e) => handleVisitaChange(e.target.value)}
+              />
+            </div>
 
-          <div className="form-group">
-            <label>Total Obs.</label>
-            <input
-              className="form-control"
-              type="number"
-              value={formData.totalObservaciones}
-              readOnly
-              disabled
-            />
-          </div>
+            <div className="form-group full-width">
+              <label htmlFor="cod-observaciones">
+                Detalle de Observaciones en la boleta
+              </label>
+              <textarea
+                id="cod-observaciones"
+                className="form-control"
+                rows="2"
+                value={formData.detalleObservaciones || ''}
+                onChange={(e) => handleObservacionesChange(e.target.value)}
+              />
+            </div>
 
-          <div className="form-group">
-            <label>Boleta Observada</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.boletaObservada}
-              readOnly
-              disabled
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="cod-incidencias">Incidencia</label>
+              <select
+                id="cod-incidencias"
+                className="form-control"
+                value={formData.incidencia}
+                onChange={(e) =>
+                  setFormData({ ...formData, incidencia: e.target.value })
+                }
+              >
+                {INCIDENCIAS.map((inc) => (
+                  <option key={inc} value={inc}>
+                    {inc}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="form-group">
-            <label>Estado de Boleta</label>
-            <select
-              className={`form-control ${getEstadoClass(formData.estadoBoleta)}`}
-              value={formData.estadoBoleta}
-              onChange={(e) =>
-                setFormData({ ...formData, estadoBoleta: e.target.value })
-              }
-            >
-              <option value="SIN OBSERVACION">SIN OBSERVACION</option>
-              <option value="OBSERVADO">OBSERVADO</option>
-              <option value="CORREGIDO">CORREGIDO</option>
-            </select>
-          </div>
+            <div className="form-group">
+              <label htmlFor="cod-estado">Estado de Boleta</label>
+              <select
+                id="cod-estado"
+                className={`form-control ${getEstadoClass(formData.estadoBoleta)}`}
+                value={formData.estadoBoleta}
+                onChange={(e) =>
+                  setFormData({ ...formData, estadoBoleta: e.target.value })
+                }
+              >
+                <option value="SIN OBSERVACION">SIN OBSERVACION</option>
+                <option value="OBSERVADO">OBSERVADO</option>
+                <option value="CORREGIDO">CORREGIDO</option>
+              </select>
+            </div>
 
-          <div className="form-group">
-            <label>Observación Boleta</label>
-            <select
-              className="form-control"
-              disabled={formData.totalObservaciones === 0}
-              value={formData.observacionBoleta || ''}
-              onChange={(e) =>
-                setFormData({ ...formData, observacionBoleta: e.target.value })
-              }
-            >
-              <option value="">-- Seleccionar --</option>
-              <option value="ENVIADO">ENVIADO</option>
-              <option value="NO ENVIADO">NO ENVIADO</option>
-            </select>
-          </div>
+            <div className="form-group">
+              <label htmlFor="cod-upm">UPM Reemplazo</label>
+              <input
+                id="cod-upm"
+                className="form-control"
+                type="text"
+                value={formData.upmReemplazo || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, upmReemplazo: e.target.value })
+                }
+              />
+            </div>
 
-          <div className="form-group">
-            <label>Observación Personal</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.observacionPersonal || ''}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  observacionPersonal: e.target.value,
-                })
-              }
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="cod-upm-adicional">UPM Adicional</label>
+              <input
+                id="cod-upm-adicional"
+                className="form-control"
+                type="text"
+                value={formData.upmAdicional || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, upmAdicional: e.target.value })
+                }
+              />
+            </div>
 
-          <div className="form-group">
-            <label>Consolidada</label>
-            <input
-              className="form-control"
-              type="text"
-              value={formData.consolidada}
-              readOnly
-              disabled
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="cod-upm-ti">CODIGO DE UPM</label>
+              <input
+                id="cod-upm-ti"
+                className="form-control"
+                type="text"
+                value={formData.upm}
+                readOnly
+                disabled
+              />
+            </div>
 
-          <div
-            className="form-group full-width"
-            style={{ display: 'flex', gap: '10px' }}
-          >
-            <button type="submit" className="btn-submit">
+            <div className="form-group">
+              <label htmlFor="cod-voe">NUMERO DE VOE</label>
+              <input
+                id="cod-voe"
+                className="form-control"
+                type="text"
+                value={formData.voe}
+                readOnly
+                disabled
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cod-nombre">Nombre Encuestador</label>
+              <input
+                id="cod-nombre"
+                className="form-control"
+                type="text"
+                value={formData.nombreEncuestador}
+                readOnly
+                disabled
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cod-panel">Panel</label>
+              <input
+                id="cod-panel"
+                className="form-control"
+                type="text"
+                value={formData.panel}
+                readOnly
+                disabled
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cod-boleta-obs">Boleta Observada</label>
+              <input
+                id="cod-boleta-obs"
+                className="form-control"
+                type="text"
+                value={formData.boletaObservada}
+                readOnly
+                disabled
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cod-boleta-obser">Observación Boleta</label>
+              <select
+                id="cod-boleta-obser"
+                className="form-control"
+                disabled={formData.totalObservaciones === 0}
+                value={formData.observacionBoleta || ''}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    observacionBoleta: e.target.value,
+                  })
+                }
+              >
+                <option value="">-- Seleccionar --</option>
+                <option value="ENVIADO">ENVIADO</option>
+                <option value="NO ENVIADO">NO ENVIADO</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cod-t-obs">Total Obs.</label>
+              <input
+                id="cod-t-obs"
+                className="form-control"
+                type="number"
+                value={formData.totalObservaciones}
+                readOnly
+                disabled
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cod-semana">Numero de Semana</label>
+              <input
+                id="cod-semana"
+                className="htmlForm-control"
+                type="number"
+                disabled
+                value={formData.semana}
+                onChange={(e) =>
+                  setFormData({ ...formData, semana: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cod-departamento">Departamento</label>
+              <input
+                id="cod-departamento"
+                className="form-control"
+                type="text"
+                value={formData.departamento}
+                disabled
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cod-correlacion">N° Correlativo</label>
+              <input
+                id="cod-correlacion"
+                className="form-control"
+                type="text"
+                value={formData.numeroCorrelativo}
+                readOnly
+                disabled
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cod-consolidado">Consolidada</label>
+              <input
+                id="cod-consolidado"
+                className="form-control"
+                type="text"
+                value={formData.consolidada}
+                readOnly
+                disabled
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cod-obs-personal">Observación Personal</label>
+              <input
+                id="cod-obs-personal"
+                className="form-control"
+                type="text"
+                value={formData.observacionPersonal || ''}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    observacionPersonal: e.target.value,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <div className="form-group-corregido">
+            <button type="submit" className="btn-submit-corregido">
               {editandoId
                 ? 'Guardar Cambios (Actualizar)'
                 : 'Guardar y Limpiar'}
@@ -603,6 +628,7 @@ export default function FormularioBoleta({ sessionUser }) {
 
         <div className="search-box">
           <input
+            id="cod-busqueda"
             type="text"
             className="form-control search-input"
             placeholder="🔍 Buscar por cualquier campo (Folio, UPM, Estado, Encuestador...)"

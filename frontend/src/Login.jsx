@@ -27,8 +27,9 @@ export default function Login({ onLogin }) {
         </h2>
         <form onSubmit={handleSubmit}>
           <div className="form-group" style={{ marginBottom: '1rem' }}>
-            <label>Usuario</label>
+            <label htmlFor="inicio-usuario">Usuario</label>
             <input
+              id="inicio-usuario"
               type="text"
               className="form-control"
               value={username}
