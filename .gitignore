@@ -1,0 +1,16 @@
+# Ignorar node_modules de cualquier subcarpeta (frontend y backend)
+**/node_modules/
+
+# Opcional: Ignorar archivos de variables de entorno con datos sensibles
+**/Subcarpetas/.env
+**/.env
+**/.env.local
+
+# Opcional: Ignorar archivos de bases de datos locales (como tu SQLite) si no quieres subirlos
+*.db
+*.sqlite
+*.sqlite3
+
+# Opcional: Carpetas de compilación de producción de React (Vite o CRA)
+frontend/dist/
+frontend/build/
