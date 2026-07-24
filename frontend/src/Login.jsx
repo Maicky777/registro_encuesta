@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('')
+  const [alertModal, setAlertModal] = useState({ show: false, message: '' })
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -12,7 +13,7 @@ export default function Login({ onLogin }) {
         brigadas: ['Brigada 1', 'Brigada 2', 'Brigada 7'],
       })
     } else {
-      alert('Usuario no reconocido. Utilice "mcayo"')
+      setAlertModal({ show: true, message: 'Usuario no reconocido. Utilice "mcayo"' })
     }
   }
 
@@ -47,6 +48,21 @@ export default function Login({ onLogin }) {
           </button>
         </form>
       </div>
+
+      {alertModal.show && (
+        <div className="modal-overlay" onClick={() => setAlertModal({ show: false, message: '' })}>
+          <div className="modal-content alert-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="alert-icon alert-icon-error">✕</div>
+            <p className="alert-message">{alertModal.message}</p>
+            <button
+              className="btn-alert-error"
+              onClick={() => setAlertModal({ show: false, message: '' })}
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

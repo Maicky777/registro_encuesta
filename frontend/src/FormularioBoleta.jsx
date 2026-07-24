@@ -1,93 +1,134 @@
-import { useState, useEffect, useRef } from 'react'
-import axios from 'axios'
-import * as XLSX from 'xlsx'
+import { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import * as XLSX from "xlsx";
 
-const API_URL = 'http://localhost:5000/api/boletas'
+const API_URL = "http://localhost:5000/api/boletas";
 
 const BRIGADAS_DATA = {
-  'Brigada 1': { ece70101: 'Griselda', ece70102: 'Diego', ece70103: 'Geovani' },
-  'Brigada 2': { ece70201: 'Jesus', ece70202: 'Elizabeth', ece70203: 'Jhonny' },
-  'Brigada 7': {
-    ece70701: 'Cristian',
-    ece70702: 'Jesica',
-    ece70703: 'Sulmian',
+  "Brigada 1": { ece70101: "Griselda", ece70102: "Diego", ece70103: "Geovani" },
+  "Brigada 2": { ece70201: "Jesus", ece70202: "Elizabeth", ece70203: "Jhonny" },
+  "Brigada 7": {
+    ece70701: "Cristian",
+    ece70702: "Jesica",
+    ece70703: "Sulmian",
   },
-}
+};
 
 const INCIDENCIAS = [
-  '1: ENTREVISTA COMPLETA',
-  '2: ENTREVISTA INCOMPLETA',
-  '3: TEMPORALMENTE AUSENTE',
-  '4: INFORMANTE NO CALIFICADO',
-  '5: FALTA DE CONTACTO',
-  '6: RECHAZO',
-  '7: VIVIENDA DESOCUPADA',
-  '8: ENTREVISTA FUERA DE PERIODO',
-  '9: TRASLADO',
-]
+  "1: ENTREVISTA COMPLETA",
+  "2: ENTREVISTA INCOMPLETA",
+  "3: TEMPORALMENTE AUSENTE",
+  "4: INFORMANTE NO CALIFICADO",
+  "5: FALTA DE CONTACTO",
+  "6: RECHAZO",
+  "7: VIVIENDA DESOCUPADA",
+  "8: ENTREVISTA FUERA DE PERIODO",
+  "9: TRASLADO",
+];
 
 export default function FormularioBoleta({ sessionUser }) {
-  const [registros, setRegistros] = useState([])
-  const [filtroGeneral, setFiltroGeneral] = useState('')
-  const [editandoId, setEditandoId] = useState(null)
-  const fileInputRef = useRef(null)
+  const [registros, setRegistros] = useState([]);
+  const [filtroGeneral, setFiltroGeneral] = useState("");
+  const [editandoId, setEditandoId] = useState(null);
+  const fileInputRef = useRef(null);
+  const brigadaRef = useRef(null);
+  const [modalData, setModalData] = useState(null);
+  const [folioDuplicado, setFolioDuplicado] = useState(false);
+  const [alertModal, setAlertModal] = useState({
+    show: false,
+    message: "",
+    type: "info",
+  });
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    message: "",
+    onConfirm: null,
+  });
+  const [semanaExcelModal, setSemanaExcelModal] = useState(false);
+  const [semanaExcel, setSemanaExcel] = useState("");
 
   const initialFormState = {
     departamento: sessionUser.departamento,
-    brigada: sessionUser.brigadas[0] || 'Brigada 1',
-    folio: '',
-    upm: '',
-    upmReemplazo: '',
-    upmAdicional: '',
+    brigada: sessionUser.brigadas[0] || "Brigada 1",
+    folio: "",
+    upm: "",
+    upmReemplazo: "",
+    upmAdicional: "",
     semana: 3,
-    visita: '',
-    panel: '',
+    visita: "",
+    panel: "",
     numeroCorrelativo: 1,
-    voe: '',
-    usuarioEncuestador: 'ece70101',
-    nombreEncuestador: 'Griselda',
+    voe: "",
+    usuarioEncuestador: "ece70101",
+    nombreEncuestador: "Griselda",
     incidencia: INCIDENCIAS[0],
-    detalleObservaciones: '',
+    detalleObservaciones: "",
     totalObservaciones: 0,
-    boletaObservada: 'NO',
-    estadoBoleta: 'SIN OBSERVACION',
-    observacionBoleta: '',
-    observacionPersonal: '',
-    consolidada: 'NO',
-  }
+    boletaObservada: "NO",
+    estadoBoleta: "SIN OBSERVACION",
+    observacionBoleta: "",
+    observacionPersonal: "",
+    consolidada: "SI",
+  };
 
-  const [formData, setFormData] = useState(initialFormState)
+  const [formData, setFormData] = useState(initialFormState);
+
+  const showAlert = (message, type = "info") => {
+    setAlertModal({ show: true, message, type });
+  };
+
+  const showConfirm = (message) => {
+    return new Promise((resolve) => {
+      setConfirmModal({ show: true, message, onConfirm: resolve });
+    });
+  };
+
+  // Cerrar modales con Enter o Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter" || e.key === "Escape") {
+        if (alertModal.show) {
+          setAlertModal({ show: false, message: "", type: "info" });
+        }
+        if (confirmModal.show) {
+          confirmModal.onConfirm?.(false);
+          setConfirmModal({ show: false, message: "", onConfirm: null });
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alertModal.show, confirmModal.show, confirmModal.onConfirm]);
 
   // Cargar registros al montar el componente
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability
-    obtenerRegistros()
-  }, [])
+    obtenerRegistros();
+  }, []);
 
   const obtenerRegistros = async () => {
     try {
-      const res = await axios.get(API_URL)
-      setRegistros(res.data)
+      const res = await axios.get(API_URL);
+      setRegistros(res.data);
     } catch (err) {
-      console.error('Error al conectar con SQLite:', err)
+      console.error("Error al conectar con SQLite:", err);
     }
-  }
+  };
 
   // Funciion para reiniciar/limpiar el formulario
   const limpiarFormulario = () => {
-    setFormData(initialFormState)
-    setEditandoId(null)
-  }
+    setFormData(initialFormState);
+    setEditandoId(null);
+    setFolioDuplicado(false);
+  };
 
-  const handleFolioChange = (val) => {
-    const upmCalculada = val.length >= 17 ? val.substring(0, 17) : val
-    const voeCalculado = val.length >= 4 ? val.slice(-4) : ''
+  const handleFolioChange = async (val) => {
+    const upmCalculada = val.length >= 17 ? val.substring(0, 17) : val;
+    const voeCalculado = val.length >= 4 ? val.slice(-4) : "";
     const conteoUpmPrevias = registros.filter(
       (r) => r.upm === upmCalculada && r.id !== editandoId,
-    ).length
-    const existeFolio = registros.some(
-      (r) => r.folio === val && val !== '' && r.id !== editandoId,
-    )
+    ).length;
 
     setFormData((prev) => ({
       ...prev,
@@ -95,181 +136,283 @@ export default function FormularioBoleta({ sessionUser }) {
       upm: upmCalculada,
       voe: voeCalculado,
       numeroCorrelativo: conteoUpmPrevias + 1,
-      consolidada: existeFolio ? 'SI' : 'NO',
-    }))
-  }
+    }));
+
+    if (val.trim() === "") {
+      setFolioDuplicado(false);
+      return;
+    }
+
+    try {
+      const params = editandoId
+        ? `?folio=${val}&excludeId=${editandoId}`
+        : `?folio=${val}`;
+      const res = await axios.get(`${API_URL}/check-folio${params}`);
+      setFolioDuplicado(res.data.exists);
+    } catch {
+      setFolioDuplicado(false);
+    }
+  };
 
   const handleVisitaChange = (val) => {
-    let panelResultante = ''
-    const numVisita = parseInt(val, 10)
-    if (numVisita === 4) panelResultante = 'PANEL 43'
-    else if (numVisita === 3) panelResultante = 'PANEL 44'
-    else if (numVisita === 2) panelResultante = 'PANEL 45'
-    else if (numVisita === 1) panelResultante = 'PANEL 46 / PANEL 0'
+    let panelResultante = "";
+    const numVisita = parseInt(val, 10);
+    if (numVisita === 4) panelResultante = "PANEL 43";
+    else if (numVisita === 3) panelResultante = "PANEL 44";
+    else if (numVisita === 2) panelResultante = "PANEL 45";
+    else if (numVisita === 1) panelResultante = "PANEL 46 / PANEL 0";
 
-    setFormData((prev) => ({ ...prev, visita: val, panel: panelResultante }))
-  }
+    setFormData((prev) => ({ ...prev, visita: val, panel: panelResultante }));
+  };
 
   const handleBrigadaChange = (brigadaSel) => {
-    const usuarios = Object.keys(BRIGADAS_DATA[brigadaSel] || {})
-    const primerUsuario = usuarios[0] || ''
+    const usuarios = Object.keys(BRIGADAS_DATA[brigadaSel] || {});
+    const primerUsuario = usuarios[0] || "";
     setFormData((prev) => ({
       ...prev,
       brigada: brigadaSel,
       usuarioEncuestador: primerUsuario,
-      nombreEncuestador: BRIGADAS_DATA[brigadaSel]?.[primerUsuario] || '',
-    }))
-  }
+      nombreEncuestador: BRIGADAS_DATA[brigadaSel]?.[primerUsuario] || "",
+    }));
+  };
 
   const handleUsuarioEncuestadorChange = (userSel) => {
     setFormData((prev) => ({
       ...prev,
       usuarioEncuestador: userSel,
-      nombreEncuestador: BRIGADAS_DATA[formData.brigada]?.[userSel] || '',
-    }))
-  }
+      nombreEncuestador: BRIGADAS_DATA[formData.brigada]?.[userSel] || "",
+    }));
+  };
 
   const handleObservacionesChange = (texto) => {
-    const frases = texto.split(';').filter((f) => f.trim().length > 0)
-    const total = frases.length
+    const frases = texto.split(";").filter((f) => f.trim().length > 0);
+    const total = frases.length;
     setFormData((prev) => ({
       ...prev,
       detalleObservaciones: texto,
       totalObservaciones: total,
-      boletaObservada: total > 0 ? 'SI' : 'NO',
-      observacionBoleta: total > 0 ? 'ENVIADO' : '',
-    }))
-  }
+      estadoBoleta: total > 0 ? "OBSERVADO" : "SIN OBSERVACION",
+      boletaObservada: total > 0 ? "SI" : "NO",
+      observacionBoleta: total > 0 ? "NO ENVIADO" : "",
+    }));
+  };
 
   // --- ACCIONES CRUD ---
 
   // Guardar (Crear o Editar)
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    const fechaActual = new Date().toISOString().split('T')[0]
-    const payload = { ...formData, fechaFinalConsolidacion: fechaActual }
+    e.preventDefault();
+    if (folioDuplicado) {
+      showAlert(
+        `El folio "${formData.folio}" ya existe. No se puede guardar un folio duplicado.`,
+        "error",
+      );
+      return;
+    }
+    const fechaActual = new Date().toISOString().split("T")[0];
+    const payload = { ...formData, fechaFinalConsolidacion: fechaActual };
 
     try {
       if (editandoId) {
-        await axios.put(`${API_URL}/${editandoId}`, payload)
-        alert('Registro actualizado correctamente.')
+        await axios.put(`${API_URL}/${editandoId}`, payload);
+        showAlert("Registro actualizado correctamente.", "success");
       } else {
-        await axios.post(API_URL, payload)
-        alert('Registro guardado en SQLite.')
+        await axios.post(API_URL, payload);
+        showAlert("Registro guardado en SQLite.", "success");
       }
-      obtenerRegistros()
-      limpiarFormulario() // Limpia el formulario tras guardar
+      obtenerRegistros();
+      limpiarFormulario();
+      setTimeout(() => brigadaRef.current?.focus(), 100);
     } catch (err) {
-      alert('Error al guardar datos: ' + err.message)
+      showAlert("Error al guardar datos: " + err.message, "error");
     }
-  }
+  };
 
   // Cargar registro en el formulario para editar
   const handleEditar = (reg) => {
-    setEditandoId(reg.id)
-    setFormData(reg)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+    setEditandoId(reg.id);
+    setFormData({ ...reg, semana: parseInt(reg.semana, 10) || 0 });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // Eliminar
   const handleEliminar = async (id) => {
-    if (
-      window.confirm(
-        '¿Está seguro de eliminar este registro de la base de datos?',
-      )
-    ) {
+    const confirmado = await showConfirm(
+      "¿Está seguro de eliminar este registro de la base de datos?",
+    );
+    if (confirmado) {
       try {
-        await axios.delete(`${API_URL}/${id}`)
-        obtenerRegistros()
+        await axios.delete(`${API_URL}/${id}`);
+        obtenerRegistros();
       } catch (err) {
-        alert('Error al eliminar: ' + err.message)
+        showAlert("Error al eliminar: " + err.message, "error");
       }
     }
-  }
+  };
 
   // --- REPORTES Y ARCHIVOS ---
 
   // Exportar a EXCEL
   const exportarExcel = () => {
-    if (registros.length === 0) return alert('No hay datos para exportar.')
-    const worksheet = XLSX.utils.json_to_sheet(registros)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Boletas')
+    if (registros.length === 0)
+      return showAlert("No hay datos para exportar.", "warning");
+    setSemanaExcel("");
+    setSemanaExcelModal(true);
+  };
+
+  const ejecutarExportarExcel = () => {
+    const semanaNum = parseInt(semanaExcel, 10);
+    if (!semanaNum || semanaNum < 1) {
+      showAlert("Ingrese un número de semana válido.", "warning");
+      return;
+    }
+
+    const filtrados = registros.filter(
+      (r) => parseInt(r.semana, 10) === semanaNum,
+    );
+
+    if (filtrados.length === 0) {
+      showAlert(`No hay registros para la semana ${semanaNum}.`, "warning");
+      return;
+    }
+
+    const ordenados = [...filtrados].sort((a, b) => {
+      if (a.upm < b.upm) return -1;
+      if (a.upm > b.upm) return 1;
+      return 0;
+    });
+
+    const brigadas = ["Brigada 1", "Brigada 2", "Brigada 7"];
+    const workbook = XLSX.utils.book_new();
+
+    for (const brigada of brigadas) {
+      const porBrigada = ordenados.filter((r) => r.brigada === brigada);
+      if (porBrigada.length === 0) continue;
+      const worksheet = XLSX.utils.json_to_sheet(porBrigada);
+      XLSX.utils.book_append_sheet(workbook, worksheet, brigada);
+    }
+
     XLSX.writeFile(
       workbook,
-      `Reporte_Boletas_${new Date().toISOString().split('T')[0]}.xlsx`,
-    )
-  }
+      `Reporte_Boletas_Semana_${semanaNum}_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
+    setSemanaExcelModal(false);
+    showAlert(
+      `Reporte de la semana ${semanaNum} generado correctamente.`,
+      "success",
+    );
+  };
 
   // Exportar a JSON
   const exportarJSON = () => {
-    if (registros.length === 0) return alert('No hay datos para exportar.')
+    if (registros.length === 0)
+      return showAlert("No hay datos para exportar.", "warning");
     const dataStr =
-      'data:text/json;charset=utf-8,' +
-      encodeURIComponent(JSON.stringify(registros, null, 2))
-    const downloadAnchor = document.createElement('a')
-    downloadAnchor.setAttribute('href', dataStr)
+      "data:text/json;charset=utf-8," +
+      encodeURIComponent(JSON.stringify(registros, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", dataStr);
     downloadAnchor.setAttribute(
-      'download',
-      `boletas_${new Date().toISOString().split('T')[0]}.json`,
-    )
-    document.body.appendChild(downloadAnchor)
-    downloadAnchor.click()
-    downloadAnchor.remove()
-  }
+      "download",
+      `boletas_${new Date().toISOString().split("T")[0]}.json`,
+    );
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
 
   // Cargar datos desde JSON
   const cargarJSON = (e) => {
-    const fileReader = new FileReader()
+    const fileReader = new FileReader();
     if (e.target.files[0]) {
-      fileReader.readAsText(e.target.files[0], 'UTF-8')
+      fileReader.readAsText(e.target.files[0], "UTF-8");
       fileReader.onload = async (event) => {
         try {
-          const parsedData = JSON.parse(event.target.result)
+          const parsedData = JSON.parse(event.target.result);
           if (Array.isArray(parsedData)) {
-            await axios.post(`${API_URL}/batch`, parsedData)
-            alert('Datos del archivo JSON importados correctamente a SQLite.')
-            obtenerRegistros()
+            await axios.post(`${API_URL}/batch`, parsedData);
+            showAlert(
+              "Datos del archivo JSON importados correctamente a SQLite.",
+              "success",
+            );
+            obtenerRegistros();
           } else {
-            alert('El archivo JSON debe contener una lista de registros.')
+            showAlert(
+              "El archivo JSON debe contener una lista de registros.",
+              "warning",
+            );
           }
         } catch (err) {
-          alert('Error al leer el archivo JSON: ' + err.message)
+          showAlert("Error al leer el archivo JSON: " + err.message, "error");
         }
-      }
+      };
     }
-  }
+  };
 
   const getEstadoClass = (estado) => {
     switch (estado) {
-      case 'SIN OBSERVACION':
-        return 'estado-sin-observacion'
-      case 'OBSERVADO':
-        return 'estado-observado'
-      case 'CORREGIDO':
-        return 'estado-corregido'
+      case "SIN OBSERVACION":
+        return "estado-sin-observacion";
+      case "OBSERVADO":
+        return "estado-observado";
+      case "CORREGIDO":
+        return "estado-corregido";
       default:
-        return ''
+        return "";
     }
-  }
+  };
 
   const registrosFiltrados = registros.filter((reg) => {
-    const busqueda = filtroGeneral.toLowerCase().trim()
-    if (!busqueda) return true
+    const busqueda = filtroGeneral.toLowerCase().trim();
+    if (!busqueda) return true;
     return Object.values(reg).some((val) =>
       String(val).toLowerCase().includes(busqueda),
-    )
-  })
+    );
+  });
+
+  const handleReporte = async (reg) => {
+    const grupo = registros.filter(
+      (r) =>
+        r.brigada === reg.brigada &&
+        String(r.semana) === String(reg.semana) &&
+        r.estadoBoleta === "OBSERVADO",
+    );
+    if (grupo.length === 0) return;
+
+    /*setModalData({
+      brigada: reg.brigada,
+      semana: reg.semana,
+      registros: grupo,
+    })*/
+
+    setModalData({
+      brigada: reg.brigada,
+      semana: reg.semana,
+      registros: grupo,
+      registroSeleccionado: reg, // ← nuevo
+    });
+
+    try {
+      await axios.put(`${API_URL}/${reg.id}`, {
+        ...reg,
+        observacionBoleta: "ENVIADO",
+        fechaFinalConsolidacion: new Date().toISOString().split("T")[0],
+      });
+      obtenerRegistros();
+    } catch (err) {
+      console.error("Error al actualizar observacionBoleta:", err);
+    }
+  };
 
   return (
-    <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 1rem' }}>
+    <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 1rem" }}>
       {/* SECCIÓN FORMULARIO */}
       <div className="card-container">
         <h2 className="card-title">
           <span>
             {editandoId
               ? `Editando Registro #${editandoId}`
-              : 'Formulario de Boleta'}
+              : "Formulario de Boleta"}
           </span>
           {editandoId && (
             <button
@@ -290,6 +433,7 @@ export default function FormularioBoleta({ sessionUser }) {
                 className="form-control"
                 autoFocus
                 id="cod-brigada"
+                ref={brigadaRef}
                 value={formData.brigada}
                 onChange={(e) => handleBrigadaChange(e.target.value)}
               >
@@ -310,7 +454,24 @@ export default function FormularioBoleta({ sessionUser }) {
                 required
                 value={formData.folio}
                 onChange={(e) => handleFolioChange(e.target.value)}
+                style={
+                  folioDuplicado
+                    ? { borderColor: "#ef4444", backgroundColor: "#fef2f2" }
+                    : {}
+                }
               />
+              {folioDuplicado && (
+                <span
+                  style={{
+                    color: "#ef4444",
+                    fontSize: "0.85rem",
+                    marginTop: "4px",
+                    display: "block",
+                  }}
+                >
+                  Este folio ya existe. No se permiten duplicados.
+                </span>
+              )}
             </div>
 
             <div className="form-group">
@@ -353,7 +514,7 @@ export default function FormularioBoleta({ sessionUser }) {
                 id="cod-observaciones"
                 className="form-control"
                 rows="2"
-                value={formData.detalleObservaciones || ''}
+                value={formData.detalleObservaciones || ""}
                 onChange={(e) => handleObservacionesChange(e.target.value)}
               />
             </div>
@@ -365,7 +526,7 @@ export default function FormularioBoleta({ sessionUser }) {
                 className="form-control"
                 value={formData.incidencia}
                 onChange={(e) =>
-                  setFormData({ ...formData, incidencia: e.target.value })
+                  setFormData((prev) => ({ ...prev, incidencia: e.target.value }))
                 }
               >
                 {INCIDENCIAS.map((inc) => (
@@ -383,7 +544,7 @@ export default function FormularioBoleta({ sessionUser }) {
                 className={`form-control ${getEstadoClass(formData.estadoBoleta)}`}
                 value={formData.estadoBoleta}
                 onChange={(e) =>
-                  setFormData({ ...formData, estadoBoleta: e.target.value })
+                  setFormData((prev) => ({ ...prev, estadoBoleta: e.target.value }))
                 }
               >
                 <option value="SIN OBSERVACION">SIN OBSERVACION</option>
@@ -398,9 +559,9 @@ export default function FormularioBoleta({ sessionUser }) {
                 id="cod-upm"
                 className="form-control"
                 type="text"
-                value={formData.upmReemplazo || ''}
+                value={formData.upmReemplazo || ""}
                 onChange={(e) =>
-                  setFormData({ ...formData, upmReemplazo: e.target.value })
+                  setFormData((prev) => ({ ...prev, upmReemplazo: e.target.value }))
                 }
               />
             </div>
@@ -411,9 +572,9 @@ export default function FormularioBoleta({ sessionUser }) {
                 id="cod-upm-adicional"
                 className="form-control"
                 type="text"
-                value={formData.upmAdicional || ''}
+                value={formData.upmAdicional || ""}
                 onChange={(e) =>
-                  setFormData({ ...formData, upmAdicional: e.target.value })
+                  setFormData((prev) => ({ ...prev, upmAdicional: e.target.value }))
                 }
               />
             </div>
@@ -484,12 +645,12 @@ export default function FormularioBoleta({ sessionUser }) {
                 id="cod-boleta-obser"
                 className="form-control"
                 disabled={formData.totalObservaciones === 0}
-                value={formData.observacionBoleta || ''}
+                value={formData.observacionBoleta || ""}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
+                  setFormData((prev) => ({
+                    ...prev,
                     observacionBoleta: e.target.value,
-                  })
+                  }))
                 }
               >
                 <option value="">-- Seleccionar --</option>
@@ -514,12 +675,17 @@ export default function FormularioBoleta({ sessionUser }) {
               <label htmlFor="cod-semana">Numero de Semana</label>
               <input
                 id="cod-semana"
-                className="htmlForm-control"
+                className="form-control"
                 type="number"
-                disabled
+                min="1"
+                step="1"
+                required
                 value={formData.semana}
                 onChange={(e) =>
-                  setFormData({ ...formData, semana: e.target.value })
+                  setFormData((prev) => ({
+                    ...prev,
+                    semana: parseInt(e.target.value, 10) || 0,
+                  }))
                 }
               />
             </div>
@@ -565,12 +731,12 @@ export default function FormularioBoleta({ sessionUser }) {
                 id="cod-obs-personal"
                 className="form-control"
                 type="text"
-                value={formData.observacionPersonal || ''}
+                value={formData.observacionPersonal || ""}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
+                  setFormData((prev) => ({
+                    ...prev,
                     observacionPersonal: e.target.value,
-                  })
+                  }))
                 }
               />
             </div>
@@ -578,8 +744,8 @@ export default function FormularioBoleta({ sessionUser }) {
           <div className="form-group-corregido">
             <button type="submit" className="btn-submit-corregido">
               {editandoId
-                ? 'Guardar Cambios (Actualizar)'
-                : 'Guardar y Limpiar'}
+                ? "Guardar Cambios (Actualizar)"
+                : "Guardar y Limpiar"}
             </button>
             <button
               type="button"
@@ -610,7 +776,7 @@ export default function FormularioBoleta({ sessionUser }) {
           <input
             type="file"
             ref={fileInputRef}
-            style={{ display: 'none' }}
+            style={{ display: "none" }}
             accept=".json"
             onChange={cargarJSON}
           />
@@ -642,10 +808,9 @@ export default function FormularioBoleta({ sessionUser }) {
             <thead>
               <tr>
                 <th>Acciones</th>
-                <th>ID</th>
                 <th>N°</th>
-                <th>Folio</th>
                 <th>UPM</th>
+                <th>Folio</th>
                 <th>VOE</th>
                 <th>Semana</th>
                 <th>Visita</th>
@@ -653,7 +818,7 @@ export default function FormularioBoleta({ sessionUser }) {
                 <th>Encuestador</th>
                 <th>Estado</th>
                 <th>Obs. Total</th>
-                <th>Consolidada</th>
+                <th>Estado Boleta</th>
                 <th>Fecha</th>
               </tr>
             </thead>
@@ -674,28 +839,35 @@ export default function FormularioBoleta({ sessionUser }) {
                       >
                         🗑️
                       </button>
+                      {
+                        reg.estadoBoleta == "OBSERVADO" ? <button
+                        className="btn-action report"
+                        onClick={() => handleReporte(reg)}
+                      >
+                        📋
+                      </button> : ""
+                      }
                     </td>
-                    <td>{reg.id}</td>
                     <td>{reg.numeroCorrelativo}</td>
+                    <td>{reg.upm}</td>
                     <td>
                       <strong>{reg.folio}</strong>
                     </td>
-                    <td>{reg.upm}</td>
                     <td>{reg.voe}</td>
-                    <td>{reg.semana}</td>
+                    <td>{parseInt(reg.semana, 10)}</td>
                     <td>{reg.visita}</td>
                     <td>{reg.panel}</td>
                     <td>{reg.nombreEncuestador}</td>
                     <td>
                       <span
                         className={`form-control ${getEstadoClass(reg.estadoBoleta)}`}
-                        style={{ padding: '2px 6px' }}
+                        style={{ padding: "2px 6px" }}
                       >
                         {reg.estadoBoleta}
                       </span>
                     </td>
                     <td>{reg.totalObservaciones}</td>
-                    <td>{reg.consolidada}</td>
+                    <td>{reg.observacionBoleta}</td>
                     <td>{reg.fechaFinalConsolidacion}</td>
                   </tr>
                 ))
@@ -704,9 +876,9 @@ export default function FormularioBoleta({ sessionUser }) {
                   <td
                     colSpan="14"
                     style={{
-                      textAlign: 'center',
-                      padding: '1rem',
-                      color: '#64748b',
+                      textAlign: "center",
+                      padding: "1rem",
+                      color: "#64748b",
                     }}
                   >
                     No hay registros en la base de datos.
@@ -717,6 +889,191 @@ export default function FormularioBoleta({ sessionUser }) {
           </table>
         </div>
       </div>
+
+      {modalData && (
+        <div className="modal-overlay" onClick={() => setModalData(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Reporte por Brigada y Semana</h3>
+            <p>
+              📲 <strong>BOLETA CON VARIACIONES</strong>
+            </p>
+            <p>
+              <strong>BRIGADA:</strong> {modalData.brigada} - <strong>SEMANA:</strong> {parseInt(modalData.semana, 10)}
+            </p>
+            
+            <p>
+              <strong>TOTAL BOLETAS OBSERVADAS:</strong>{" "}
+              {modalData.registros.length}
+            </p>
+
+            <div className="modal-table-wrapper">
+              <table className="modal-table">
+                <thead>
+                  <tr>
+                    <th>USUARIO</th>
+                    <th>FOLIO</th>
+                    <th>TOTAL OBS.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modalData.registros.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.usuarioEncuestador}</td>
+                      <td>{r.folio}</td>
+                      <td>{r.totalObservaciones}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div
+              style={{
+                marginTop: "1rem",
+                padding: "0.75rem",
+                background: "#f1f5f9",
+                borderRadius: "6px",
+                fontSize: "0.85rem",
+                textAlign:"left"
+              }}
+            >
+              <p>
+                <span>📲 *_Buenas tardes equipo, se adiciona una voe para su verificacion y/o correccion_*</span> <br /><br />
+                <strong>*Usuario:*</strong>{" "}
+                {modalData.registroSeleccionado.usuarioEncuestador} <br />
+                <strong>*Folio:*</strong> {modalData.registroSeleccionado.folio} <br />
+                <strong>*Total de Observaciones:*</strong>{" "}
+                {modalData.registroSeleccionado.totalObservaciones}
+              </p>
+              
+            </div>
+
+            <button
+              className="btn-submit-corregido"
+              onClick={() => setModalData(null)}
+              style={{ marginTop: "1rem" }}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {alertModal.show && (
+        <div
+          className="modal-overlay"
+          onClick={() =>
+            setAlertModal({ show: false, message: "", type: "info" })
+          }
+        >
+          <div
+            className="modal-content alert-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`alert-icon alert-icon-${alertModal.type}`}>
+              {alertModal.type === "success" && "✓"}
+              {alertModal.type === "error" && "✕"}
+              {alertModal.type === "warning" && "⚠"}
+              {alertModal.type === "info" && "ℹ"}
+            </div>
+            <p className="alert-message">{alertModal.message}</p>
+            <button
+              className={`btn-alert-${alertModal.type}`}
+              onClick={() =>
+                setAlertModal({ show: false, message: "", type: "info" })
+              }
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirmModal.show && (
+        <div className="modal-overlay">
+          <div
+            className="modal-content confirm-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="alert-icon alert-icon-warning">?</div>
+            <p className="alert-message">{confirmModal.message}</p>
+            <div className="confirm-buttons">
+              <button
+                className="btn-confirm-cancel"
+                onClick={() => {
+                  confirmModal.onConfirm(false);
+                  setConfirmModal({
+                    show: false,
+                    message: "",
+                    onConfirm: null,
+                  });
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-confirm-ok"
+                onClick={() => {
+                  confirmModal.onConfirm(true);
+                  setConfirmModal({
+                    show: false,
+                    message: "",
+                    onConfirm: null,
+                  });
+                }}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {semanaExcelModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setSemanaExcelModal(false)}
+        >
+          <div
+            className="modal-content confirm-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="alert-icon alert-icon-info">📊</div>
+            <p className="alert-message">
+              Ingrese el número de <strong>semana</strong> para generar el
+              reporte Excel:
+            </p>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              className="form-control"
+              placeholder="Ej: 3"
+              value={semanaExcel}
+              onChange={(e) => setSemanaExcel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") ejecutarExportarExcel();
+                if (e.key === "Escape") setSemanaExcelModal(false);
+              }}
+              autoFocus
+              style={{ margin: "0.75rem 0", textAlign: "center" }}
+            />
+            <div className="confirm-buttons">
+              <button
+                className="btn-confirm-cancel"
+                onClick={() => setSemanaExcelModal(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-confirm-ok"
+                onClick={ejecutarExportarExcel}
+              >
+                Generar Reporte
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }

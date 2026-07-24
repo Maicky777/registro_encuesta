@@ -25,7 +25,7 @@ db.exec(`
     upm TEXT,
     upmReemplazo TEXT,
     upmAdicional TEXT,
-    semana TEXT,
+    semana INTEGER,
     visita TEXT,
     panel TEXT,
     numeroCorrelativo INTEGER,
@@ -44,7 +44,28 @@ db.exec(`
   )
 `)
 
-// 1. OBTENER todos los registros (READ)
+// 1. VERIFICAR SI UN FOLIO EXISTE (UNICIDAD)
+app.get('/api/boletas/check-folio', (req, res) => {
+  const { folio, excludeId } = req.query
+  if (!folio) {
+    return res.json({ exists: false })
+  }
+  try {
+    let row
+    if (excludeId) {
+      row = db
+        .prepare('SELECT id FROM boletas WHERE folio = ? AND id != ?')
+        .get(folio, excludeId)
+    } else {
+      row = db.prepare('SELECT id FROM boletas WHERE folio = ?').get(folio)
+    }
+    res.json({ exists: !!row })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// 2. OBTENER todos los registros (READ)
 app.get('/api/boletas', (req, res) => {
   try {
     const rows = db.prepare('SELECT * FROM boletas ORDER BY id DESC').all()
@@ -54,9 +75,21 @@ app.get('/api/boletas', (req, res) => {
   }
 })
 
-// 2. CREAR nuevo registro (CREATE)
+// 3. CREAR nuevo registro (CREATE)
 app.post('/api/boletas', (req, res) => {
   const data = req.body
+
+  if (data.folio) {
+    const existente = db
+      .prepare('SELECT id FROM boletas WHERE folio = ?')
+      .get(data.folio)
+    if (existente) {
+      return res
+        .status(409)
+        .json({ error: `El folio "${data.folio}" ya existe en la base de datos.` })
+    }
+  }
+
   const sql = `
     INSERT INTO boletas (
       departamento, brigada, folio, upm, upmReemplazo, upmAdicional, semana, visita, panel,
@@ -99,16 +132,30 @@ app.post('/api/boletas', (req, res) => {
   }
 })
 
-// 3. ACTUALIZAR registro existente (UPDATE)
+// 4. ACTUALIZAR registro existente (UPDATE)
 app.put('/api/boletas/:id', (req, res) => {
   const { id } = req.params
   const data = req.body
+
+  // Verificar que el folio no exista en otro registro
+  if (data.folio) {
+    const existente = db
+      .prepare('SELECT id FROM boletas WHERE folio = ? AND id != ?')
+      .get(data.folio, id)
+    if (existente) {
+      return res
+        .status(409)
+        .json({ error: `El folio "${data.folio}" ya existe en otro registro.` })
+    }
+  }
+
   const sql = `
     UPDATE boletas SET 
       departamento=?, brigada=?, folio=?, upm=?, upmReemplazo=?, upmAdicional=?, semana=?,
       visita=?, panel=?, numeroCorrelativo=?, voe=?, usuarioEncuestador=?, nombreEncuestador=?,
       incidencia=?, detalleObservaciones=?, totalObservaciones=?, boletaObservada=?,
-      estadoBoleta=?, observacionBoleta=?, observacionPersonal=?, consolidada=?
+      estadoBoleta=?, observacionBoleta=?, observacionPersonal=?, consolidada=?,
+      fechaFinalConsolidacion=?
     WHERE id=?
   `
 
@@ -135,6 +182,7 @@ app.put('/api/boletas/:id', (req, res) => {
       data.observacionBoleta,
       data.observacionPersonal,
       data.consolidada,
+      data.fechaFinalConsolidacion,
       id,
     )
     res.json({ message: 'Registro actualizado correctamente' })
@@ -143,7 +191,7 @@ app.put('/api/boletas/:id', (req, res) => {
   }
 })
 
-// 4. ELIMINAR registro (DELETE)
+// 5. ELIMINAR registro (DELETE)
 app.delete('/api/boletas/:id', (req, res) => {
   const { id } = req.params
   try {
@@ -172,10 +220,17 @@ app.post('/api/boletas/batch', (req, res) => {
 
   try {
     const stmt = db.prepare(sql)
+    const checkStmt = db.prepare('SELECT id FROM boletas WHERE folio = ?')
+    let insertados = 0
+    let omitidos = 0
 
     // Creamos una transacción para procesar miles de registros en milisegundos
     const insertMany = db.transaction((dataArray) => {
       for (const data of dataArray) {
+        if (data.folio && checkStmt.get(data.folio)) {
+          omitidos++
+          continue
+        }
         stmt.run(
           data.departamento,
           data.brigada,
@@ -201,12 +256,17 @@ app.post('/api/boletas/batch', (req, res) => {
           data.fechaFinalConsolidacion ||
             new Date().toISOString().split('T')[0],
         )
+        insertados++
       }
     })
 
     // Ejecutamos la carga masiva estructurada
     insertMany(registros)
-    res.json({ message: 'Carga masiva completada exitosamente' })
+    res.json({
+      message: 'Carga masiva completada',
+      insertados,
+      omitidos,
+    })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
