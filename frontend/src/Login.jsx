@@ -1,19 +1,30 @@
 import { useState } from 'react'
+import { login, saveToken } from './services/authService'
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
   const [alertModal, setAlertModal] = useState({ show: false, message: '' })
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    if (username.toLowerCase() === 'mcayo') {
+    setLoading(true)
+    
+    try {
+      const data = await login(username, password)
+      saveToken(data.token)
       onLogin({
-        user: 'mcayo',
-        departamento: 'SANTA CRUZ',
-        brigadas: ['Brigada 1', 'Brigada 2', 'Brigada 7'],
+        user: data.user.username,
+        departamento: data.user.departamento,
+        brigadas: data.user.brigadas,
+        rol: data.user.rol,
       })
-    } else {
-      setAlertModal({ show: true, message: 'Usuario no reconocido. Utilice "mcayo"' })
+    } catch (err) {
+      const message = err.response?.data?.error || 'Error al conectar con el servidor'
+      setAlertModal({ show: true, message })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -39,12 +50,25 @@ export default function Login({ onLogin }) {
               required
             />
           </div>
+          <div className="form-group" style={{ marginBottom: '1rem' }}>
+            <label htmlFor="inicio-password">Contraseña</label>
+            <input
+              id="inicio-password"
+              type="password"
+              className="form-control"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Ingrese su contraseña"
+              required
+            />
+          </div>
           <button
             type="submit"
             className="btn-submit"
             style={{ width: '100%' }}
+            disabled={loading}
           >
-            Ingresar al Sistema
+            {loading ? 'Ingresando...' : 'Ingresar al Sistema'}
           </button>
         </form>
       </div>
