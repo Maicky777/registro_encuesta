@@ -19,6 +19,17 @@ const ALLOWED_INCIDENCIAS = [
 const ALLOWED_ESTADOS = ['SIN OBSERVACION', 'OBSERVADO', 'CORREGIDO']
 const ALLOWED_OBS_BOLETA = ['', 'ENVIADO', 'NO ENVIADO']
 
+function computeObservacionFields(detalleObservaciones) {
+  const frases = (detalleObservaciones || '').split(';').filter((f) => f.trim().length > 0)
+  const total = frases.length
+  return {
+    totalObservaciones: total,
+    estadoBoleta: total > 0 ? 'OBSERVADO' : 'SIN OBSERVACION',
+    boletaObservada: total > 0 ? 'SI' : 'NO',
+    observacionBoleta: total > 0 ? 'NO ENVIADO' : '',
+  }
+}
+
 const BOLETA_FIELDS = [
   'departamento', 'brigada', 'folio', 'upm', 'upmReemplazo', 'upmAdicional',
   'semana', 'visita', 'panel', 'numeroCorrelativo', 'voe', 'usuarioEncuestador',
@@ -105,8 +116,41 @@ router.get('/check-folio', authMiddleware, (req, res) => {
 router.get('/', authMiddleware, (req, res) => {
   try {
     const db = getDB()
-    const rows = db.prepare('SELECT * FROM boletas ORDER BY id DESC').all()
-    res.json(rows)
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1)
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 100))
+    const offset = (page - 1) * limit
+
+    let whereClause = ''
+    const params = []
+
+    if (req.user.rol !== 'administrador') {
+      try {
+        const userBrigadas = JSON.parse(req.user.brigadas || '[]')
+        if (userBrigadas.length > 0) {
+          const placeholders = userBrigadas.map(() => '?').join(',')
+          whereClause = `WHERE brigada IN (${placeholders})`
+          params.push(...userBrigadas)
+        }
+      } catch (e) {
+        console.error('Error al parsear brigadas del usuario:', e.message)
+      }
+    }
+
+    const countQuery = `SELECT COUNT(*) as count FROM boletas ${whereClause}`
+    const totalRows = db.prepare(countQuery).get(...params).count
+
+    const dataQuery = `SELECT * FROM boletas ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`
+    const rows = db.prepare(dataQuery).all(...params, limit, offset)
+
+    res.json({
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total: totalRows,
+        totalPages: Math.ceil(totalRows / limit),
+      },
+    })
   } catch (err) {
     console.error('Error al listar boletas:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -132,6 +176,13 @@ router.post('/', authMiddleware, (req, res) => {
       return res.status(409).json({ error: `El folio "${data.folio}" ya existe en la base de datos.` })
     }
 
+    const obsFields = computeObservacionFields(data.detalleObservaciones)
+
+    const finalEstado = data.estadoBoleta || obsFields.estadoBoleta
+    const finalBoletaObs = data.boletaObservada !== undefined ? data.boletaObservada : obsFields.boletaObservada
+    const finalObservacion = data.observacionBoleta !== undefined ? data.observacionBoleta : obsFields.observacionBoleta
+    const finalTotal = data.totalObservaciones !== undefined ? Number(data.totalObservaciones) : obsFields.totalObservaciones
+
     const sql = `
       INSERT INTO boletas (
         departamento, brigada, folio, upm, upmReemplazo, upmAdicional, semana, visita, panel,
@@ -145,11 +196,11 @@ router.post('/', authMiddleware, (req, res) => {
       data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
       data.upmAdicional, data.semana, data.visita, data.panel, data.numeroCorrelativo,
       data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
-      data.detalleObservaciones, data.totalObservaciones, data.boletaObservada,
-      data.estadoBoleta, data.observacionBoleta, data.observacionPersonal,
+      data.detalleObservaciones, finalTotal, finalBoletaObs,
+      finalEstado, finalObservacion, data.observacionPersonal,
       data.consolidada, data.fechaFinalConsolidacion,
     )
-    res.json({ id: info.lastInsertRowid, ...data })
+    res.json({ id: info.lastInsertRowid, ...data, totalObservaciones: finalTotal, boletaObservada: finalBoletaObs, estadoBoleta: finalEstado, observacionBoleta: finalObservacion })
   } catch (err) {
     console.error('Error al crear boleta:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -187,6 +238,13 @@ router.put('/:id', authMiddleware, (req, res) => {
       }
     }
 
+    const obsFields = computeObservacionFields(data.detalleObservaciones)
+
+    const finalEstado = data.estadoBoleta || obsFields.estadoBoleta
+    const finalBoletaObs = data.boletaObservada !== undefined ? data.boletaObservada : obsFields.boletaObservada
+    const finalObservacion = data.observacionBoleta !== undefined ? data.observacionBoleta : obsFields.observacionBoleta
+    const finalTotal = data.totalObservaciones !== undefined ? Number(data.totalObservaciones) : obsFields.totalObservaciones
+
     const sql = `
       UPDATE boletas SET
         departamento=?, brigada=?, folio=?, upm=?, upmReemplazo=?, upmAdicional=?, semana=?,
@@ -201,8 +259,8 @@ router.put('/:id', authMiddleware, (req, res) => {
       data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
       data.upmAdicional, data.semana, data.visita, data.panel, data.numeroCorrelativo,
       data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
-      data.detalleObservaciones, data.totalObservaciones, data.boletaObservada,
-      data.estadoBoleta, data.observacionBoleta, data.observacionPersonal,
+      data.detalleObservaciones, finalTotal, finalBoletaObs,
+      finalEstado, finalObservacion, data.observacionPersonal,
       data.consolidada, data.fechaFinalConsolidacion, id,
     )
     res.json({ message: 'Registro actualizado correctamente' })
@@ -276,23 +334,31 @@ router.post('/batch', authMiddleware, (req, res) => {
     let insertados = 0
     let omitidos = 0
 
-    const insertMany = db.transaction((dataArray) => {
-      for (const data of dataArray) {
-        if (data.folio && checkStmt.get(data.folio)) {
-          omitidos++
-          continue
-        }
-        stmt.run(
-          data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
-          data.upmAdicional, data.semana, data.visita, data.panel, data.numeroCorrelativo,
-          data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
-          data.detalleObservaciones, data.totalObservaciones, data.boletaObservada,
-          data.estadoBoleta, data.observacionBoleta, data.observacionPersonal,
-          data.consolidada,
-          data.fechaFinalConsolidacion || new Date().toISOString().split('T')[0],
-        )
-        insertados++
+  const fechaBatch = new Date().toISOString().split('T')[0]
+
+  const insertMany = db.transaction((dataArray) => {
+    for (const data of dataArray) {
+      if (data.folio && checkStmt.get(data.folio)) {
+        omitidos++
+        continue
       }
+      const obsFields = computeObservacionFields(data.detalleObservaciones)
+      const finalEstado = data.estadoBoleta || obsFields.estadoBoleta
+      const finalBoletaObs = data.boletaObservada !== undefined ? data.boletaObservada : obsFields.boletaObservada
+      const finalObservacion = data.observacionBoleta !== undefined ? data.observacionBoleta : obsFields.observacionBoleta
+      const finalTotal = data.totalObservaciones !== undefined ? Number(data.totalObservaciones) : obsFields.totalObservaciones
+
+      stmt.run(
+        data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
+        data.upmAdicional, data.semana, data.visita, data.panel, data.numeroCorrelativo,
+        data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
+        data.detalleObservaciones, finalTotal, finalBoletaObs,
+        finalEstado, finalObservacion, data.observacionPersonal,
+        data.consolidada,
+        data.fechaFinalConsolidacion || fechaBatch,
+      )
+      insertados++
+    }
     })
 
     insertMany(registros)

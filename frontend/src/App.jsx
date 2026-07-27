@@ -1,32 +1,7 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
 import Login from './Login'
 import FormularioBoleta from './components/FormularioBoleta'
 import { getToken, removeToken, isAuthenticated, getMe } from './services/authService'
-import './App.css'
-
-// Configurar interceptor de Axios para incluir JWT
-axios.interceptors.request.use(
-  (config) => {
-    const token = getToken()
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => Promise.reject(error)
-)
-
-axios.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      removeToken()
-      window.location.reload()
-    }
-    return Promise.reject(error)
-  }
-)
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null)
@@ -40,9 +15,9 @@ export default function App() {
         setLoading(false)
         return
       }
-      
+
       try {
-        const user = await getMe(token)
+        const user = await getMe()
         setCurrentUser({
           user: user.username,
           departamento: user.departamento,
@@ -55,7 +30,7 @@ export default function App() {
         setLoading(false)
       }
     }
-    
+
     checkAuth()
   }, [])
 
@@ -66,14 +41,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        backgroundColor: '#0f172a',
-        color: '#ffffff'
-      }}>
+      <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
         Cargando...
       </div>
     )
@@ -85,13 +53,16 @@ export default function App() {
         <Login onLogin={(user) => setCurrentUser(user)} />
       ) : (
         <div>
-          <header className="app-header">
-            <span className="user-badge">
-              Usuario: <strong>{currentUser.user}</strong> | Rol:{' '}
-              <strong>{currentUser.rol === 'administrador' ? 'Administrador' : 'Usuario'}</strong> | Asignación:{' '}
-              <strong>{currentUser.departamento}</strong>
+          <header className="bg-slate-900 text-white py-3 px-6 flex justify-between items-center shadow-md">
+            <span className="text-sm text-slate-200">
+              Usuario: <strong className="text-sky-400">{currentUser.user}</strong> | Rol:{' '}
+              <strong className="text-sky-400">{currentUser.rol === 'administrador' ? 'Administrador' : 'Usuario'}</strong> | Asignación:{' '}
+              <strong className="text-sky-400">{currentUser.departamento}</strong>
             </span>
-            <button className="btn-logout" onClick={handleLogout}>
+            <button
+              className="bg-slate-800 text-white border border-slate-700 px-3 py-1 rounded text-xs font-semibold cursor-pointer hover:bg-slate-700 transition-colors"
+              onClick={handleLogout}
+            >
               Cerrar Sesión
             </button>
           </header>

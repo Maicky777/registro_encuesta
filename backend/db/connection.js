@@ -1,11 +1,13 @@
 const Database = require('better-sqlite3')
 const bcrypt = require('bcryptjs')
+const path = require('path')
 
 let db
 
-function connectDB(dbPath = './boletas.db') {
+function connectDB(dbPath) {
+  const resolvedPath = dbPath || path.join(__dirname, '..', 'boletas.db')
   try {
-    db = new Database(dbPath)
+    db = new Database(resolvedPath)
     console.log('Conectado exitosamente a la base de datos SQLite')
   } catch (err) {
     console.error('Error al abrir la base de datos:', err.message)
@@ -81,11 +83,18 @@ function seedDefaultUser(database) {
   }
 }
 
+function initDatabase() {
+  const database = connectDB()
+  createTables(database)
+  seedDefaultUser(database)
+  return database
+}
+
 function getDB() {
   if (!db) {
-    throw new Error('Base de datos no inicializada. Llama a connectDB() primero.')
+    throw new Error('Base de datos no inicializada. Llama a initDatabase() primero.')
   }
   return db
 }
 
-module.exports = { connectDB, createTables, seedDefaultUser, getDB }
+module.exports = { connectDB, createTables, seedDefaultUser, initDatabase, getDB }

@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { login, saveToken } from './services/authService'
+import ModalAlert from './components/ui/ModalAlert'
+import { useModal } from './hooks/useModal'
 
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [alertModal, setAlertModal] = useState({ show: false, message: '' })
+  const { alertModal, showAlert, closeAlert } = useModal()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    
+
     try {
       const data = await login(username, password)
       saveToken(data.token)
@@ -22,40 +24,41 @@ export default function Login({ onLogin }) {
       })
     } catch (err) {
       const message = err.response?.data?.error || 'Error al conectar con el servidor'
-      setAlertModal({ show: true, message })
+      showAlert(message, 'error')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="login-wrapper">
-      <div className="login-card">
-        <h2
-          className="card-title"
-          style={{ textAlign: 'center', justifyContent: 'center' }}
-        >
+    <div className="min-h-screen flex items-center justify-center bg-slate-900">
+      <div className="w-full max-w-sm px-8 py-8 bg-white rounded-lg shadow-xl">
+        <h2 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b-2 border-slate-800 text-center">
           Monitoreo & Encuestas
         </h2>
         <form onSubmit={handleSubmit}>
-          <div className="form-group" style={{ marginBottom: '1rem' }}>
-            <label htmlFor="inicio-usuario">Usuario</label>
+          <div className="flex flex-col mb-4">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="inicio-usuario">
+              Usuario
+            </label>
             <input
               id="inicio-usuario"
               type="text"
-              className="form-control"
+              className="w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Ej. mcayo"
               required
             />
           </div>
-          <div className="form-group" style={{ marginBottom: '1rem' }}>
-            <label htmlFor="inicio-password">Contraseña</label>
+          <div className="flex flex-col mb-4">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="inicio-password">
+              Contraseña
+            </label>
             <input
               id="inicio-password"
               type="password"
-              className="form-control"
+              className="w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Ingrese su contraseña"
@@ -64,8 +67,7 @@ export default function Login({ onLogin }) {
           </div>
           <button
             type="submit"
-            className="btn-submit"
-            style={{ width: '100%' }}
+            className="col-span-full w-full bg-slate-900 text-white py-2.5 px-5 text-sm font-semibold border-none rounded cursor-pointer mt-2 hover:bg-slate-800 transition-colors"
             disabled={loading}
           >
             {loading ? 'Ingresando...' : 'Ingresar al Sistema'}
@@ -73,20 +75,12 @@ export default function Login({ onLogin }) {
         </form>
       </div>
 
-      {alertModal.show && (
-        <div className="modal-overlay" onClick={() => setAlertModal({ show: false, message: '' })}>
-          <div className="modal-content alert-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="alert-icon alert-icon-error">✕</div>
-            <p className="alert-message">{alertModal.message}</p>
-            <button
-              className="btn-alert-error"
-              onClick={() => setAlertModal({ show: false, message: '' })}
-            >
-              Aceptar
-            </button>
-          </div>
-        </div>
-      )}
+      <ModalAlert
+        show={alertModal.show}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={closeAlert}
+      />
     </div>
   )
 }

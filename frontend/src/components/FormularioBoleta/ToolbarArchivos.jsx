@@ -79,19 +79,22 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
 
   return (
     <>
-      <div className="card-container">
-        <div className="toolbar-actions">
+      <div className="max-w-6xl mx-auto my-5 bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
+        <div className="flex gap-3 flex-wrap">
           <button
-            className="btn-excel"
+            className="bg-green-800 text-white border-none px-4 py-2 rounded font-semibold cursor-pointer text-xs hover:bg-green-700 transition-colors"
             onClick={() => setShowSemanaModal(true)}
           >
             📊 Generar Reporte Excel (.xlsx)
           </button>
-          <button className="btn-json" onClick={exportarJSON}>
+          <button
+            className="bg-slate-800 text-white border border-slate-700 px-4 py-2 rounded font-semibold cursor-pointer text-xs hover:bg-slate-700 transition-colors"
+            onClick={exportarJSON}
+          >
             ⬇️ Exportar JSON
           </button>
           <button
-            className="btn-json"
+            className="bg-slate-800 text-white border border-slate-700 px-4 py-2 rounded font-semibold cursor-pointer text-xs hover:bg-slate-700 transition-colors"
             onClick={() => fileInputRef.current.click()}
           >
             ⬆️ Cargar JSON
@@ -99,7 +102,7 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
           <input
             type="file"
             ref={fileInputRef}
-            style={{ display: 'none' }}
+            className="hidden"
             accept=".json"
             onChange={onCargarJSON}
           />

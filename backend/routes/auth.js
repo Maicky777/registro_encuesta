@@ -6,6 +6,14 @@ const { getDB } = require('../db/connection')
 
 const router = express.Router()
 
+function parseBrigadas(brigadasStr) {
+  try {
+    return JSON.parse(brigadasStr)
+  } catch {
+    return []
+  }
+}
+
 router.post('/login', (req, res) => {
   const { username, password } = req.body
 
@@ -25,9 +33,9 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ error: 'Credenciales inválidas' })
     }
 
-    const brigadas = JSON.parse(user.brigadas)
+    const brigadas = parseBrigadas(user.brigadas)
     const token = jwt.sign(
-      { id: user.id, username: user.username, departamento: user.departamento, rol: user.rol },
+      { id: user.id, username: user.username, departamento: user.departamento, brigadas, rol: user.rol },
       JWT_SECRET,
       { expiresIn: '8h' }
     )
@@ -107,7 +115,7 @@ router.get('/me', authMiddleware, (req, res) => {
       id: user.id,
       username: user.username,
       departamento: user.departamento,
-      brigadas: JSON.parse(user.brigadas),
+      brigadas: parseBrigadas(user.brigadas),
       rol: user.rol,
     })
   } catch (err) {

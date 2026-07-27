@@ -1,11 +1,11 @@
 export const getEstadoClass = (estado) => {
   switch (estado) {
     case 'SIN OBSERVACION':
-      return 'estado-sin-observacion'
+      return 'text-green-700 bg-green-50 border border-green-200 font-semibold'
     case 'OBSERVADO':
-      return 'estado-observado'
+      return 'text-red-700 bg-red-50 border border-red-200 font-semibold'
     case 'CORREGIDO':
-      return 'estado-corregido'
+      return 'text-blue-700 bg-blue-50 border border-blue-200 font-semibold'
     default:
       return ''
   }

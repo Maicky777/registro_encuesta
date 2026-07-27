@@ -1,6 +1,14 @@
-import React from 'react'
-import { BRIGADAS_DATA, INCIDENCIAS } from '../../utils/constants'
-import { calcularUPM, calcularVOE, calcularPanel } from '../../utils/helpers'
+import React, { useMemo } from 'react'
+import { BRIGADAS_DATA, INCIDENCIAS, MAX_POR_UPM, INCIDENCIA_TRASLADO } from '../../utils/constants'
+import { calcularUPM, calcularVOE } from '../../utils/helpers'
+
+const estadoSelectClass = (estado) => {
+  const base = 'w-full px-2.5 py-1.5 text-[0.82rem] border rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed'
+  if (estado === 'SIN OBSERVACION') return `${base} text-green-700 bg-green-50 border-green-200 font-semibold`
+  if (estado === 'OBSERVADO') return `${base} text-red-700 bg-red-50 border-red-200 font-semibold`
+  if (estado === 'CORREGIDO') return `${base} text-blue-700 bg-blue-50 border-blue-200 font-semibold`
+  return `${base} border-slate-300`
+}
 
 const Formulario = ({
   formData,
@@ -8,6 +16,8 @@ const Formulario = ({
   editandoId,
   sessionUser,
   folioDuplicado,
+  submitting,
+  registros,
   onFolioChange,
   onVisitaChange,
   onUsuarioEncuestadorChange,
@@ -40,9 +50,32 @@ const Formulario = ({
     }))
   }
 
+  const inputClass = 'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed'
+
+  const avanceBrigadas = useMemo(() => {
+    if (!registros) return []
+    const semana = parseInt(formData.semana, 10) || 0
+    const registrosSemana = registros.filter((r) => parseInt(r.semana, 10) === semana)
+    if (registrosSemana.length === 0) return []
+
+    const agrupado = {}
+    for (const r of registrosSemana) {
+      const key = r.brigada
+      if (!agrupado[key]) agrupado[key] = { upms: new Set(), validas: 0 }
+      agrupado[key].upms.add(r.upm)
+      if (r.incidencia !== INCIDENCIA_TRASLADO) agrupado[key].validas++
+    }
+
+    return Object.entries(agrupado).map(([brigada, info]) => {
+      const max = info.upms.size * MAX_POR_UPM
+      const pct = max > 0 ? Math.round((info.validas / max) * 100) : 0
+      return { brigada, upms: info.upms.size, validas: info.validas, max, pct }
+    })
+  }, [registros, formData.semana])
+
   return (
-    <div className="card-container">
-      <h2 className="card-title">
+    <div className="max-w-6xl mx-auto my-5 bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
+      <h2 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b-2 border-slate-800 flex justify-between items-center">
         <span>
           {editandoId
             ? `Editando Registro #${editandoId}`
@@ -51,8 +84,9 @@ const Formulario = ({
         {editandoId && (
           <button
             type="button"
-            className="btn-secondary"
+            className="bg-slate-500 text-white border-none px-4 py-2 rounded cursor-pointer text-xs hover:bg-slate-600 transition-colors"
             onClick={onLimpiar}
+            disabled={submitting}
           >
             Cancelar Edición
           </button>
@@ -60,11 +94,11 @@ const Formulario = ({
       </h2>
 
       <form onSubmit={onSubmit} noValidate>
-        <div className="form-grid">
-          <div className="form-group">
-            <label htmlFor="cod-brigada">Brigada</label>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-brigada">Brigada</label>
             <select
-              className="form-control"
+              className={inputClass}
               autoFocus
               id="cod-brigada"
               value={formData.brigada}
@@ -79,10 +113,10 @@ const Formulario = ({
             </select>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-folio">Codigo de Folio</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-folio">Codigo de Folio</label>
             <input
-              className="form-control"
+              className={`${inputClass} ${folioDuplicado ? 'border-red-500 bg-red-50' : ''}`}
               type="text"
               id="cod-folio"
               required
@@ -92,31 +126,19 @@ const Formulario = ({
               title="El folio debe contener entre 10 y 30 caracteres alfanuméricos"
               value={formData.folio}
               onChange={(e) => handleFolioChangeLocal(e.target.value.trim())}
-              style={
-                folioDuplicado
-                  ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' }
-                  : {}
-              }
             />
             {folioDuplicado && (
-              <span
-                style={{
-                  color: '#ef4444',
-                  fontSize: '0.85rem',
-                  marginTop: '4px',
-                  display: 'block',
-                }}
-              >
+              <span className="text-red-500 text-[0.85rem] mt-1 block">
                 Este folio ya existe. No se permiten duplicados.
               </span>
             )}
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-usuario">Usuario Encuestador</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-usuario">Usuario Encuestador</label>
             <select
               id="cod-usuario"
-              className="form-control"
+              className={inputClass}
               value={formData.usuarioEncuestador}
               onChange={(e) => onUsuarioEncuestadorChange(e.target.value)}
               required
@@ -131,11 +153,11 @@ const Formulario = ({
             </select>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-visita">Numero de Visita</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-visita">Numero de Visita</label>
             <input
               id="cod-visita"
-              className="form-control"
+              className={inputClass}
               type="number"
               min="1"
               max="4"
@@ -145,13 +167,13 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group full-width">
-            <label htmlFor="cod-observaciones">
+          <div className="flex flex-col col-span-full">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-observaciones">
               Detalle de Observaciones en la boleta
             </label>
             <textarea
               id="cod-observaciones"
-              className="form-control"
+              className={inputClass}
               rows="2"
               value={formData.detalleObservaciones || ''}
               onChange={(e) => onObservacionesChange(e.target.value)}
@@ -160,11 +182,11 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-incidencias">Incidencia</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-incidencias">Incidencia</label>
             <select
               id="cod-incidencias"
-              className="form-control"
+              className={inputClass}
               value={formData.incidencia}
               required
               onChange={(e) =>
@@ -182,11 +204,11 @@ const Formulario = ({
             </select>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-estado">Estado de Boleta</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-estado">Estado de Boleta</label>
             <select
               id="cod-estado"
-              className={`form-control ${formData.estadoBoleta === 'SIN OBSERVACION' ? 'estado-sin-observacion' : formData.estadoBoleta === 'OBSERVADO' ? 'estado-observado' : formData.estadoBoleta === 'CORREGIDO' ? 'estado-corregido' : ''}`}
+              className={estadoSelectClass(formData.estadoBoleta)}
               value={formData.estadoBoleta}
               onChange={(e) =>
                 setFormData((prev) => ({
@@ -201,11 +223,11 @@ const Formulario = ({
             </select>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-boleta-obser">Observación Boleta</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-boleta-obser">Observación Boleta</label>
             <select
               id="cod-boleta-obser"
-              className="form-control"
+              className={inputClass}
               disabled={formData.totalObservaciones === 0}
               value={formData.observacionBoleta || ''}
               onChange={(e) =>
@@ -221,11 +243,11 @@ const Formulario = ({
             </select>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-semana">Numero de Semana</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-semana">Numero de Semana</label>
             <input
               id="cod-semana"
-              className="form-control"
+              className={inputClass}
               type="number"
               min="1"
               max="53"
@@ -241,11 +263,11 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-upm-ti">CODIGO DE UPM</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-upm-ti">CODIGO DE UPM</label>
             <input
               id="cod-upm-ti"
-              className="form-control"
+              className={inputClass}
               type="text"
               value={formData.upm}
               readOnly
@@ -253,11 +275,11 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-voe">NUMERO DE VOE</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-voe">NUMERO DE VOE</label>
             <input
               id="cod-voe"
-              className="form-control"
+              className={inputClass}
               type="text"
               value={formData.voe}
               readOnly
@@ -265,11 +287,11 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-nombre">Nombre Encuestador</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-nombre">Nombre Encuestador</label>
             <input
               id="cod-nombre"
-              className="form-control"
+              className={inputClass}
               type="text"
               value={formData.nombreEncuestador}
               readOnly
@@ -277,11 +299,11 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-panel">Panel</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-panel">Panel</label>
             <input
               id="cod-panel"
-              className="form-control"
+              className={inputClass}
               type="text"
               value={formData.panel}
               readOnly
@@ -289,11 +311,11 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-boleta-obs">Boleta Observada</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-boleta-obs">Boleta Observada</label>
             <input
               id="cod-boleta-obs"
-              className="form-control"
+              className={inputClass}
               type="text"
               value={formData.boletaObservada}
               readOnly
@@ -301,11 +323,11 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-t-obs">Total Obs.</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-t-obs">Total Obs.</label>
             <input
               id="cod-t-obs"
-              className="form-control"
+              className={inputClass}
               type="number"
               value={formData.totalObservaciones}
               readOnly
@@ -313,22 +335,22 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-departamento">Departamento</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-departamento">Departamento</label>
             <input
               id="cod-departamento"
-              className="form-control"
+              className={inputClass}
               type="text"
               value={formData.departamento}
               disabled
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-correlacion">N° Correlativo</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-correlacion">N° Correlativo</label>
             <input
               id="cod-correlacion"
-              className="form-control"
+              className={inputClass}
               type="text"
               value={formData.numeroCorrelativo}
               readOnly
@@ -336,11 +358,11 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-upm">UPM Reemplazo</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-upm">UPM Reemplazo</label>
             <input
               id="cod-upm"
-              className="form-control"
+              className={inputClass}
               type="text"
               disabled
               value={formData.upmReemplazo || ''}
@@ -348,11 +370,11 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-upm-adicional">UPM Adicional</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-upm-adicional">UPM Adicional</label>
             <input
               id="cod-upm-adicional"
-              className="form-control"
+              className={inputClass}
               type="text"
               disabled
               value={formData.upmAdicional || ''}
@@ -360,11 +382,11 @@ const Formulario = ({
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cod-consolidado">Consolidada</label>
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-consolidado">Consolidada</label>
             <input
               id="cod-consolidado"
-              className="form-control"
+              className={inputClass}
               type="text"
               value={formData.consolidada}
               readOnly
@@ -372,20 +394,55 @@ const Formulario = ({
             />
           </div>
         </div>
-        <div className="form-group-corregido">
-          <button type="submit" className="btn-submit-corregido">
-            {editandoId
-              ? 'Guardar Cambios (Actualizar)'
-              : 'Guardar y Limpiar'}
+        <div className="flex gap-5 mx-5 mt-5 justify-center">
+          <button type="submit" className="bg-slate-900 text-white border-none px-4 py-2 rounded font-semibold cursor-pointer text-xs w-[30%] hover:bg-slate-700 transition-colors" disabled={submitting}>
+            {submitting
+              ? 'Guardando...'
+              : editandoId
+                ? 'Guardar Cambios (Actualizar)'
+                : 'Guardar y Limpiar'}
           </button>
           <button
             type="button"
-            className="btn-secondary"
+            className="bg-slate-500 text-white border-none px-4 py-2 rounded cursor-pointer text-xs w-[30%] hover:bg-slate-600 transition-colors"
             onClick={onLimpiar}
+            disabled={submitting}
           >
             Limpiar Campos
           </button>
         </div>
+
+        {avanceBrigadas.length > 0 && (
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <p className="text-[0.68rem] font-semibold text-slate-400 uppercase tracking-widest mb-2">
+              Avance UPM - Semana {formData.semana}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {avanceBrigadas.map((b) => (
+                <div
+                  key={b.brigada}
+                  className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5"
+                >
+                  <span className="text-[0.72rem] font-bold text-slate-700">{b.brigada}</span>
+                  <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-[width] duration-300 ${
+                        b.pct >= 100 ? 'bg-green-500' : b.pct >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${b.pct}%` }}
+                    />
+                  </div>
+                  <span className={`text-[0.68rem] font-bold ${b.pct >= 100 ? 'text-green-600' : b.pct >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                    {b.pct}%
+                  </span>
+                  <span className="text-[0.62rem] text-slate-400">
+                    {b.validas}/{b.max}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </form>
     </div>
   )

@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/boletas'
+import api from '../services/api'
 
 function getErrorMessage(err) {
   if (err.response?.data?.error) return err.response.data.error
@@ -13,13 +11,15 @@ function getErrorMessage(err) {
 export const useBoletas = () => {
   const [registros, setRegistros] = useState([])
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [pagination, setPagination] = useState({ page: 1, limit: 500, total: 0, totalPages: 1 })
 
-  const obtenerRegistros = useCallback(async () => {
+  const fetchRegistros = useCallback(async (page = 1, limit = 500) => {
     try {
-      setLoading(true)
-      const res = await axios.get(API_URL)
-      setRegistros(res.data)
+      const res = await api.get(`/boletas?page=${page}&limit=${limit}`)
+      setRegistros(res.data.data)
+      setPagination(res.data.pagination)
       setError(null)
     } catch (err) {
       console.error('Error al conectar con la API:', err)
@@ -30,34 +30,68 @@ export const useBoletas = () => {
   }, [])
 
   useEffect(() => {
-    obtenerRegistros()
-  }, [obtenerRegistros])
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await api.get('/boletas?page=1&limit=500')
+        if (!cancelled) {
+          setRegistros(res.data.data)
+          setPagination(res.data.pagination)
+          setError(null)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Error al conectar con la API:', err)
+          setError(getErrorMessage(err))
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const crearRegistro = useCallback(async (data) => {
-    const fechaActual = new Date().toISOString().split('T')[0]
-    const payload = { ...data, fechaFinalConsolidacion: fechaActual }
-    await axios.post(API_URL, payload)
-    await obtenerRegistros()
-  }, [obtenerRegistros])
+    setSubmitting(true)
+    try {
+      const fechaActual = new Date().toISOString().split('T')[0]
+      const payload = { ...data, fechaFinalConsolidacion: fechaActual }
+      await api.post('/boletas', payload)
+      await fetchRegistros()
+    } finally {
+      setSubmitting(false)
+    }
+  }, [fetchRegistros])
 
   const actualizarRegistro = useCallback(async (id, data) => {
-    const fechaActual = new Date().toISOString().split('T')[0]
-    const payload = { ...data, fechaFinalConsolidacion: fechaActual }
-    await axios.put(`${API_URL}/${id}`, payload)
-    await obtenerRegistros()
-  }, [obtenerRegistros])
+    setSubmitting(true)
+    try {
+      const fechaActual = new Date().toISOString().split('T')[0]
+      const payload = { ...data, fechaFinalConsolidacion: fechaActual }
+      await api.put(`/boletas/${id}`, payload)
+      await fetchRegistros()
+    } finally {
+      setSubmitting(false)
+    }
+  }, [fetchRegistros])
 
   const eliminarRegistro = useCallback(async (id) => {
-    await axios.delete(`${API_URL}/${id}`)
-    await obtenerRegistros()
-  }, [obtenerRegistros])
+    setSubmitting(true)
+    try {
+      await api.delete(`/boletas/${id}`)
+      await fetchRegistros()
+    } finally {
+      setSubmitting(false)
+    }
+  }, [fetchRegistros])
 
   const verificarFolio = useCallback(async (folio, excludeId = null) => {
     try {
       const params = excludeId
         ? `?folio=${folio}&excludeId=${excludeId}`
         : `?folio=${folio}`
-      const res = await axios.get(`${API_URL}/check-folio${params}`)
+      const res = await api.get(`/boletas/check-folio${params}`)
       return res.data.exists
     } catch {
       return false
@@ -65,16 +99,23 @@ export const useBoletas = () => {
   }, [])
 
   const cargarBatch = useCallback(async (data) => {
-    const res = await axios.post(`${API_URL}/batch`, data)
-    await obtenerRegistros()
-    return res.data
-  }, [obtenerRegistros])
+    setSubmitting(true)
+    try {
+      const res = await api.post('/boletas/batch', data)
+      await fetchRegistros()
+      return res.data
+    } finally {
+      setSubmitting(false)
+    }
+  }, [fetchRegistros])
 
   return {
     registros,
     loading,
+    submitting,
     error,
-    obtenerRegistros,
+    pagination,
+    obtenerRegistros: fetchRegistros,
     crearRegistro,
     actualizarRegistro,
     eliminarRegistro,

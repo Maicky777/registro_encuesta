@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 export const useModal = () => {
   const [alertModal, setAlertModal] = useState({
@@ -13,6 +13,8 @@ export const useModal = () => {
     onConfirm: null,
   })
 
+  const confirmResolveRef = useRef(null)
+
   const showAlert = useCallback((message, type = 'info') => {
     setAlertModal({ show: true, message, type })
   }, [])
@@ -23,23 +25,40 @@ export const useModal = () => {
 
   const showConfirm = useCallback((message) => {
     return new Promise((resolve) => {
+      confirmResolveRef.current = resolve
       setConfirmModal({ show: true, message, onConfirm: resolve })
     })
   }, [])
 
   const confirmAction = useCallback((value) => {
-    confirmModal.onConfirm?.(value)
+    confirmResolveRef.current?.(value)
+    confirmResolveRef.current = null
     setConfirmModal({ show: false, message: '', onConfirm: null })
-  }, [confirmModal.onConfirm])
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (confirmResolveRef.current) {
+        confirmResolveRef.current(false)
+        confirmResolveRef.current = null
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Enter' || e.key === 'Escape') {
+      if (e.key === 'Escape') {
         if (alertModal.show) {
           closeAlert()
-        }
-        if (confirmModal.show) {
+        } else if (confirmModal.show) {
           confirmAction(false)
+        }
+      }
+      if (e.key === 'Enter') {
+        if (alertModal.show) {
+          closeAlert()
+        } else if (confirmModal.show) {
+          confirmAction(true)
         }
       }
     }

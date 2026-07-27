@@ -4,7 +4,7 @@ const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
 require('dotenv').config()
 
-const { connectDB, createTables } = require('./db/connection')
+const { initDatabase, getDB } = require('./db/connection')
 const authRoutes = require('./routes/auth')
 const boletasRoutes = require('./routes/boletas')
 
@@ -35,10 +35,6 @@ app.use(generalLimiter)
 app.use(express.json({ limit: '5mb' }))
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }))
 
-// Inicializar base de datos
-const db = connectDB()
-createTables(db)
-
 // Rutas
 app.use('/api/auth/login', loginLimiter)
 app.use('/api/auth', authRoutes)
@@ -56,6 +52,30 @@ app.use((err, req, res, next) => {
 })
 
 const PORT = process.env.PORT || 5000
-app.listen(PORT, () =>
-  console.log(`Servidor Backend corriendo en http://localhost:${PORT}`),
-)
+
+function startServer() {
+  initDatabase()
+  const server = app.listen(PORT, () =>
+    console.log(`Servidor Backend corriendo en http://localhost:${PORT}`),
+  )
+
+  const shutdown = (signal) => {
+    console.log(`\n${signal} recibido. Cerrando servidor...`)
+    server.close(() => {
+      try {
+        getDB().close()
+        console.log('Conexión a la base de datos cerrada.')
+      } catch (e) {
+        console.error('Error al cerrar la BD:', e.message)
+      }
+      process.exit(0)
+    })
+  }
+
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+}
+
+startServer()
+
+module.exports = app

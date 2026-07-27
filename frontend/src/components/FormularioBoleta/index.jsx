@@ -1,12 +1,11 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { BRIGADAS_DATA, INCIDENCIAS } from '../../utils/constants'
-import { calcularPanel, calcularUPM, calcularVOE } from '../../utils/helpers'
+import { calcularPanel, calcularUPM } from '../../utils/helpers'
 import { useBoletas } from '../../hooks/useBoletas'
 import { useFiltros } from '../../hooks/useFiltros'
 import { useModal } from '../../hooks/useModal'
 import Formulario from './Formulario'
-import TablaRegistros from './TablaRegistros'
-import ReporteAvance from './ReporteAvance'
+import PanelDatos from './PanelDatos'
 import ToolbarArchivos from './ToolbarArchivos'
 import ModalReporte from './ModalReporte'
 import ModalAlert from '../ui/ModalAlert'
@@ -44,6 +43,7 @@ export default function FormularioBoleta({ sessionUser }) {
   const {
     registros,
     loading,
+    submitting,
     crearRegistro,
     actualizarRegistro,
     eliminarRegistro,
@@ -62,19 +62,20 @@ export default function FormularioBoleta({ sessionUser }) {
     confirmAction,
   } = useModal()
 
-  const getFormState = () => ({
+  const getFormState = useCallback(() => ({
     ...INITIAL_FORM_STATE,
     departamento: sessionUser.departamento,
     brigada: sessionUser.brigadas[0] || 'Brigada 1',
-  })
+  }), [sessionUser])
 
-  const [formData, setFormData] = useState(getFormState)
+  const initialFormState = useMemo(() => getFormState(), [getFormState])
+  const [formData, setFormData] = useState(initialFormState)
 
   const limpiarFormulario = useCallback(() => {
     setFormData(getFormState())
     setEditandoId(null)
     setFolioDuplicado(false)
-  }, [sessionUser])
+  }, [getFormState])
 
   const handleFolioChange = useCallback(async (val) => {
     const conteoUpmPrevias = registros.filter(
@@ -109,20 +110,21 @@ export default function FormularioBoleta({ sessionUser }) {
   }, [])
 
   const handleObservacionesChange = useCallback((texto) => {
-    const frases = texto.split(';').filter((f) => f.trim().length > 0)
-    const total = frases.length
+    const total = texto
+      .split(';')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0).length
     setFormData((prev) => ({
       ...prev,
       detalleObservaciones: texto,
       totalObservaciones: total,
       estadoBoleta: total > 0 ? 'OBSERVADO' : 'SIN OBSERVACION',
-      boletaObservada: total > 0 ? 'SI' : 'NO',
-      observacionBoleta: total > 0 ? 'NO ENVIADO' : '',
     }))
   }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (submitting) return
     if (folioDuplicado) {
       showAlert(
         `El folio "${formData.folio}" ya existe. No se puede guardar un folio duplicado.`,
@@ -241,26 +243,22 @@ export default function FormularioBoleta({ sessionUser }) {
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        padding: '2rem',
-        color: '#64748b'
-      }}>
+      <div className="flex justify-center items-center py-8 text-slate-400">
         Cargando registros...
       </div>
     )
   }
 
   return (
-    <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 1rem' }}>
+    <div className="max-w-7xl mx-auto px-4">
       <Formulario
         formData={formData}
         setFormData={setFormData}
         editandoId={editandoId}
         sessionUser={sessionUser}
         folioDuplicado={folioDuplicado}
+        submitting={submitting}
+        registros={registros}
         onFolioChange={handleFolioChange}
         onVisitaChange={handleVisitaChange}
         onUsuarioEncuestadorChange={handleUsuarioEncuestadorChange}
@@ -269,9 +267,9 @@ export default function FormularioBoleta({ sessionUser }) {
         onLimpiar={limpiarFormulario}
       />
 
-      <ReporteAvance registros={registros} semana={formData.semana} />
-
-      <TablaRegistros
+      <PanelDatos
+        registros={registros}
+        semana={formData.semana}
         registrosFiltrados={registrosFiltrados}
         filtroGeneral={filtroGeneral}
         onFiltroChange={setFiltroGeneral}

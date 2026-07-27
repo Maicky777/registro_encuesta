@@ -1,24 +1,17 @@
-import axios from 'axios'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
-const AUTH_URL = API_URL.replace('/boletas', '/auth')
+import api from './api'
 
 export const login = async (username, password) => {
-  const response = await axios.post(`${AUTH_URL}/login`, { username, password })
+  const response = await api.post('/auth/login', { username, password })
   return response.data
 }
 
-export const getMe = async (token) => {
-  const response = await axios.get(`${AUTH_URL}/me`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
+export const getMe = async () => {
+  const response = await api.get('/auth/me')
   return response.data
 }
 
-export const register = async (userData, token) => {
-  const response = await axios.post(`${AUTH_URL}/register`, userData, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
+export const register = async (userData) => {
+  const response = await api.post('/auth/register', userData)
   return response.data
 }
 
