@@ -140,7 +140,7 @@ const ReporteAvance = ({ registros, semana }) => {
                       {totalTraslados} trasl
                     </span>
                   )}
-                  <span className={`${color.bg} ${color.text} px-[7px] py-px rounded-[10px] text-[0.72rem] font-bold`}>
+                  <span className={`${color.bg} ${color.text} px-1.75 py-px rounded-[10px] text-[0.72rem] font-bold`}>
                     {pctBrigada}%
                   </span>
                 </div>

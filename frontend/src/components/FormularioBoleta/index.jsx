@@ -94,11 +94,15 @@ export default function FormularioBoleta({ sessionUser }) {
       .filter((r) => r.upmReemplazo && r.upmReemplazo.trim() !== '')
       .sort((a, b) => a.id - b.id)[0]
 
-    setFormData((prev) => ({
-      ...prev,
-      numeroCorrelativo: conteoUpmPrevias + 1,
-      upmReemplazo: primerRegistroUpm ? primerRegistroUpm.upmReemplazo : '',
-    }))
+    setFormData((prev) => {
+      const numVisita = parseInt(prev.visita, 10)
+      return {
+        ...prev,
+        numeroCorrelativo: conteoUpmPrevias + 1,
+        upmReemplazo: primerRegistroUpm ? primerRegistroUpm.upmReemplazo : '',
+        ...(numVisita === 1 && { panel: calcularPanel(prev.visita, upmCalculada) }),
+      }
+    })
 
     if (val.trim() === '') {
       setFolioDuplicado(false)
@@ -110,8 +114,11 @@ export default function FormularioBoleta({ sessionUser }) {
   }, [registros, editandoId, verificarFolio])
 
   const handleVisitaChange = useCallback((val) => {
-    const panelResultante = calcularPanel(val)
-    setFormData((prev) => ({ ...prev, visita: val, panel: panelResultante }))
+    setFormData((prev) => ({
+      ...prev,
+      visita: val,
+      panel: calcularPanel(val, prev.upm),
+    }))
   }, [])
 
   const handleUsuarioEncuestadorChange = useCallback((userSel) => {

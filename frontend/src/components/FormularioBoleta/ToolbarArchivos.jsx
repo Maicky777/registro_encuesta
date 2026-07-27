@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs/dist/exceljs.min.js'
 import { BRIGADAS_DATA } from '../../utils/constants'
 import ModalSemanaExcel from './ModalSemanaExcel'
 
@@ -10,7 +10,7 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
   const [showSemanaModal, setShowSemanaModal] = useState(false)
   const [semanaInput, setSemanaInput] = useState('')
 
-  const exportarExcel = (semanaNum) => {
+  const exportarExcel = async (semanaNum) => {
     if (registros.length === 0) {
       showAlert('No hay datos para exportar.', 'warning')
       return
@@ -28,22 +28,138 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
     const ordenados = [...filtrados].sort((a, b) => {
       if (a.upm < b.upm) return -1
       if (a.upm > b.upm) return 1
-      return 0
+      return a.numeroCorrelativo - b.numeroCorrelativo
     })
 
-    const workbook = XLSX.utils.book_new()
+    const columnas = [
+      { key: 'departamento', label: 'DEPARTAMENTO' },
+      { key: 'brigada', label: 'BRIGADA' },
+      { key: 'upm', label: 'UPM' },
+      { key: 'upmReemplazo', label: 'UPM DE REEMPLAZO' },
+      { key: 'upmAdicional', label: 'UPM ADICIONAL' },
+      { key: 'semana', label: 'SEMANA', center: true },
+      { key: 'visita', label: 'VISITA', center: true },
+      { key: 'panel', label: 'PANEL' },
+      { key: 'numeroCorrelativo', label: 'N°', center: true },
+      { key: 'folio', label: 'FOLIO' },
+      { key: 'usuarioEncuestador', label: 'USUARIO' },
+      { key: 'incidencia', label: 'INCIDENCIA' },
+      { key: 'boletaObservada', label: 'BOLETA OBSERVADA', center: true },
+      { key: 'totalObservaciones', label: 'TOTAL OBSERVACIONES', center: true },
+      { key: 'detalleObservaciones', label: 'DETALLE OBSERVACIONES' },
+      { key: 'consolidada', label: 'CONSOLIDADA', center: true },
+      {
+        key: 'fechaFinalConsolidacion',
+        label: 'FECHA FINAL DE REVISION / CONSOLIDACION',
+      },
+      {
+        key: 'cuestionarioDevuelto',
+        label: 'CUESTIONARIO DEVUELTO POR EQUIPO TECNICO',
+      },
+    ]
+
+    const headers = columnas.map((c) => c.label)
+    const departamento = ordenados[0]?.departamento || ''
+
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'Sistema de Boletas'
 
     for (const brigada of BRIGADAS) {
       const porBrigada = ordenados.filter((r) => r.brigada === brigada)
       if (porBrigada.length === 0) continue
-      const worksheet = XLSX.utils.json_to_sheet(porBrigada)
-      XLSX.utils.book_append_sheet(workbook, worksheet, brigada)
+
+      const sheet = workbook.addWorksheet(brigada)
+
+      sheet.columns = headers.map(() => ({ width: 22 }))
+
+      const row1 = sheet.getRow(1)
+      row1.getCell(1).value = 'ENCUENTAS CONTINUA DE EMPLEO'
+      row1.getCell(1).font = { name: 'Calibri', size: 18, bold: true }
+      sheet.mergeCells(1, 1, 1, 4)
+
+      const row2 = sheet.getRow(2)
+      row2.getCell(1).value = 'DETALLE DE FOLIOS REVISADOS'
+      row2.getCell(1).font = { name: 'Calibri', size: 18, bold: true }
+      sheet.mergeCells(2, 1, 2, 4)
+
+      const row3 = sheet.getRow(3)
+      row3.getCell(1).value = 'DEPARTAMENTO'
+      row3.getCell(1).font = { name: 'Calibri', size: 14, bold: true }
+      row3.getCell(2).value = departamento
+      row3.getCell(2).font = { name: 'Calibri', size: 14, bold: true }
+      row3.getCell(3).value = 'TRIMESTRE:'
+      row3.getCell(3).font = { name: 'Calibri', size: 14, bold: true }
+      row3.getCell(4).value = 'III/2026'
+      row3.getCell(4).font = { name: 'Calibri', size: 14, bold: true }
+
+      const headerRow = sheet.getRow(4)
+      headers.forEach((h, i) => {
+        const cell = headerRow.getCell(i + 1)
+        cell.value = h
+        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFF' } }
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: '0F172B' },
+        }
+        cell.border = {
+          top: { style: 'thin' },
+          bottom: { style: 'thin' },
+          left: { style: 'thin' },
+          right: { style: 'thin' },
+        }
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'center',
+          wrapText: true,
+        }
+      })
+
+      const lastCol = String.fromCharCode(64 + headers.length)
+      sheet.autoFilter = {
+        from: { row: 4, column: 1 },
+        to: { row: 4, column: headers.length },
+      }
+
+      porBrigada.forEach((r, idx) => {
+        const dataRow = sheet.getRow(5 + idx)
+        columnas.forEach((col, i) => {
+          const cell = dataRow.getCell(i + 1)
+          let valor = r[col.key] !== undefined ? r[col.key] : ''
+          if (col.key === 'semana' || col.key === 'numeroCorrelativo') {
+            valor = Number(valor) || 0
+          }
+          if (col.key === 'totalObservaciones') {
+            valor = Number(valor) || 0
+            valor = valor === 0 ? '' : valor
+          }
+          cell.value = valor
+          cell.font = { name: 'Calibri', size: 10 }
+          if (col.center) {
+            cell.alignment = { horizontal: 'center' }
+          }
+          cell.border = {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' },
+          }
+        })
+      })
     }
 
-    XLSX.writeFile(
-      workbook,
-      `Reporte_Boletas_Semana_${semanaNum}_${new Date().toISOString().split('T')[0]}.xlsx`,
-    )
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Reporte_Boletas_Semana_${semanaNum}_${new Date().toISOString().split('T')[0]}.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const exportarJSON = () => {
@@ -72,7 +188,10 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
       return
     }
     exportarExcel(semanaNum)
-    showAlert(`Reporte de la semana ${semanaNum} generado correctamente.`, 'success')
+    showAlert(
+      `Reporte de la semana ${semanaNum} generado correctamente.`,
+      'success',
+    )
     setShowSemanaModal(false)
     setSemanaInput('')
   }
@@ -114,7 +233,10 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
         semanaExcel={semanaInput}
         onChange={setSemanaInput}
         onConfirm={handleConfirmarSemana}
-        onCancel={() => { setShowSemanaModal(false); setSemanaInput('') }}
+        onCancel={() => {
+          setShowSemanaModal(false)
+          setSemanaInput('')
+        }}
       />
     </>
   )

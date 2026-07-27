@@ -11,12 +11,18 @@ export const getEstadoClass = (estado) => {
   }
 }
 
-export const calcularPanel = (visita) => {
+export const calcularPanel = (visita, upm = '') => {
   const numVisita = parseInt(visita, 10)
   if (numVisita === 4) return 'PANEL 43'
   if (numVisita === 3) return 'PANEL 44'
   if (numVisita === 2) return 'PANEL 45'
-  if (numVisita === 1) return 'PANEL 46 / PANEL 0'
+  if (numVisita === 1) {
+    if (upm && upm.length >= 3) {
+      const primeros3 = parseInt(upm.substring(0, 3), 10)
+      return primeros3 < 730 ? 'PANEL 46' : 'PANEL 0'
+    }
+    return 'PANEL 46 / PANEL 0'
+  }
   return ''
 }
 
