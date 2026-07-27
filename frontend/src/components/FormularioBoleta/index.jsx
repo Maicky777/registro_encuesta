@@ -4,6 +4,7 @@ import { calcularPanel, calcularUPM } from '../../utils/helpers'
 import { useBoletas } from '../../hooks/useBoletas'
 import { useFiltros } from '../../hooks/useFiltros'
 import { useModal } from '../../hooks/useModal'
+import { getEncuestadorByCodigo } from '../../services/encuestadorService'
 import Formulario from './Formulario'
 import PanelDatos from './PanelDatos'
 import ToolbarArchivos from './ToolbarArchivos'
@@ -121,12 +122,26 @@ export default function FormularioBoleta({ sessionUser }) {
     }))
   }, [])
 
-  const handleUsuarioEncuestadorChange = useCallback((userSel) => {
-    setFormData((prev) => ({
-      ...prev,
-      usuarioEncuestador: userSel,
-      nombreEncuestador: BRIGADAS_DATA[prev.brigada]?.[userSel] || '',
-    }))
+  const handleUsuarioEncuestadorChange = useCallback(async (userSel) => {
+    setFormData((prev) => {
+      const nombre = BRIGADAS_DATA[prev.brigada]?.[userSel] || ''
+
+      if (!nombre && userSel) {
+        getEncuestadorByCodigo(userSel)
+          .then((encuestador) => {
+            if (encuestador) {
+              setFormData((p) => ({ ...p, nombreEncuestador: encuestador.nombre }))
+            }
+          })
+          .catch(() => {})
+      }
+
+      return {
+        ...prev,
+        usuarioEncuestador: userSel,
+        nombreEncuestador: nombre,
+      }
+    })
   }, [])
 
   const handleObservacionesChange = useCallback((texto) => {
@@ -138,6 +153,7 @@ export default function FormularioBoleta({ sessionUser }) {
       ...prev,
       detalleObservaciones: texto,
       totalObservaciones: total,
+      boletaObservada: total > 0 ? 'SI' : 'NO',
       estadoBoleta: total > 0 ? 'OBSERVADO' : 'SIN OBSERVACION',
       observacionBoleta: total > 0 ? 'NO ENVIADO' : '',
     }))

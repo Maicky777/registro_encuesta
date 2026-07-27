@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import Login from './Login'
 import FormularioBoleta from './components/FormularioBoleta'
 import GestionUsuarios from './components/GestionUsuarios'
+import GestionBrigadas from './components/GestionBrigadas'
+import GestionEncuestadores from './components/GestionEncuestadores'
+import AsignacionBrigadas from './components/AsignacionBrigadas'
 import { getToken, removeToken, isAuthenticated, getMe } from './services/authService'
 
 export default function App() {
@@ -42,6 +45,14 @@ export default function App() {
     setCurrentUser(null)
   }
 
+  const adminTabs = [
+    { key: 'boletas', label: 'Boletas' },
+    { key: 'usuarios', label: 'Gestion de Usuarios' },
+    { key: 'brigadas', label: 'Brigadas' },
+    { key: 'encuestadores', label: 'Encuestadores' },
+    { key: 'asignacion', label: 'Asignacion Brigadas' },
+  ]
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
@@ -72,36 +83,29 @@ export default function App() {
             </div>
 
             {currentUser.rol === 'administrador' && (
-              <div className="flex gap-2 mt-3">
-                <button
-                  className={`px-4 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors border-none ${
-                    activeTab === 'boletas'
-                      ? 'bg-sky-500 text-white'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  }`}
-                  onClick={() => setActiveTab('boletas')}
-                >
-                  Boletas
-                </button>
-                <button
-                  className={`px-4 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors border-none ${
-                    activeTab === 'usuarios'
-                      ? 'bg-sky-500 text-white'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  }`}
-                  onClick={() => setActiveTab('usuarios')}
-                >
-                  Gestión de Usuarios
-                </button>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {adminTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    className={`px-4 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors border-none ${
+                      activeTab === tab.key
+                        ? 'bg-sky-500 text-white'
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                    onClick={() => setActiveTab(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             )}
           </header>
 
-          {activeTab === 'boletas' ? (
-            <FormularioBoleta sessionUser={currentUser} />
-          ) : (
-            <GestionUsuarios currentUserId={currentUser.id} />
-          )}
+          {activeTab === 'boletas' && <FormularioBoleta sessionUser={currentUser} />}
+          {activeTab === 'usuarios' && <GestionUsuarios currentUserId={currentUser.id} />}
+          {activeTab === 'brigadas' && <GestionBrigadas />}
+          {activeTab === 'encuestadores' && <GestionEncuestadores />}
+          {activeTab === 'asignacion' && <AsignacionBrigadas />}
         </div>
       )}
     </div>

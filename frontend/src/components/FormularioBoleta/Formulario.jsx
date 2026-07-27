@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { BRIGADAS_DATA, INCIDENCIAS, MAX_POR_UPM, INCIDENCIA_TRASLADO } from '../../utils/constants'
 import { calcularUPM, calcularVOE } from '../../utils/helpers'
+import { getEncuestadorByCodigo } from '../../services/encuestadorService'
 
 const estadoSelectClass = (estado) => {
   const base = 'w-full px-2.5 py-1.5 text-[0.82rem] border rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed'
@@ -29,12 +30,24 @@ const Formulario = ({
   const handleBrigadaChangeLocal = (brigadaSel) => {
     const usuarios = Object.keys(BRIGADAS_DATA[brigadaSel] || {})
     const primerUsuario = usuarios[0] || ''
+    const primerNombre = BRIGADAS_DATA[brigadaSel]?.[primerUsuario] || ''
+
     setFormData((prev) => ({
       ...prev,
       brigada: brigadaSel,
       usuarioEncuestador: primerUsuario,
-      nombreEncuestador: BRIGADAS_DATA[brigadaSel]?.[primerUsuario] || '',
+      nombreEncuestador: primerNombre,
     }))
+
+    if (!primerNombre && primerUsuario) {
+      getEncuestadorByCodigo(primerUsuario)
+        .then((enc) => {
+          if (enc) {
+            setFormData((prev) => ({ ...prev, nombreEncuestador: enc.nombre }))
+          }
+        })
+        .catch(() => {})
+    }
   }
 
   const handleFolioChangeLocal = (val) => {
@@ -62,15 +75,41 @@ const Formulario = ({
     const agrupado = {}
     for (const r of registrosSemana) {
       const key = r.brigada
-      if (!agrupado[key]) agrupado[key] = { upms: new Set(), validas: 0 }
+      if (!agrupado[key]) agrupado[key] = { upms: new Set(), validas: 0, traslados: 0, observadas: 0, upmList: [], upmDetalle: {} }
       agrupado[key].upms.add(r.upm)
-      if (r.incidencia !== INCIDENCIA_TRASLADO) agrupado[key].validas++
+      if (r.incidencia !== INCIDENCIA_TRASLADO) {
+        agrupado[key].validas++
+      } else {
+        agrupado[key].traslados++
+      }
+      const isObservada = r.estadoBoleta === 'OBSERVADO'
+      if (isObservada) agrupado[key].observadas++
+      agrupado[key].upmList.push({ upm: r.upm, folio: r.folio, incidencia: r.incidencia, observada: isObservada })
+
+      if (!agrupado[key].upmDetalle[r.upm]) agrupado[key].upmDetalle[r.upm] = { total: 0, observadas: 0 }
+      agrupado[key].upmDetalle[r.upm].total++
+      if (isObservada) agrupado[key].upmDetalle[r.upm].observadas++
     }
 
     return Object.entries(agrupado).map(([brigada, info]) => {
       const max = info.upms.size * MAX_POR_UPM
       const pct = max > 0 ? Math.round((info.validas / max) * 100) : 0
-      return { brigada, upms: info.upms.size, validas: info.validas, max, pct }
+      const upmResumen = Object.entries(info.upmDetalle).map(([upm, det]) => ({
+        upm,
+        total: det.total,
+        observadas: det.observadas,
+      }))
+      return {
+        brigada,
+        upms: info.upms.size,
+        validas: info.validas,
+        traslados: info.traslados,
+        observadas: info.observadas,
+        max,
+        pct,
+        upmList: info.upmList,
+        upmResumen,
+      }
     })
   }, [registros, formData.semana])
 
@@ -137,21 +176,24 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-usuario">Usuario Encuestador</label>
-            <select
+            <input
               id="cod-usuario"
               className={inputClass}
+              type="text"
+              list="encuestadores-list"
               value={formData.usuarioEncuestador}
-              onChange={(e) => onUsuarioEncuestadorChange(e.target.value)}
+              onChange={(e) => onUsuarioEncuestadorChange(e.target.value.trim())}
               required
-            >
+            />
+            <datalist id="encuestadores-list">
               {Object.keys(BRIGADAS_DATA[formData.brigada] || {}).map(
                 (user) => (
                   <option key={user} value={user}>
-                    {user}
+                    {BRIGADAS_DATA[formData.brigada]?.[user]}
                   </option>
                 ),
               )}
-            </select>
+            </datalist>
           </div>
 
           <div className="flex flex-col">
@@ -434,7 +476,7 @@ const Formulario = ({
               {avanceBrigadas.map((b) => (
                 <div
                   key={b.brigada}
-                  className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5"
+                  className="relative group flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5 cursor-default"
                 >
                   <span className="text-[0.72rem] font-bold text-slate-700">{b.brigada}</span>
                   <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
@@ -451,6 +493,51 @@ const Formulario = ({
                   <span className="text-[0.62rem] text-slate-400">
                     {b.validas}/{b.max}
                   </span>
+
+                  {/* Tooltip detallado */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                    <div className="bg-slate-900 text-white rounded-lg shadow-xl p-3 text-left">
+                      <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-700">
+                        <span className="text-[0.75rem] font-bold">{b.brigada}</span>
+                        <span className={`text-[0.65rem] font-bold px-1.5 py-0.5 rounded ${
+                          b.pct >= 100 ? 'bg-green-800 text-green-200' : b.pct >= 50 ? 'bg-amber-800 text-amber-200' : 'bg-red-800 text-red-200'
+                        }`}>
+                          {b.pct}%
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[0.65rem] mb-2">
+                        <span className="text-slate-400">UPMs visitadas:</span>
+                        <span className="font-semibold text-right">{b.upms}</span>
+                        <span className="text-slate-400">Encuestas válidas:</span>
+                        <span className="font-semibold text-green-400 text-right">{b.validas}</span>
+                        <span className="text-slate-400">Traslados:</span>
+                        <span className="font-semibold text-amber-400 text-right">{b.traslados}</span>
+                        <span className="text-slate-400">Boletas observadas:</span>
+                        <span className={`font-semibold text-right ${b.observadas > 0 ? 'text-red-400' : 'text-green-400'}`}>{b.observadas}</span>
+                        <span className="text-slate-400">Máximo posible:</span>
+                        <span className="font-semibold text-right">{b.max}</span>
+                      </div>
+                      {b.upmResumen.length > 0 && (
+                        <div className="border-t border-slate-700 pt-1.5">
+                          <span className="text-[0.6rem] text-slate-400 uppercase tracking-wider">Boletas observadas por UPM</span>
+                          <div className="mt-1 max-h-32 overflow-y-auto space-y-0.5 scrollbar-thin scrollbar-thumb-slate-600">
+                            {b.upmResumen.map((item, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-[0.6rem]">
+                                <span className="text-slate-300 truncate max-w-[180px]">{item.upm}</span>
+                                <span className={`px-1.5 py-0.5 rounded font-medium ${
+                                  item.observadas > 0 ? 'bg-red-900/50 text-red-300' : 'bg-green-900/30 text-green-400'
+                                }`}>
+                                  {item.observadas > 0 ? `${item.observadas} obs` : 'OK'}
+                                </span>
+                                <span className="text-slate-500 text-[0.55rem]">{item.total} b</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45 -mt-1" />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

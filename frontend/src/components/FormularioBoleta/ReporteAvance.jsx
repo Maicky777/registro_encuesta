@@ -9,12 +9,20 @@ const INCIDENCIAS_EXCLUIDAS = new Set([
 ])
 
 function getColor(pct) {
-  if (pct >= 100) return { bar: 'bg-green-600', bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-600', border: 'border-green-600/20' }
-  if (pct >= 75) return { bar: 'bg-amber-500', bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', border: 'border-amber-500/20' }
-  if (pct >= 50) return { bar: 'bg-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500', border: 'border-orange-500/20' }
-  if (pct > 0) return { bar: 'bg-red-600', bg: 'bg-orange-50', text: 'text-red-600', dot: 'bg-red-600', border: 'border-red-600/20' }
-  return { bar: 'bg-red-600', bg: 'bg-red-50', text: 'text-red-600', dot: 'bg-red-600', border: 'border-red-600/20' }
+  if (pct >= 100) return { bar: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', border: 'border-emerald-200', ring: 'ring-emerald-500/20' }
+  if (pct >= 75) return { bar: 'bg-amber-500', bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', border: 'border-amber-200', ring: 'ring-amber-500/20' }
+  if (pct >= 50) return { bar: 'bg-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500', border: 'border-orange-200', ring: 'ring-orange-500/20' }
+  if (pct > 0) return { bar: 'bg-red-500', bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', border: 'border-red-200', ring: 'ring-red-500/20' }
+  return { bar: 'bg-slate-300', bg: 'bg-slate-50', text: 'text-slate-400', dot: 'bg-slate-300', border: 'border-slate-200', ring: 'ring-slate-500/10' }
 }
+
+const StatCard = ({ label, value, color, sub }) => (
+  <div className={`flex flex-col items-center px-4 py-3 rounded-xl ${color.bg} border ${color.border} ring-1 ${color.ring}`}>
+    <span className={`text-2xl font-extrabold ${color.text} leading-none`}>{value}</span>
+    <span className="text-[0.65rem] font-medium text-slate-500 mt-1 uppercase tracking-wider">{label}</span>
+    {sub && <span className="text-[0.6rem] text-slate-400 mt-0.5">{sub}</span>}
+  </div>
+)
 
 const ReporteAvance = ({ registros, semana }) => {
   const avanceData = useMemo(() => {
@@ -34,17 +42,21 @@ const ReporteAvance = ({ registros, semana }) => {
       } else {
         agrupado[key][r.upm].validas++
       }
-      if (r.estadoBoleta === 'OBSERVADO') {
+      if (r.boletaObservada === 'SI') {
         agrupado[key][r.upm].observadas++
       }
     }
 
     let totalValidasGeneral = 0
     let totalMaxGeneral = 0
+    let totalObservadasGeneral = 0
+    let totalTrasladosGeneral = 0
     for (const brigada of Object.values(agrupado)) {
       for (const upm of Object.values(brigada)) {
         totalValidasGeneral += upm.validas
         totalMaxGeneral += MAX_POR_UPM
+        totalObservadasGeneral += upm.observadas
+        totalTrasladosGeneral += upm.traslados
       }
     }
 
@@ -54,6 +66,8 @@ const ReporteAvance = ({ registros, semana }) => {
       maxPorUpm: MAX_POR_UPM,
       totalValidasGeneral,
       totalMaxGeneral,
+      totalObservadasGeneral,
+      totalTrasladosGeneral,
       pctGeneral: totalMaxGeneral > 0 ? Math.round((totalValidasGeneral / totalMaxGeneral) * 100) : 0,
     }
   }, [registros, semana])
@@ -86,149 +100,274 @@ const ReporteAvance = ({ registros, semana }) => {
   const generalColor = getColor(avanceData.pctGeneral)
 
   return (
-    <div className="p-4 sm:p-5">
-      <div className="flex justify-between items-center mb-3">
-        <span className="text-[0.95rem] font-semibold text-slate-900">
-          Reporte de Avance{' '}
-          <span className="font-normal text-slate-500 text-[0.8rem] ml-2">
-            Semana {avanceData.semana}
-          </span>
-        </span>
-        <div className="flex items-center gap-2.5">
-          <span className="text-[0.7rem] text-slate-500">
-            {avanceData.totalValidasGeneral}/{avanceData.totalMaxGeneral} registros
-          </span>
-          <span className={`${generalColor.bg} ${generalColor.text} px-2.5 py-0.5 rounded-full text-[0.78rem] font-bold`}>
-            {avanceData.pctGeneral}%
-          </span>
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+      {/* Header */}
+      <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">Reporte de Avance</h3>
+            <p className="text-[0.75rem] text-slate-400 mt-0.5">
+              Semana <span className="font-semibold text-slate-600">{avanceData.semana}</span>
+              <span className="mx-1.5 text-slate-300">|</span>
+              {brigadas.length} brigada{brigadas.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="text-[0.65rem] text-slate-400 uppercase tracking-wider font-medium">Progreso General</div>
+              <div className="text-[0.72rem] text-slate-500 mt-0.5">{avanceData.totalValidasGeneral} / {avanceData.totalMaxGeneral} encuestas</div>
+            </div>
+            <div className={`w-16 h-16 rounded-2xl ${generalColor.bg} border ${generalColor.border} flex flex-col items-center justify-center ring-1 ${generalColor.ring}`}>
+              <span className={`text-xl font-extrabold ${generalColor.text} leading-none`}>{avanceData.pctGeneral}%</span>
+            </div>
+          </div>
+        </div>
+        {/* Barra general */}
+        <div className="mt-4">
+          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full ${generalColor.bar} rounded-full transition-all duration-700 ease-out`}
+              style={{ width: `${avanceData.pctGeneral}%` }}
+            />
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-2.5">
-        {brigadas.map((brigada) => {
-          const upms = avanceData.agrupado[brigada]
-          const upmKeys = Object.keys(upms).sort()
-          const totalValidasBrigada = upmKeys.reduce((s, u) => s + upms[u].validas, 0)
-          const totalObservadas = upmKeys.reduce((s, u) => s + upms[u].observadas, 0)
-          const totalTraslados = upmKeys.reduce((s, u) => s + upms[u].traslados, 0)
-          const totalMaxBrigada = upmKeys.length * avanceData.maxPorUpm
-          const pctBrigada = totalMaxBrigada > 0 ? Math.round((totalValidasBrigada / totalMaxBrigada) * 100) : 0
-          const color = getColor(pctBrigada)
-
-          return (
-            <div
-              key={brigada}
-              className="bg-slate-50 rounded-md px-3 py-2.5 border border-slate-200"
-            >
-              <div className="flex justify-between items-center mb-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-[0.82rem] text-slate-900">
-                    {brigada}
-                  </span>
-                  <span className="text-[0.68rem] text-slate-500">
-                    {upmKeys.length} UPM
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {totalObservadas > 0 && (
-                    <span className="text-[0.65rem] text-red-600 font-semibold">
-                      {totalObservadas} obs
-                    </span>
-                  )}
-                  {totalTraslados > 0 && (
-                    <span className="text-[0.65rem] text-slate-500 font-medium">
-                      {totalTraslados} trasl
-                    </span>
-                  )}
-                  <span className={`${color.bg} ${color.text} px-1.75 py-px rounded-[10px] text-[0.72rem] font-bold`}>
-                    {pctBrigada}%
-                  </span>
-                </div>
-              </div>
-
-              <div className="w-full h-1.5 bg-slate-200 rounded-[3px] overflow-hidden mb-2">
-                <div
-                  className={`h-full ${color.bar} rounded-[3px] transition-[width] duration-400 ease-in-out`}
-                  style={{ width: `${pctBrigada}%` }}
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-1">
-                {upmKeys.map((upm) => {
-                  const info = upms[upm]
-                  const pct = Math.round((info.validas / avanceData.maxPorUpm) * 100)
-                  const upmColor = getColor(pct)
-                  const shortUpm = upm.length > 10 ? upm.slice(-6) : upm
-
-                  return (
-                    <div
-                      key={upm}
-                      title={`${upm}\nVálidas: ${info.validas}/${avanceData.maxPorUpm}\nObservadas: ${info.observadas}\nTraslados: ${info.traslados}`}
-                      className={`inline-flex items-center gap-1 ${upmColor.bg} border ${upmColor.border} rounded px-1.5 py-0.5 text-[0.65rem] cursor-default`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${upmColor.dot} shrink-0`} />
-                      <span className="font-semibold text-slate-600 text-[0.62rem]">
-                        {shortUpm}
-                      </span>
-                      <span className={`${upmColor.text} font-bold text-[0.62rem]`}>
-                        {info.validas}/{avanceData.maxPorUpm}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
+      {/* Stats row */}
+      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <div className="grid grid-cols-4 gap-3">
+          <StatCard label="Validas" value={avanceData.totalValidasGeneral} color={getColor(100)} sub={`${avanceData.totalMaxGeneral} max`} />
+          <StatCard label="Observadas" value={avanceData.totalObservadasGeneral} color={avanceData.totalObservadasGeneral > 0 ? getColor(10) : getColor(100)} sub="boletas" />
+          <StatCard label="Traslados" value={avanceData.totalTrasladosGeneral} color={getColor(50)} sub="registros" />
+          <StatCard label="UPMs" value={Object.values(avanceData.agrupado).reduce((s, b) => s + Object.keys(b).length, 0)} color={getColor(75)} sub="visitadas" />
+        </div>
       </div>
 
-      {usuariosIncidencias.length > 0 && (
-        <div className="mt-5 pt-4 border-t border-slate-200">
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-[0.95rem] font-semibold text-slate-900">
-              Usuarios con Incidencias
-            </span>
-            <span className="text-[0.68rem] text-slate-400">
-              Excluye: entrevistas y traslados
-            </span>
-          </div>
+      {/* Brigadas */}
+      <div className="px-6 py-5">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-1 h-5 bg-slate-800 rounded-full" />
+          <h4 className="text-[0.8rem] font-bold text-slate-700 uppercase tracking-wider">Avance por Brigada</h4>
+        </div>
+        <div className="space-y-3">
+          {brigadas.map((brigada) => {
+            const upms = avanceData.agrupado[brigada]
+            const upmKeys = Object.keys(upms).sort()
+            const totalValidasBrigada = upmKeys.reduce((s, u) => s + upms[u].validas, 0)
+            const totalObservadas = upmKeys.reduce((s, u) => s + upms[u].observadas, 0)
+            const totalTraslados = upmKeys.reduce((s, u) => s + upms[u].traslados, 0)
+            const totalMaxBrigada = upmKeys.length * avanceData.maxPorUpm
+            const pctBrigada = totalMaxBrigada > 0 ? Math.round((totalValidasBrigada / totalMaxBrigada) * 100) : 0
+            const color = getColor(pctBrigada)
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-[0.72rem]">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-1.5 px-2 text-[0.65rem] font-semibold text-slate-500 uppercase">#</th>
-                  <th className="text-left py-1.5 px-2 text-[0.65rem] font-semibold text-slate-500 uppercase">Usuario</th>
-                  <th className="text-left py-1.5 px-2 text-[0.65rem] font-semibold text-slate-500 uppercase">Brigada</th>
-                  <th className="text-center py-1.5 px-2 text-[0.65rem] font-semibold text-slate-500 uppercase">Total</th>
-                  <th className="text-left py-1.5 px-2 text-[0.65rem] font-semibold text-slate-500 uppercase">Detalle</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {usuariosIncidencias.map((u, i) => (
-                  <tr key={u.usuario} className="hover:bg-slate-50">
-                    <td className="py-1.5 px-2 text-slate-400 font-medium">{i + 1}</td>
-                    <td className="py-1.5 px-2 font-semibold text-slate-800">{u.usuario}</td>
-                    <td className="py-1.5 px-2 text-slate-500">{u.brigada}</td>
-                    <td className="py-1.5 px-2 text-center">
-                      <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-100 text-red-700 text-[0.68rem] font-bold">
-                        {u.total}
+            return (
+              <div
+                key={brigada}
+                className="bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all duration-200"
+              >
+                {/* Brigada header */}
+                <div className="px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-lg ${color.bg} border ${color.border} flex items-center justify-center ring-1 ${color.ring}`}>
+                      <span className={`text-[0.7rem] font-extrabold ${color.text}`}>{brigada.slice(-2)}</span>
+                    </div>
+                    <div>
+                      <div className="font-bold text-[0.82rem] text-slate-900">{brigada}</div>
+                      <div className="text-[0.65rem] text-slate-400">{upmKeys.length} UPM{upmKeys.length !== 1 ? 's' : ''} visitadas</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {totalObservadas > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[0.65rem] font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                        {totalObservadas} obs
                       </span>
-                    </td>
-                    <td className="py-1.5 px-2">
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(u.incidencias).map(([inc, count]) => (
-                          <span key={inc} className="inline-flex items-center gap-0.5 bg-slate-100 text-slate-600 rounded px-1.5 py-0.5 text-[0.62rem]">
-                            <span className="text-slate-400">{count}x</span>
-                            <span className="font-medium">{inc.split(': ')[1] || inc}</span>
-                          </span>
-                        ))}
-                      </div>
-                    </td>
+                    )}
+                    {totalTraslados > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[0.65rem] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                        {totalTraslados} trasl
+                      </span>
+                    )}
+                    <div className={`flex flex-col items-center px-3 py-1.5 rounded-lg ${color.bg} border ${color.border} ring-1 ${color.ring}`}>
+                      <span className={`text-sm font-extrabold ${color.text} leading-none`}>{pctBrigada}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Barra brigada */}
+                <div className="px-4 pb-2">
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${color.bar} rounded-full transition-all duration-500 ease-out`}
+                      style={{ width: `${pctBrigada}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* UPMs grid */}
+                <div className="px-4 pb-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5">
+                    {upmKeys.map((upm) => {
+                      const info = upms[upm]
+                      const pct = Math.round((info.validas / avanceData.maxPorUpm) * 100)
+                      const upmColor = getColor(pct)
+                      const shortUpm = upm.length > 12 ? upm.slice(-8) : upm
+
+                      return (
+                        <div
+                          key={upm}
+                          className="group/tip relative"
+                        >
+                          <div
+                            className={`flex items-center gap-1.5 ${upmColor.bg} border ${upmColor.border} rounded-lg px-2 py-1.5 cursor-default transition-all duration-150 hover:shadow-sm hover:scale-[1.02]`}
+                          >
+                            <span className={`w-2 h-2 rounded-full ${upmColor.dot} shrink-0 ring-2 ring-white`} />
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-[0.65rem] text-slate-700 truncate">{shortUpm}</div>
+                              <div className={`text-[0.6rem] font-bold ${upmColor.text}`}>
+                                {info.validas}/{avanceData.maxPorUpm}
+                              </div>
+                            </div>
+                            {info.observadas > 0 && (
+                              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[0.45rem] font-bold rounded-full flex items-center justify-center ring-1 ring-white z-10">
+                                {info.observadas}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all duration-200 z-50 pointer-events-none">
+                            <div className="bg-slate-900 text-white rounded-xl shadow-2xl p-3 text-left">
+                              {/* Header tooltip */}
+                              <div className="flex items-start justify-between gap-2 mb-2 pb-2 border-b border-slate-700/60">
+                                <div className="min-w-0">
+                                  <div className="text-[0.7rem] font-bold text-white truncate">{upm}</div>
+                                  <div className="text-[0.58rem] text-slate-400 mt-0.5">Brigada: {brigada}</div>
+                                </div>
+                                <span className={`shrink-0 text-[0.6rem] font-bold px-1.5 py-0.5 rounded-md ${
+                                  pct >= 100 ? 'bg-emerald-900/60 text-emerald-300' :
+                                  pct >= 75 ? 'bg-amber-900/60 text-amber-300' :
+                                  pct >= 50 ? 'bg-orange-900/60 text-orange-300' :
+                                  'bg-red-900/60 text-red-300'
+                                }`}>
+                                  {pct}%
+                                </span>
+                              </div>
+
+                              {/* Metricas */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                    <span className="text-[0.6rem] text-slate-400">Validas</span>
+                                  </div>
+                                  <span className="text-[0.65rem] font-bold text-emerald-300">{info.validas} / {avanceData.maxPorUpm}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                                    <span className="text-[0.6rem] text-slate-400">Observadas</span>
+                                  </div>
+                                  <span className={`text-[0.65rem] font-bold ${info.observadas > 0 ? 'text-red-300' : 'text-slate-500'}`}>{info.observadas}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                    <span className="text-[0.6rem] text-slate-400">Traslados</span>
+                                  </div>
+                                  <span className={`text-[0.65rem] font-bold ${info.traslados > 0 ? 'text-amber-300' : 'text-slate-500'}`}>{info.traslados}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                    <span className="text-[0.6rem] text-slate-400">Total boletas</span>
+                                  </div>
+                                  <span className="text-[0.65rem] font-bold text-slate-300">{info.total}</span>
+                                </div>
+                              </div>
+
+                              {/* Barra mini */}
+                              <div className="mt-2 pt-2 border-t border-slate-700/60">
+                                <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${pct >= 100 ? 'bg-emerald-400' : pct >= 75 ? 'bg-amber-400' : pct >= 50 ? 'bg-orange-400' : 'bg-red-400'}`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Flecha */}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-slate-900 rotate-45 -mt-[5px]" />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Incidencias table */}
+      {usuariosIncidencias.length > 0 && (
+        <div className="border-t border-slate-100">
+          <div className="px-6 py-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-5 bg-red-500 rounded-full" />
+                <h4 className="text-[0.8rem] font-bold text-slate-700 uppercase tracking-wider">Incidencias por Usuario</h4>
+              </div>
+              <span className="text-[0.65rem] text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full">
+                Excluye entrevistas y traslados
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <table className="w-full text-[0.72rem]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider w-8">#</th>
+                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider">Usuario</th>
+                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider">Brigada</th>
+                    <th className="text-center py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider w-16">Total</th>
+                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider">Detalle de Incidencias</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {usuariosIncidencias.map((u, i) => (
+                    <tr key={u.usuario} className="hover:bg-slate-50/80 transition-colors duration-100">
+                      <td className="py-2.5 px-3 text-slate-300 font-medium text-[0.68rem]">{i + 1}</td>
+                      <td className="py-2.5 px-3">
+                        <span className="font-semibold text-slate-800">{u.usuario}</span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="inline-flex items-center bg-slate-100 text-slate-600 text-[0.62rem] font-semibold px-2 py-0.5 rounded-md">
+                          {u.brigada}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[0.7rem] font-bold">
+                          {u.total}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(u.incidencias).map(([inc, count]) => (
+                            <span key={inc} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 text-slate-600 rounded-lg px-2 py-0.5 text-[0.62rem]">
+                              <span className="font-bold text-slate-400">{count}x</span>
+                              <span className="font-medium">{inc.split(': ')[1] || inc}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

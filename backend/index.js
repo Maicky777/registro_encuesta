@@ -7,6 +7,9 @@ require('dotenv').config()
 const { initDatabase, getDB } = require('./db/connection')
 const authRoutes = require('./routes/auth')
 const boletasRoutes = require('./routes/boletas')
+const brigadasRoutes = require('./routes/brigadas')
+const encuestadoresRoutes = require('./routes/encuestadores')
+const asignacionesRoutes = require('./routes/asignaciones')
 
 const app = express()
 
@@ -39,6 +42,9 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }))
 app.use('/api/auth/login', loginLimiter)
 app.use('/api/auth', authRoutes)
 app.use('/api/boletas', boletasRoutes)
+app.use('/api/brigadas', brigadasRoutes)
+app.use('/api/encuestadores', encuestadoresRoutes)
+app.use('/api/asignaciones', asignacionesRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {
