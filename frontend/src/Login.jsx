@@ -17,6 +17,7 @@ export default function Login({ onLogin }) {
       const data = await login(username, password)
       saveToken(data.token)
       onLogin({
+        id: data.user.id,
         user: data.user.username,
         departamento: data.user.departamento,
         brigadas: data.user.brigadas,

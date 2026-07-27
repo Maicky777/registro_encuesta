@@ -75,7 +75,7 @@ router.post('/register', authMiddleware, requireRole('administrador'), (req, res
     return res.status(400).json({ error: 'Las brigadas deben ser un array con al menos un elemento' })
   }
 
-  const brigadasPermitidas = ['Brigada 1', 'Brigada 2', 'Brigada 7']
+  const brigadasPermitidas = ['Brigada 1', 'Brigada 2', 'Brigada 3', 'Brigada 4', 'Brigada 5', 'Brigada 6', 'Brigada 7', 'Brigada 8', 'Brigada 9']
   const brigadasInvalidas = brigadas.filter(b => !brigadasPermitidas.includes(b))
   if (brigadasInvalidas.length > 0) {
     return res.status(400).json({ error: `Brigadas no válidas: ${brigadasInvalidas.join(', ')}. Permitidas: ${brigadasPermitidas.join(', ')}` })
@@ -100,6 +100,43 @@ router.post('/register', authMiddleware, requireRole('administrador'), (req, res
     res.json({ id: result.lastInsertRowid, username, departamento, brigadas: JSON.parse(brigadasJson), rol: userRol })
   } catch (err) {
     console.error('Error en register:', err.message)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
+})
+
+router.get('/users', authMiddleware, requireRole('administrador'), (req, res) => {
+  try {
+    const db = getDB()
+    const users = db.prepare('SELECT id, username, departamento, brigadas, rol FROM usuarios ORDER BY id').all()
+    const parsed = users.map((u) => ({
+      ...u,
+      brigadas: parseBrigadas(u.brigadas),
+    }))
+    res.json(parsed)
+  } catch (err) {
+    console.error('Error al listar usuarios:', err.message)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
+})
+
+router.delete('/users/:id', authMiddleware, requireRole('administrador'), (req, res) => {
+  const { id } = req.params
+
+  if (parseInt(id, 10) === req.user.id) {
+    return res.status(400).json({ error: 'No puedes eliminar tu propio usuario' })
+  }
+
+  try {
+    const db = getDB()
+    const user = db.prepare('SELECT id, username FROM usuarios WHERE id = ?').get(id)
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' })
+    }
+
+    db.prepare('DELETE FROM usuarios WHERE id = ?').run(id)
+    res.json({ message: `Usuario "${user.username}" eliminado correctamente` })
+  } catch (err) {
+    console.error('Error al eliminar usuario:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
   }
 })
