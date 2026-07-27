@@ -18,7 +18,7 @@ const INITIAL_FORM_STATE = {
   upm: '',
   upmReemplazo: '',
   upmAdicional: '',
-  semana: 3,
+  semana: 4,
   visita: '',
   panel: '',
   numeroCorrelativo: 1,
@@ -48,6 +48,7 @@ export default function FormularioBoleta({ sessionUser }) {
     actualizarRegistro,
     eliminarRegistro,
     verificarFolio,
+    actualizarUpmReemplazo,
     cargarBatch,
   } = useBoletas()
 
@@ -77,14 +78,26 @@ export default function FormularioBoleta({ sessionUser }) {
     setFolioDuplicado(false)
   }, [getFormState])
 
+  const canEditUpmReemplazo = useMemo(() => {
+    const visita = parseInt(formData.visita, 10)
+    return visita === 1 && formData.numeroCorrelativo === 1 && formData.upm !== ''
+  }, [formData.visita, formData.numeroCorrelativo, formData.upm])
+
   const handleFolioChange = useCallback(async (val) => {
-    const conteoUpmPrevias = registros.filter(
-      (r) => r.upm === calcularUPM(val) && r.id !== editandoId,
-    ).length
+    const upmCalculada = calcularUPM(val)
+    const registrosMismaUpm = registros.filter(
+      (r) => r.upm === upmCalculada && r.id !== editandoId,
+    )
+
+    const conteoUpmPrevias = registrosMismaUpm.length
+    const primerRegistroUpm = registrosMismaUpm
+      .filter((r) => r.upmReemplazo && r.upmReemplazo.trim() !== '')
+      .sort((a, b) => a.id - b.id)[0]
 
     setFormData((prev) => ({
       ...prev,
       numeroCorrelativo: conteoUpmPrevias + 1,
+      upmReemplazo: primerRegistroUpm ? primerRegistroUpm.upmReemplazo : '',
     }))
 
     if (val.trim() === '') {
@@ -119,6 +132,7 @@ export default function FormularioBoleta({ sessionUser }) {
       detalleObservaciones: texto,
       totalObservaciones: total,
       estadoBoleta: total > 0 ? 'OBSERVADO' : 'SIN OBSERVACION',
+      observacionBoleta: total > 0 ? 'NO ENVIADO' : '',
     }))
   }, [])
 
@@ -136,10 +150,28 @@ export default function FormularioBoleta({ sessionUser }) {
     try {
       if (editandoId) {
         await actualizarRegistro(editandoId, formData)
-        showAlert('Registro actualizado correctamente.', 'success')
+        if (formData.upmReemplazo) {
+          try {
+            const res = await actualizarUpmReemplazo(formData.upm, formData.upmReemplazo, editandoId)
+            showAlert(`Registro actualizado. UPM Reemplazo propagado a ${res?.actualizados || 0} registro(s).`, 'success')
+          } catch {
+            showAlert('Registro guardado, pero hubo un error al propagar UPM Reemplazo a los demás registros.', 'error')
+          }
+        } else {
+          showAlert('Registro actualizado correctamente.', 'success')
+        }
       } else {
         await crearRegistro(formData)
-        showAlert('Registro guardado en SQLite.', 'success')
+        if (formData.upmReemplazo) {
+          try {
+            const res = await actualizarUpmReemplazo(formData.upm, formData.upmReemplazo)
+            showAlert(`Registro guardado. UPM Reemplazo propagado a ${res?.actualizados || 0} registro(s).`, 'success')
+          } catch {
+            showAlert('Registro guardado, pero hubo un error al propagar UPM Reemplazo a los demás registros.', 'error')
+          }
+        } else {
+          showAlert('Registro guardado en SQLite.', 'success')
+        }
       }
       limpiarFormulario()
       setTimeout(() => brigadaRef.current?.focus(), 100)
@@ -161,11 +193,15 @@ export default function FormularioBoleta({ sessionUser }) {
     if (confirmado) {
       try {
         await eliminarRegistro(id)
+        if (editandoId === id) {
+          limpiarFormulario()
+        }
+        showAlert('Registro eliminado correctamente.', 'success')
       } catch (err) {
         showAlert('Error al eliminar: ' + err.message, 'error')
       }
     }
-  }, [showConfirm, eliminarRegistro, showAlert])
+  }, [showConfirm, eliminarRegistro, showAlert, editandoId, limpiarFormulario])
 
   const handleDoubleClickCorregir = useCallback(async (reg) => {
     if (reg.estadoBoleta !== 'OBSERVADO') return
@@ -259,6 +295,7 @@ export default function FormularioBoleta({ sessionUser }) {
         folioDuplicado={folioDuplicado}
         submitting={submitting}
         registros={registros}
+        canEditUpmReemplazo={canEditUpmReemplazo}
         onFolioChange={handleFolioChange}
         onVisitaChange={handleVisitaChange}
         onUsuarioEncuestadorChange={handleUsuarioEncuestadorChange}

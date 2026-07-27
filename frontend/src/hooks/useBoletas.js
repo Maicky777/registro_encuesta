@@ -81,6 +81,8 @@ export const useBoletas = () => {
     try {
       await api.delete(`/boletas/${id}`)
       await fetchRegistros()
+    } catch (err) {
+      throw new Error(getErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -97,6 +99,12 @@ export const useBoletas = () => {
       return false
     }
   }, [])
+
+  const actualizarUpmReemplazo = useCallback(async (upm, upmReemplazo, excludeId = null) => {
+    const res = await api.put('/boletas/upm-reemplazo', { upm, upmReemplazo, excludeId })
+    await fetchRegistros()
+    return res.data
+  }, [fetchRegistros])
 
   const cargarBatch = useCallback(async (data) => {
     setSubmitting(true)
@@ -120,6 +128,7 @@ export const useBoletas = () => {
     actualizarRegistro,
     eliminarRegistro,
     verificarFolio,
+    actualizarUpmReemplazo,
     cargarBatch,
   }
 }

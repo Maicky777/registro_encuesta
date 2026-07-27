@@ -18,6 +18,7 @@ const Formulario = ({
   folioDuplicado,
   submitting,
   registros,
+  canEditUpmReemplazo,
   onFolioChange,
   onVisitaChange,
   onUsuarioEncuestadorChange,
@@ -359,14 +360,26 @@ const Formulario = ({
           </div>
 
           <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-upm">UPM Reemplazo</label>
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-upm">
+              UPM Reemplazo
+              {canEditUpmReemplazo && (
+                <span className="ml-1 text-[0.6rem] font-normal text-amber-600 normal-case tracking-normal">(Visita 1 - 1er registro)</span>
+              )}
+            </label>
             <input
               id="cod-upm"
-              className={inputClass}
+              className={`${inputClass} ${canEditUpmReemplazo ? 'border-amber-300 bg-amber-50/50' : ''}`}
               type="text"
-              disabled
+              disabled={!canEditUpmReemplazo}
+              readOnly={!canEditUpmReemplazo}
               value={formData.upmReemplazo || ''}
-              readOnly
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  upmReemplazo: e.target.value,
+                }))
+              }
+              placeholder={canEditUpmReemplazo ? 'Ingrese UPM de reemplazo...' : ''}
             />
           </div>
 

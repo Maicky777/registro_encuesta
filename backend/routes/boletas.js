@@ -207,6 +207,27 @@ router.post('/', authMiddleware, (req, res) => {
   }
 })
 
+router.put('/upm-reemplazo', authMiddleware, (req, res) => {
+  const { upm, upmReemplazo, excludeId } = req.body
+  if (!upm || typeof upm !== 'string') {
+    return res.status(400).json({ error: 'El campo "upm" es requerido.' })
+  }
+  try {
+    const db = getDB()
+    let sql = 'UPDATE boletas SET upmReemplazo = ? WHERE upm = ?'
+    const params = [upmReemplazo || '', upm]
+    if (excludeId) {
+      sql += ' AND id != ?'
+      params.push(excludeId)
+    }
+    const info = db.prepare(sql).run(...params)
+    res.json({ message: 'UPM reemplazo propagado', actualizados: info.changes })
+  } catch (err) {
+    console.error('Error al actualizar UPM reemplazo:', err.message)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
+})
+
 router.put('/:id', authMiddleware, (req, res) => {
   const { id } = req.params
   const data = req.body
