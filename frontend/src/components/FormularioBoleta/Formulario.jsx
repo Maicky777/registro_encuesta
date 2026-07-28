@@ -31,6 +31,7 @@ const Formulario = ({
   onObservacionesChange,
   onSubmit,
   onLimpiar,
+  brigadaRef,
 }) => {
   const handleBrigadaChangeLocal = (brigadaSel) => {
     if (onBrigadaChange) {
@@ -145,6 +146,7 @@ const Formulario = ({
           <div className="flex flex-col flex-1 min-w-0">
             <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-brigada">Brigada</label>
             <select
+              ref={brigadaRef}
               className={inputClass}
               autoFocus
               id="cod-brigada"

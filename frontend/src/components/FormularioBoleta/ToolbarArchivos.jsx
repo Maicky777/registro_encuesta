@@ -58,7 +58,13 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
 
     const headers = columnas.map((c) => c.label)
     const departamento = ordenados[0]?.departamento || ''
-    const brigadas = [...new Set(ordenados.map((r) => r.brigada).filter(Boolean))]
+    const brigadas = [
+      ...new Set(ordenados.map((r) => r.brigada).filter(Boolean)),
+    ].sort((a, b) => {
+      const numA = parseInt(a.replace(/\D/g, ''), 10) || 0
+      const numB = parseInt(b.replace(/\D/g, ''), 10) || 0
+      return numA - numB
+    })
 
     const workbook = new ExcelJS.Workbook()
     workbook.creator = 'Sistema de Boletas'
@@ -95,7 +101,12 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
       headers.forEach((h, i) => {
         const cell = headerRow.getCell(i + 1)
         cell.value = h
-        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFF' } }
+        cell.font = {
+          name: 'Calibri',
+          size: 11,
+          bold: true,
+          color: { argb: 'FFFFFF' },
+        }
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
@@ -114,7 +125,6 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
         }
       })
 
-      const lastCol = String.fromCharCode(64 + headers.length)
       sheet.autoFilter = {
         from: { row: 4, column: 1 },
         to: { row: 4, column: headers.length },

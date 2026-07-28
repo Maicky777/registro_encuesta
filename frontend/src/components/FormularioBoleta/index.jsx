@@ -353,6 +353,7 @@ export default function FormularioBoleta({ sessionUser }) {
         onObservacionesChange={handleObservacionesChange}
         onSubmit={handleSubmit}
         onLimpiar={limpiarFormulario}
+        brigadaRef={brigadaRef}
       />
 
       <PanelDatos
