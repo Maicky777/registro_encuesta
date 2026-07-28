@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react'
-import { BRIGADAS_DATA, INCIDENCIAS, MAX_POR_UPM, INCIDENCIA_TRASLADO } from '../../utils/constants'
+import { INCIDENCIAS, MAX_POR_UPM, INCIDENCIA_TRASLADO } from '../../utils/constants'
 import { calcularUPM, calcularVOE } from '../../utils/helpers'
-import { getEncuestadorByCodigo } from '../../services/encuestadorService'
 
 const estadoSelectClass = (estado) => {
   const base = 'w-full px-2.5 py-1.5 text-[0.82rem] border rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed'
@@ -15,11 +14,17 @@ const Formulario = ({
   formData,
   setFormData,
   editandoId,
-  sessionUser,
+  brigadas,
+  encuestadores,
   folioDuplicado,
   submitting,
   registros,
   canEditUpmReemplazo,
+  rol,
+  departments,
+  selectedDepartamento,
+  onDepartamentoChange,
+  onBrigadaChange,
   onFolioChange,
   onVisitaChange,
   onUsuarioEncuestadorChange,
@@ -28,25 +33,8 @@ const Formulario = ({
   onLimpiar,
 }) => {
   const handleBrigadaChangeLocal = (brigadaSel) => {
-    const usuarios = Object.keys(BRIGADAS_DATA[brigadaSel] || {})
-    const primerUsuario = usuarios[0] || ''
-    const primerNombre = BRIGADAS_DATA[brigadaSel]?.[primerUsuario] || ''
-
-    setFormData((prev) => ({
-      ...prev,
-      brigada: brigadaSel,
-      usuarioEncuestador: primerUsuario,
-      nombreEncuestador: primerNombre,
-    }))
-
-    if (!primerNombre && primerUsuario) {
-      getEncuestadorByCodigo(primerUsuario)
-        .then((enc) => {
-          if (enc) {
-            setFormData((prev) => ({ ...prev, nombreEncuestador: enc.nombre }))
-          }
-        })
-        .catch(() => {})
+    if (onBrigadaChange) {
+      onBrigadaChange(brigadaSel)
     }
   }
 
@@ -134,8 +122,27 @@ const Formulario = ({
       </h2>
 
       <form onSubmit={onSubmit} noValidate>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
-          <div className="flex flex-col">
+        <div className="flex flex-nowrap gap-3 mb-3">
+          {rol === 'administrador' && departments.length > 0 && (
+            <div className="flex flex-col flex-1 min-w-0">
+              <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-departamento-sel">Departamento</label>
+              <select
+                className={inputClass}
+                id="cod-departamento-sel"
+                value={selectedDepartamento}
+                onChange={(e) => onDepartamentoChange(e.target.value)}
+                required
+              >
+                {departments.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex flex-col flex-1 min-w-0">
             <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-brigada">Brigada</label>
             <select
               className={inputClass}
@@ -145,15 +152,15 @@ const Formulario = ({
               onChange={(e) => handleBrigadaChangeLocal(e.target.value)}
               required
             >
-              {sessionUser.brigadas.map((b) => (
-                <option key={b} value={b}>
-                  {b}
+              {brigadas.map((b) => (
+                <option key={b.id} value={b.nombre}>
+                  {b.nombre}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="flex flex-col">
+          <div className="flex flex-col flex-1 min-w-0">
             <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-folio">Codigo de Folio</label>
             <input
               className={`${inputClass} ${folioDuplicado ? 'border-red-500 bg-red-50' : ''}`}
@@ -168,36 +175,32 @@ const Formulario = ({
               onChange={(e) => handleFolioChangeLocal(e.target.value.trim())}
             />
             {folioDuplicado && (
-              <span className="text-red-500 text-[0.85rem] mt-1 block">
-                Este folio ya existe. No se permiten duplicados.
+              <span className="text-red-500 text-[0.75rem] mt-0.5 block">
+                Folio duplicado
               </span>
             )}
           </div>
 
-          <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-usuario">Usuario Encuestador</label>
-            <input
+          <div className="flex flex-col flex-1 min-w-0">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-usuario">Encuestador</label>
+            <select
               id="cod-usuario"
               className={inputClass}
-              type="text"
-              list="encuestadores-list"
               value={formData.usuarioEncuestador}
-              onChange={(e) => onUsuarioEncuestadorChange(e.target.value.trim())}
+              onChange={(e) => onUsuarioEncuestadorChange(e.target.value)}
               required
-            />
-            <datalist id="encuestadores-list">
-              {Object.keys(BRIGADAS_DATA[formData.brigada] || {}).map(
-                (user) => (
-                  <option key={user} value={user}>
-                    {BRIGADAS_DATA[formData.brigada]?.[user]}
-                  </option>
-                ),
-              )}
-            </datalist>
+            >
+              <option value="">-- Seleccionar --</option>
+              {[...encuestadores].sort((a, b) => a.codigo.localeCompare(b.codigo)).map((enc) => (
+                <option key={enc.id} value={enc.codigo}>
+                  {enc.codigo}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="flex flex-col">
-            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-visita">Numero de Visita</label>
+          <div className="flex flex-col flex-1 min-w-0">
+            <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-visita">Visita</label>
             <input
               id="cod-visita"
               className={inputClass}
@@ -209,7 +212,9 @@ const Formulario = ({
               onChange={(e) => onVisitaChange(e.target.value)}
             />
           </div>
+        </div>
 
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 mb-3">
           <div className="flex flex-col col-span-full">
             <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-observaciones">
               Detalle de Observaciones en la boleta

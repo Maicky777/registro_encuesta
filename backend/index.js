@@ -59,6 +59,12 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000
 
+if (!process.env.ADMIN_PASSWORD) {
+  console.error('ERROR FATAL: ADMIN_PASSWORD no está definido en .env')
+  console.error('Crea un archivo .env con ADMIN_PASSWORD=<contraseña-segura>')
+  process.exit(1)
+}
+
 function startServer() {
   initDatabase()
   const server = app.listen(PORT, () =>

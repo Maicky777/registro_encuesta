@@ -1,19 +1,53 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
+const { parseBrigadas } = require('../utils/parseBrigadas')
 
 const router = express.Router()
+
+router.get('/departamentos', authMiddleware, (req, res) => {
+  try {
+    const db = getDB()
+    if (req.user.rol !== 'administrador') {
+      return res.json([req.user.departamento].filter(Boolean))
+    }
+    const rows = db.prepare('SELECT DISTINCT departamento FROM brigadas ORDER BY departamento').all()
+    res.json(rows.map((r) => r.departamento))
+  } catch (err) {
+    console.error('Error al listar departamentos:', err.message)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
+})
 
 router.get('/', authMiddleware, (req, res) => {
   try {
     const db = getDB()
+
+    if (req.user.rol !== 'administrador') {
+      const userBrigadas = parseBrigadas(req.user.brigadas)
+      if (userBrigadas.length > 0) {
+        const placeholders = userBrigadas.map(() => '?').join(',')
+        const brigadas = db.prepare(`
+          SELECT b.*, 
+            (SELECT COUNT(*) FROM brigada_encuestadores WHERE brigada_id = b.id) as total_encuestadores,
+            (SELECT GROUP_CONCAT(e.nombre, ', ') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as nombres_encuestadores
+          FROM brigadas b 
+          WHERE b.departamento = ? AND b.nombre IN (${placeholders})
+          ORDER BY b.nombre
+        `).all(req.user.departamento, ...userBrigadas)
+        return res.json(brigadas)
+      }
+      return res.json([])
+    }
+
     const { departamento } = req.query
 
     let brigadas
     if (departamento) {
       brigadas = db.prepare(`
         SELECT b.*, 
-          (SELECT COUNT(*) FROM brigada_encuestadores WHERE brigada_id = b.id) as total_encuestadores
+          (SELECT COUNT(*) FROM brigada_encuestadores WHERE brigada_id = b.id) as total_encuestadores,
+          (SELECT GROUP_CONCAT(e.nombre, ', ') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as nombres_encuestadores
         FROM brigadas b 
         WHERE b.departamento = ? 
         ORDER BY b.nombre
@@ -21,7 +55,8 @@ router.get('/', authMiddleware, (req, res) => {
     } else {
       brigadas = db.prepare(`
         SELECT b.*, 
-          (SELECT COUNT(*) FROM brigada_encuestadores WHERE brigada_id = b.id) as total_encuestadores
+          (SELECT COUNT(*) FROM brigada_encuestadores WHERE brigada_id = b.id) as total_encuestadores,
+          (SELECT GROUP_CONCAT(e.nombre, ', ') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as nombres_encuestadores
         FROM brigadas b 
         ORDER BY b.departamento, b.nombre
       `).all()
@@ -46,6 +81,14 @@ router.get('/:id', authMiddleware, (req, res) => {
     if (!brigada) {
       return res.status(404).json({ error: 'Brigada no encontrada' })
     }
+
+    if (req.user.rol !== 'administrador') {
+      const userBrigadas = parseBrigadas(req.user.brigadas)
+      if (brigada.departamento !== req.user.departamento || !userBrigadas.includes(brigada.nombre)) {
+        return res.status(404).json({ error: 'Brigada no encontrada' })
+      }
+    }
+
     res.json(brigada)
   } catch (err) {
     console.error('Error al obtener brigada:', err.message)

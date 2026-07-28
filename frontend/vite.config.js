@@ -10,4 +10,18 @@ export default defineConfig({
     tailwindcss(),
     babel({ presets: [reactCompilerPreset()] }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'vendor'
+          }
+          if (id.includes('node_modules/exceljs')) {
+            return 'excel'
+          }
+        },
+      },
+    },
+  },
 })

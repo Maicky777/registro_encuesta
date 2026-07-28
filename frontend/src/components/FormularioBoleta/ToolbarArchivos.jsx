@@ -1,9 +1,7 @@
 import React, { useRef, useState } from 'react'
 import ExcelJS from 'exceljs/dist/exceljs.min.js'
-import { BRIGADAS_DATA } from '../../utils/constants'
 import ModalSemanaExcel from './ModalSemanaExcel'
-
-const BRIGADAS = Object.keys(BRIGADAS_DATA)
+import { TRIMESTRE_ACTUAL } from '../../utils/constants'
 
 const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
   const fileInputRef = useRef(null)
@@ -60,11 +58,12 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
 
     const headers = columnas.map((c) => c.label)
     const departamento = ordenados[0]?.departamento || ''
+    const brigadas = [...new Set(ordenados.map((r) => r.brigada).filter(Boolean))]
 
     const workbook = new ExcelJS.Workbook()
     workbook.creator = 'Sistema de Boletas'
 
-    for (const brigada of BRIGADAS) {
+    for (const brigada of brigadas) {
       const porBrigada = ordenados.filter((r) => r.brigada === brigada)
       if (porBrigada.length === 0) continue
 
@@ -89,7 +88,7 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
       row3.getCell(2).font = { name: 'Calibri', size: 14, bold: true }
       row3.getCell(3).value = 'TRIMESTRE:'
       row3.getCell(3).font = { name: 'Calibri', size: 14, bold: true }
-      row3.getCell(4).value = 'III/2026'
+      row3.getCell(4).value = TRIMESTRE_ACTUAL
       row3.getCell(4).font = { name: 'Calibri', size: 14, bold: true }
 
       const headerRow = sheet.getRow(4)

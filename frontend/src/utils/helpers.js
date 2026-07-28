@@ -37,3 +37,14 @@ export const calcularVOE = (folio) => {
 export const getFechaActual = () => {
   return new Date().toISOString().split('T')[0]
 }
+
+export const computeObservacionFields = (detalleObservaciones) => {
+  const frases = (detalleObservaciones || '').split(';').filter((f) => f.trim().length > 0)
+  const total = frases.length
+  return {
+    totalObservaciones: total,
+    estadoBoleta: total > 0 ? 'OBSERVADO' : 'SIN OBSERVACION',
+    boletaObservada: total > 0 ? 'SI' : 'NO',
+    observacionBoleta: total > 0 ? 'NO ENVIADO' : '',
+  }
+}

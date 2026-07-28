@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react'
 
 const inputClass = 'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15'
 
-export default function TablaUsuarios({ usuarios, loading, currentUserId, onEliminar }) {
+export default function TablaUsuarios({ usuarios, loading, currentUserId, onEliminar, onEditar }) {
   const [filtro, setFiltro] = useState('')
   const [pagina, setPagina] = useState(0)
   const [porPagina, setPorPagina] = useState(25)
@@ -112,12 +112,20 @@ export default function TablaUsuarios({ usuarios, loading, currentUserId, onElim
                     {u.id === currentUserId ? (
                       <span className="text-[0.7rem] text-slate-400 italic">Tú</span>
                     ) : (
-                      <button
-                        className="bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded text-[0.7rem] font-semibold cursor-pointer hover:bg-red-100 transition-colors"
-                        onClick={() => onEliminar(u)}
-                      >
-                        Eliminar
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          className="bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-1 rounded text-[0.7rem] font-semibold cursor-pointer hover:bg-blue-100 transition-colors"
+                          onClick={() => onEditar(u)}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          className="bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded text-[0.7rem] font-semibold cursor-pointer hover:bg-red-100 transition-colors"
+                          onClick={() => onEliminar(u)}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>

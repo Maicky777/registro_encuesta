@@ -4,10 +4,7 @@ import { getEncuestadores, getEncuestadoresByBrigada, asignarEncuestador, desasi
 import { useModal } from '../../hooks/useModal'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
-
-const DEPARTAMENTOS = [
-  'BENI', 'CHUQUISACA', 'COCHABAMBA', 'LA PAZ', 'ORURO', 'PANDO', 'POTOSÍ', 'SANTA CRUZ', 'TARIJA',
-]
+import { DEPARTAMENTOS } from '../../utils/constants'
 
 const inputClass = 'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15'
 
@@ -105,7 +102,9 @@ export default function AsignacionBrigadas() {
   }
 
   const encuestadoresAsignadosIds = new Set(encuestadoresEnBrigada.map((e) => e.id))
-  const encuestadoresDisponibles = todosEncuestadores.filter((e) => !encuestadoresAsignadosIds.has(e.id))
+  const encuestadoresDisponibles = todosEncuestadores.filter(
+    (e) => !encuestadoresAsignadosIds.has(e.id) && (!e.brigadas_asignadas || e.brigadas_asignadas.trim() === '')
+  )
 
   return (
     <div className="max-w-6xl mx-auto my-5 bg-white rounded-lg p-6 border border-slate-200 shadow-sm">

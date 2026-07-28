@@ -18,6 +18,7 @@ router.get('/', authMiddleware, (req, res) => {
         LEFT JOIN brigada_encuestadores be ON e.id = be.encuestador_id
         LEFT JOIN brigadas b ON be.brigada_id = b.id
         WHERE b.departamento = ?
+           OR (SELECT COUNT(*) FROM brigada_encuestadores WHERE encuestador_id = e.id) = 0
         GROUP BY e.id
         ORDER BY e.nombre
       `).all(departamento)

@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense, lazy } from 'react'
 import Login from './Login'
-import FormularioBoleta from './components/FormularioBoleta'
-import GestionUsuarios from './components/GestionUsuarios'
-import GestionBrigadas from './components/GestionBrigadas'
-import GestionEncuestadores from './components/GestionEncuestadores'
-import AsignacionBrigadas from './components/AsignacionBrigadas'
 import { getToken, removeToken, isAuthenticated, getMe } from './services/authService'
+
+const FormularioBoleta = lazy(() => import('./components/FormularioBoleta'))
+const GestionUsuarios = lazy(() => import('./components/GestionUsuarios'))
+const GestionBrigadas = lazy(() => import('./components/GestionBrigadas'))
+const GestionEncuestadores = lazy(() => import('./components/GestionEncuestadores'))
+const AsignacionBrigadas = lazy(() => import('./components/AsignacionBrigadas'))
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null)
@@ -53,6 +54,11 @@ export default function App() {
     { key: 'asignacion', label: 'Asignacion Brigadas' },
   ]
 
+  const userTabs = [
+    { key: 'boletas', label: 'Boletas' },
+    { key: 'brigadas', label: 'Mis Brigadas' },
+  ]
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
@@ -64,7 +70,7 @@ export default function App() {
   return (
     <div>
       {!currentUser ? (
-        <Login onLogin={(user) => setCurrentUser(user)} />
+        <Login onLogin={(user) => { setCurrentUser(user); setActiveTab('boletas') }} />
       ) : (
         <div>
           <header className="bg-slate-900 text-white py-3 px-6 shadow-md">
@@ -99,13 +105,32 @@ export default function App() {
                 ))}
               </div>
             )}
+            {currentUser.rol !== 'administrador' && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {userTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    className={`px-4 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors border-none ${
+                      activeTab === tab.key
+                        ? 'bg-sky-500 text-white'
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                    onClick={() => setActiveTab(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </header>
 
-          {activeTab === 'boletas' && <FormularioBoleta sessionUser={currentUser} />}
-          {activeTab === 'usuarios' && <GestionUsuarios currentUserId={currentUser.id} />}
-          {activeTab === 'brigadas' && <GestionBrigadas />}
-          {activeTab === 'encuestadores' && <GestionEncuestadores />}
-          {activeTab === 'asignacion' && <AsignacionBrigadas />}
+          <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400">Cargando...</div>}>
+            {activeTab === 'boletas' && <FormularioBoleta sessionUser={currentUser} />}
+            {activeTab === 'usuarios' && currentUser.rol === 'administrador' && <GestionUsuarios currentUserId={currentUser.id} />}
+            {activeTab === 'brigadas' && <GestionBrigadas sessionUser={currentUser} />}
+            {activeTab === 'encuestadores' && currentUser.rol === 'administrador' && <GestionEncuestadores />}
+            {activeTab === 'asignacion' && currentUser.rol === 'administrador' && <AsignacionBrigadas />}
+          </Suspense>
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import ModalConfirm from '../ui/ModalConfirm'
 export default function GestionUsuarios({ currentUserId }) {
   const [usuarios, setUsuarios] = useState([])
   const [loading, setLoading] = useState(true)
+  const [usuarioEditar, setUsuarioEditar] = useState(null)
 
   const {
     alertModal,
@@ -52,11 +53,21 @@ export default function GestionUsuarios({ currentUserId }) {
     }
   }, [showConfirm, showAlert, cargarUsuarios])
 
+  const handleEditar = useCallback((user) => {
+    setUsuarioEditar(user)
+  }, [])
+
+  const handleCancelarEdicion = useCallback(() => {
+    setUsuarioEditar(null)
+  }, [])
+
   return (
     <div>
       <FormularioUsuario
-        onUsuarioCreado={cargarUsuarios}
+        onUsuarioCreado={() => { cargarUsuarios(); setUsuarioEditar(null) }}
         showAlert={showAlert}
+        usuarioEditar={usuarioEditar}
+        onCancelarEdicion={handleCancelarEdicion}
       />
 
       <TablaUsuarios
@@ -64,6 +75,7 @@ export default function GestionUsuarios({ currentUserId }) {
         loading={loading}
         currentUserId={currentUserId}
         onEliminar={handleEliminar}
+        onEditar={handleEditar}
       />
 
       <ModalAlert

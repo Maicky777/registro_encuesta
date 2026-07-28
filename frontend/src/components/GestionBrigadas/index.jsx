@@ -6,10 +6,12 @@ import TablaBrigadas from './TablaBrigadas'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
 
-export default function GestionBrigadas() {
+export default function GestionBrigadas({ sessionUser }) {
   const [brigadas, setBrigadas] = useState([])
   const [loading, setLoading] = useState(true)
   const [brigadaEditando, setBrigadaEditando] = useState(null)
+
+  const isAdmin = sessionUser?.rol === 'administrador'
 
   const {
     alertModal,
@@ -23,7 +25,7 @@ export default function GestionBrigadas() {
   const cargarBrigadas = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getBrigadas()
+      const data = await getBrigadas(isAdmin ? undefined : sessionUser?.departamento)
       setBrigadas(data)
     } catch (err) {
       const msg = err.response?.data?.error || 'Error al cargar brigadas'
@@ -31,7 +33,7 @@ export default function GestionBrigadas() {
     } finally {
       setLoading(false)
     }
-  }, [showAlert])
+  }, [showAlert, isAdmin, sessionUser])
 
   useEffect(() => {
     cargarBrigadas()
@@ -68,19 +70,21 @@ export default function GestionBrigadas() {
 
   return (
     <div>
-      <FormularioBrigada
-        onBrigadaCreada={cargarBrigadas}
-        onBrigadaEditada={handleBrigadaEditada}
-        brigadaEditando={brigadaEditando}
-        onCancelarEdicion={handleCancelarEdicion}
-        showAlert={showAlert}
-      />
+      {isAdmin && (
+        <FormularioBrigada
+          onBrigadaCreada={cargarBrigadas}
+          onBrigadaEditada={handleBrigadaEditada}
+          brigadaEditando={brigadaEditando}
+          onCancelarEdicion={handleCancelarEdicion}
+          showAlert={showAlert}
+        />
+      )}
 
       <TablaBrigadas
         brigadas={brigadas}
         loading={loading}
-        onEliminar={handleEliminar}
-        onEditar={handleEditar}
+        onEliminar={isAdmin ? handleEliminar : undefined}
+        onEditar={isAdmin ? handleEditar : undefined}
       />
 
       <ModalAlert

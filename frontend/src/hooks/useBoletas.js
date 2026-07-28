@@ -30,27 +30,8 @@ export const useBoletas = () => {
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      try {
-        const res = await api.get('/boletas?page=1&limit=500')
-        if (!cancelled) {
-          setRegistros(res.data.data)
-          setPagination(res.data.pagination)
-          setError(null)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('Error al conectar con la API:', err)
-          setError(getErrorMessage(err))
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [])
+    fetchRegistros()
+  }, [fetchRegistros])
 
   const crearRegistro = useCallback(async (data) => {
     setSubmitting(true)
@@ -59,6 +40,8 @@ export const useBoletas = () => {
       const payload = { ...data, fechaFinalConsolidacion: fechaActual }
       await api.post('/boletas', payload)
       await fetchRegistros()
+    } catch (err) {
+      throw new Error(getErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
@@ -71,6 +54,8 @@ export const useBoletas = () => {
       const payload = { ...data, fechaFinalConsolidacion: fechaActual }
       await api.put(`/boletas/${id}`, payload)
       await fetchRegistros()
+    } catch (err) {
+      throw new Error(getErrorMessage(err))
     } finally {
       setSubmitting(false)
     }

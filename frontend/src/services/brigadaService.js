@@ -1,5 +1,10 @@
 import api from './api'
 
+export const getDepartamentos = async () => {
+  const response = await api.get('/brigadas/departamentos')
+  return response.data
+}
+
 export const getBrigadas = async (departamento) => {
   const params = departamento ? { departamento } : {}
   const response = await api.get('/brigadas', { params })

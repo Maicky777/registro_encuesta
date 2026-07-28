@@ -1,6 +1,7 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
+const { parseBrigadas } = require('../utils/parseBrigadas')
 
 const router = express.Router()
 
@@ -125,11 +126,19 @@ router.get('/', authMiddleware, (req, res) => {
 
     if (req.user.rol !== 'administrador') {
       try {
-        const userBrigadas = JSON.parse(req.user.brigadas || '[]')
+        const conditions = []
+        if (req.user.departamento) {
+          conditions.push('departamento = ?')
+          params.push(req.user.departamento)
+        }
+        const userBrigadas = parseBrigadas(req.user.brigadas)
         if (userBrigadas.length > 0) {
           const placeholders = userBrigadas.map(() => '?').join(',')
-          whereClause = `WHERE brigada IN (${placeholders})`
+          conditions.push(`brigada IN (${placeholders})`)
           params.push(...userBrigadas)
+        }
+        if (conditions.length > 0) {
+          whereClause = `WHERE ${conditions.join(' AND ')}`
         }
       } catch (e) {
         console.error('Error al parsear brigadas del usuario:', e.message)

@@ -16,86 +16,158 @@ function connectDB(dbPath) {
   return db
 }
 
-function createTables(database) {
+function ensureMigrationsTable(database) {
   database.exec(`
-    CREATE TABLE IF NOT EXISTS boletas (
+    CREATE TABLE IF NOT EXISTS migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      departamento TEXT,
-      brigada TEXT,
-      folio TEXT,
-      upm TEXT,
-      upmReemplazo TEXT,
-      upmAdicional TEXT,
-      semana INTEGER,
-      visita TEXT,
-      panel TEXT,
-      numeroCorrelativo INTEGER,
-      voe TEXT,
-      usuarioEncuestador TEXT,
-      nombreEncuestador TEXT,
-      incidencia TEXT,
-      detalleObservaciones TEXT,
-      totalObservaciones INTEGER,
-      boletaObservada TEXT,
-      estadoBoleta TEXT,
-      observacionBoleta TEXT,
-      observacionPersonal TEXT,
-      consolidada TEXT,
-      fechaFinalConsolidacion TEXT
+      name TEXT UNIQUE NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `)
+}
 
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS usuarios (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      departamento TEXT NOT NULL,
-      brigadas TEXT NOT NULL,
-      rol TEXT NOT NULL DEFAULT 'usuarios'
-    )
-  `)
+function getAppliedMigrations(database) {
+  const rows = database.prepare('SELECT name FROM migrations ORDER BY id').all()
+  return new Set(rows.map((r) => r.name))
+}
 
-  const columns = database.prepare("PRAGMA table_info(usuarios)").all()
-  const hasRol = columns.some(c => c.name === 'rol')
-  if (!hasRol) {
-    database.exec("ALTER TABLE usuarios ADD COLUMN rol TEXT NOT NULL DEFAULT 'usuarios'")
-    console.log('Columna "rol" agregada a la tabla usuarios')
-  }
+const MIGRATIONS = [
+  {
+    name: '001_create_boletas',
+    up(database) {
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS boletas (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          departamento TEXT,
+          brigada TEXT,
+          folio TEXT,
+          upm TEXT,
+          upmReemplazo TEXT,
+          upmAdicional TEXT,
+          semana INTEGER,
+          visita TEXT,
+          panel TEXT,
+          numeroCorrelativo INTEGER,
+          voe TEXT,
+          usuarioEncuestador TEXT,
+          nombreEncuestador TEXT,
+          incidencia TEXT,
+          detalleObservaciones TEXT,
+          totalObservaciones INTEGER,
+          boletaObservada TEXT,
+          estadoBoleta TEXT,
+          observacionBoleta TEXT,
+          observacionPersonal TEXT,
+          consolidada TEXT,
+          fechaFinalConsolidacion TEXT
+        )
+      `)
+    },
+  },
+  {
+    name: '002_create_usuarios',
+    up(database) {
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS usuarios (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          departamento TEXT NOT NULL,
+          brigadas TEXT NOT NULL,
+          rol TEXT NOT NULL DEFAULT 'usuarios'
+        )
+      `)
+    },
+  },
+  {
+    name: '003_add_rol_to_usuarios',
+    up(database) {
+      const columns = database.prepare('PRAGMA table_info(usuarios)').all()
+      if (!columns.some((c) => c.name === 'rol')) {
+        database.exec("ALTER TABLE usuarios ADD COLUMN rol TEXT NOT NULL DEFAULT 'usuarios'")
+      }
+    },
+  },
+  {
+    name: '004_create_brigadas',
+    up(database) {
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS brigadas (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nombre TEXT NOT NULL,
+          departamento TEXT NOT NULL,
+          UNIQUE(nombre, departamento)
+        )
+      `)
+    },
+  },
+  {
+    name: '005_create_encuestadores',
+    up(database) {
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS encuestadores (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nombre TEXT NOT NULL,
+          rol TEXT NOT NULL CHECK(rol IN ('encuestador', 'supervisor')),
+          codigo TEXT UNIQUE NOT NULL,
+          telefono TEXT
+        )
+      `)
+    },
+  },
+  {
+    name: '006_create_brigada_encuestadores',
+    up(database) {
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS brigada_encuestadores (
+          brigada_id INTEGER NOT NULL REFERENCES brigadas(id) ON DELETE CASCADE,
+          encuestador_id INTEGER NOT NULL REFERENCES encuestadores(id) ON DELETE CASCADE,
+          PRIMARY KEY (brigada_id, encuestador_id)
+        )
+      `)
+    },
+  },
+  {
+    name: '007_add_encuestador_id_to_boletas',
+    up(database) {
+      const columns = database.prepare('PRAGMA table_info(boletas)').all()
+      if (!columns.some((c) => c.name === 'encuestador_id')) {
+        database.exec('ALTER TABLE boletas ADD COLUMN encuestador_id INTEGER REFERENCES encuestadores(id)')
+      }
+    },
+  },
+  {
+    name: '008_add_indexes_boletas',
+    up(database) {
+      database.exec(`
+        CREATE INDEX IF NOT EXISTS idx_boletas_folio ON boletas(folio);
+        CREATE INDEX IF NOT EXISTS idx_boletas_brigada ON boletas(brigada);
+        CREATE INDEX IF NOT EXISTS idx_boletas_departamento ON boletas(departamento);
+        CREATE INDEX IF NOT EXISTS idx_boletas_semana ON boletas(semana);
+        CREATE INDEX IF NOT EXISTS idx_boletas_upm ON boletas(upm);
+        CREATE INDEX IF NOT EXISTS idx_boletas_estado ON boletas(estadoBoleta);
+        CREATE INDEX IF NOT EXISTS idx_boletas_brigada_semana ON boletas(brigada, semana);
+      `)
+    },
+  },
+]
 
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS brigadas (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nombre TEXT NOT NULL,
-      departamento TEXT NOT NULL,
-      UNIQUE(nombre, departamento)
-    )
-  `)
+function runMigrations(database) {
+  ensureMigrationsTable(database)
+  const applied = getAppliedMigrations(database)
 
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS encuestadores (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nombre TEXT NOT NULL,
-      rol TEXT NOT NULL CHECK(rol IN ('encuestador', 'supervisor')),
-      codigo TEXT UNIQUE NOT NULL,
-      telefono TEXT
-    )
-  `)
+  const insertMigration = database.prepare('INSERT INTO migrations (name) VALUES (?)')
 
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS brigada_encuestadores (
-      brigada_id INTEGER NOT NULL REFERENCES brigadas(id) ON DELETE CASCADE,
-      encuestador_id INTEGER NOT NULL REFERENCES encuestadores(id) ON DELETE CASCADE,
-      PRIMARY KEY (brigada_id, encuestador_id)
-    )
-  `)
+  const runAll = database.transaction(() => {
+    for (const migration of MIGRATIONS) {
+      if (applied.has(migration.name)) continue
+      console.log(`Aplicando migración: ${migration.name}`)
+      migration.up(database)
+      insertMigration.run(migration.name)
+    }
+  })
 
-  const boletaColumns = database.prepare("PRAGMA table_info(boletas)").all()
-  const hasEncuestadorId = boletaColumns.some(c => c.name === 'encuestador_id')
-  if (!hasEncuestadorId) {
-    database.exec("ALTER TABLE boletas ADD COLUMN encuestador_id INTEGER REFERENCES encuestadores(id)")
-    console.log('Columna "encuestador_id" agregada a la tabla boletas')
-  }
+  runAll()
 }
 
 function seedBrigadasYEncuestadores(database) {
@@ -153,26 +225,28 @@ function seedDefaultUser(database) {
   const adminUser = process.env.ADMIN_USERNAME || 'mcayo'
   const adminPassword = process.env.ADMIN_PASSWORD
   if (!adminPassword) {
-    console.error('ADMIN_PASSWORD no está definido en .env. Saltando seed.')
+    console.error('ADMIN_PASSWORD no está definido en .env. Saltando seed de usuario admin.')
     return
   }
   const existingUser = database.prepare('SELECT id, rol FROM usuarios WHERE username = ?').get(adminUser)
   if (!existingUser) {
+    const allDeps = database.prepare('SELECT DISTINCT departamento FROM brigadas ORDER BY departamento').all().map((r) => r.departamento)
+    const allBrigadas = database.prepare('SELECT DISTINCT nombre FROM brigadas ORDER BY nombre').all().map((r) => r.nombre)
     const hashedPassword = bcrypt.hashSync(adminPassword, 10)
     database.prepare(
       'INSERT INTO usuarios (username, password_hash, departamento, brigadas, rol) VALUES (?, ?, ?, ?, ?)'
-    ).run(adminUser, hashedPassword, 'SANTA CRUZ', JSON.stringify(['Brigada 1', 'Brigada 2', 'Brigada 7']), 'administrador')
-    console.log(`Usuario administrador "${adminUser}" creado`)
+    ).run(adminUser, hashedPassword, JSON.stringify(allDeps), JSON.stringify(allBrigadas), 'administrador')
+    console.log(`Usuario administrador "${adminUser}" creado con acceso a todos los departamentos y brigadas`)
   } else {
     console.log(`Usuario "${adminUser}" ya existe. Saltando seed (para resetear, elimina el usuario primero).`)
   }
 }
 
-function initDatabase() {
-  const database = connectDB()
-  createTables(database)
-  seedDefaultUser(database)
+function initDatabase(dbPath) {
+  const database = connectDB(dbPath)
+  runMigrations(database)
   seedBrigadasYEncuestadores(database)
+  seedDefaultUser(database)
   return database
 }
 
@@ -183,4 +257,4 @@ function getDB() {
   return db
 }
 
-module.exports = { connectDB, createTables, seedDefaultUser, initDatabase, getDB }
+module.exports = { connectDB, runMigrations, seedDefaultUser, initDatabase, getDB }

@@ -6,14 +6,18 @@ let TOKEN = null
 function request(method, path, body = null, token = null) {
   return new Promise((resolve, reject) => {
     const url = new URL(path, BASE)
+    const bodyStr = body ? JSON.stringify(body) : null
     const options = {
       hostname: url.hostname,
       port: url.port,
       path: url.pathname + url.search,
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {}),
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
     }
-    if (token) options.headers['Authorization'] = `Bearer ${token}`
 
     const req = http.request(options, (res) => {
       let data = ''
@@ -25,7 +29,7 @@ function request(method, path, body = null, token = null) {
       })
     })
     req.on('error', reject)
-    if (body) req.write(JSON.stringify(body))
+    if (bodyStr) req.write(bodyStr)
     req.end()
   })
 }
@@ -269,7 +273,7 @@ async function run() {
   if (brigadas.length === 0 || encuestadores.length === 0) {
     assert('Datos existentes para asignación', false, 'No hay brigadas o encuestadores')
   } else {
-    const testBrigada = brigadas[0]
+    const testBrigada = brigadas.find(b => b.departamento === 'SANTA CRUZ') || brigadas[0]
     const testEnc = encuestadores[encuestadores.length - 1] // último para no romper seed
     console.log(`    Usando brigada: ${testBrigada.nombre} (id=${testBrigada.id})`)
     console.log(`    Usando encuestador: ${testEnc.nombre} (id=${testEnc.id})`)
@@ -291,7 +295,7 @@ async function run() {
     assert('Encuestador aparece en brigada asignada', found)
 
     // Verificar que aparece en asignaciones por departamento
-    const asigByDept = await request('GET', `/api/asignaciones?departamento=SANTA CRUZ`, null, TOKEN)
+    const asigByDept = await request('GET', `/api/asignaciones?departamento=${encodeURIComponent(testBrigada.departamento)}`, null, TOKEN)
     const foundDept = asigByDept.body.some(a =>
       a.brigada_id === testBrigada.id && a.encuestador_id === testEnc.id
     )

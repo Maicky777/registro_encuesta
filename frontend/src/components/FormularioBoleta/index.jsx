@@ -1,10 +1,11 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
-import { BRIGADAS_DATA, INCIDENCIAS } from '../../utils/constants'
-import { calcularPanel, calcularUPM } from '../../utils/helpers'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { INCIDENCIAS } from '../../utils/constants'
+import { calcularPanel, calcularUPM, computeObservacionFields } from '../../utils/helpers'
 import { useBoletas } from '../../hooks/useBoletas'
 import { useFiltros } from '../../hooks/useFiltros'
 import { useModal } from '../../hooks/useModal'
-import { getEncuestadorByCodigo } from '../../services/encuestadorService'
+import { useAsignaciones } from '../../hooks/useAsignaciones'
+
 import Formulario from './Formulario'
 import PanelDatos from './PanelDatos'
 import ToolbarArchivos from './ToolbarArchivos'
@@ -14,7 +15,7 @@ import ModalConfirm from '../ui/ModalConfirm'
 
 const INITIAL_FORM_STATE = {
   departamento: '',
-  brigada: 'Brigada 1',
+  brigada: '',
   folio: '',
   upm: '',
   upmReemplazo: '',
@@ -24,8 +25,8 @@ const INITIAL_FORM_STATE = {
   panel: '',
   numeroCorrelativo: 1,
   voe: '',
-  usuarioEncuestador: 'ece70101',
-  nombreEncuestador: 'Griselda',
+  usuarioEncuestador: '',
+  nombreEncuestador: '',
   incidencia: INCIDENCIAS[0],
   detalleObservaciones: '',
   totalObservaciones: 0,
@@ -40,6 +41,15 @@ export default function FormularioBoleta({ sessionUser }) {
   const [folioDuplicado, setFolioDuplicado] = useState(false)
   const [modalData, setModalData] = useState(null)
   const brigadaRef = useRef(null)
+
+  const {
+    brigadas,
+    encuestadores,
+    fetchEncuestadores,
+    departments,
+    selectedDepartamento,
+    setSelectedDepartamento,
+  } = useAsignaciones(sessionUser.departamento, sessionUser.brigadas, sessionUser.rol)
 
   const {
     registros,
@@ -66,12 +76,23 @@ export default function FormularioBoleta({ sessionUser }) {
 
   const getFormState = useCallback(() => ({
     ...INITIAL_FORM_STATE,
-    departamento: sessionUser.departamento,
-    brigada: sessionUser.brigadas[0] || 'Brigada 1',
-  }), [sessionUser])
+    departamento: sessionUser.rol === 'administrador' ? selectedDepartamento : sessionUser.departamento,
+    brigada: brigadas[0]?.nombre || '',
+    usuarioEncuestador: '',
+    nombreEncuestador: '',
+  }), [sessionUser, brigadas, encuestadores, selectedDepartamento])
 
   const initialFormState = useMemo(() => getFormState(), [getFormState])
   const [formData, setFormData] = useState(initialFormState)
+
+  useEffect(() => {
+    if (brigadas.length > 0 && encuestadores.length > 0) {
+      setFormData((prev) => {
+        if (prev.brigada) return prev
+        return getFormState()
+      })
+    }
+  }, [brigadas, encuestadores, getFormState])
 
   const limpiarFormulario = useCallback(() => {
     setFormData(getFormState())
@@ -122,40 +143,41 @@ export default function FormularioBoleta({ sessionUser }) {
     }))
   }, [])
 
-  const handleUsuarioEncuestadorChange = useCallback(async (userSel) => {
-    setFormData((prev) => {
-      const nombre = BRIGADAS_DATA[prev.brigada]?.[userSel] || ''
+  const handleUsuarioEncuestadorChange = useCallback((userSel) => {
+    const encDB = encuestadores.find((e) => e.codigo === userSel)
+    setFormData((prev) => ({
+      ...prev,
+      usuarioEncuestador: userSel,
+      nombreEncuestador: encDB?.nombre || '',
+    }))
+  }, [encuestadores])
 
-      if (!nombre && userSel) {
-        getEncuestadorByCodigo(userSel)
-          .then((encuestador) => {
-            if (encuestador) {
-              setFormData((p) => ({ ...p, nombreEncuestador: encuestador.nombre }))
-            }
-          })
-          .catch(() => {})
-      }
+  const handleBrigadaChange = useCallback(async (brigadaNombre) => {
+    await fetchEncuestadores(brigadaNombre)
+    setFormData((prev) => ({
+      ...prev,
+      brigada: brigadaNombre,
+      usuarioEncuestador: '',
+      nombreEncuestador: '',
+    }))
+  }, [fetchEncuestadores])
 
-      return {
-        ...prev,
-        usuarioEncuestador: userSel,
-        nombreEncuestador: nombre,
-      }
-    })
-  }, [])
+  const handleDepartamentoChange = useCallback((newDept) => {
+    setSelectedDepartamento(newDept)
+    setFormData((prev) => ({
+      ...prev,
+      brigada: '',
+      usuarioEncuestador: '',
+      nombreEncuestador: '',
+    }))
+  }, [setSelectedDepartamento])
 
   const handleObservacionesChange = useCallback((texto) => {
-    const total = texto
-      .split(';')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0).length
+    const obsFields = computeObservacionFields(texto)
     setFormData((prev) => ({
       ...prev,
       detalleObservaciones: texto,
-      totalObservaciones: total,
-      boletaObservada: total > 0 ? 'SI' : 'NO',
-      estadoBoleta: total > 0 ? 'OBSERVADO' : 'SIN OBSERVACION',
-      observacionBoleta: total > 0 ? 'NO ENVIADO' : '',
+      ...obsFields,
     }))
   }, [])
 
@@ -314,11 +336,17 @@ export default function FormularioBoleta({ sessionUser }) {
         formData={formData}
         setFormData={setFormData}
         editandoId={editandoId}
-        sessionUser={sessionUser}
+        brigadas={brigadas}
+        encuestadores={encuestadores}
         folioDuplicado={folioDuplicado}
         submitting={submitting}
         registros={registros}
         canEditUpmReemplazo={canEditUpmReemplazo}
+        rol={sessionUser.rol}
+        departments={departments}
+        selectedDepartamento={selectedDepartamento}
+        onDepartamentoChange={handleDepartamentoChange}
+        onBrigadaChange={handleBrigadaChange}
         onFolioChange={handleFolioChange}
         onVisitaChange={handleVisitaChange}
         onUsuarioEncuestadorChange={handleUsuarioEncuestadorChange}

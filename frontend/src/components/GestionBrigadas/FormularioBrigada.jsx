@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createBrigada, updateBrigada } from '../../services/brigadaService'
-
-const DEPARTAMENTOS = [
-  'BENI', 'CHUQUISACA', 'COCHABAMBA', 'LA PAZ', 'ORURO', 'PANDO', 'POTOSÍ', 'SANTA CRUZ', 'TARIJA',
-]
+import { DEPARTAMENTOS } from '../../utils/constants'
 
 const inputClass = 'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15'
 
