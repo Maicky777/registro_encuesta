@@ -1,8 +1,3 @@
-  })
-}
-
-
-
 export const computeObservacionFields = (detalleObservaciones) => {
   const frases = (detalleObservaciones || '').split(';').filter((f) => f.trim().length > 0)
   const total = frases.length
