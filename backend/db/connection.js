@@ -150,6 +150,34 @@ const MIGRATIONS = [
       `)
     },
   },
+  {
+    name: '009_create_asistencia',
+    up(database) {
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS asistencia (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          encuestador_id INTEGER NOT NULL REFERENCES encuestadores(id) ON DELETE CASCADE,
+          departamento TEXT NOT NULL DEFAULT '',
+          brigada TEXT NOT NULL DEFAULT '',
+          semana INTEGER NOT NULL DEFAULT 0,
+          dia TEXT NOT NULL,
+          turno TEXT NOT NULL,
+          estatus TEXT NOT NULL DEFAULT 'N/A',
+          ingreso TEXT DEFAULT '',
+          fIngreso TEXT DEFAULT '',
+          salida TEXT DEFAULT '',
+          fSalida TEXT DEFAULT '',
+          observacion TEXT DEFAULT '',
+          UNIQUE(encuestador_id, semana, dia, turno)
+        )
+      `)
+      database.exec(`
+        CREATE INDEX IF NOT EXISTS idx_asistencia_semana ON asistencia(semana);
+        CREATE INDEX IF NOT EXISTS idx_asistencia_departamento ON asistencia(departamento);
+        CREATE INDEX IF NOT EXISTS idx_asistencia_brigada ON asistencia(brigada);
+      `)
+    },
+  },
 ]
 
 function runMigrations(database) {
