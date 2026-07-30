@@ -179,8 +179,9 @@ router.post('/', authMiddleware, (req, res) => {
         departamento, brigada, folio, upm, upmReemplazo, upmAdicional, semana, visita, panel,
         numeroCorrelativo, voe, usuarioEncuestador, nombreEncuestador, incidencia,
         detalleObservaciones, totalObservaciones, boletaObservada, estadoBoleta,
-        observacionBoleta, observacionPersonal, consolidada, fechaFinalConsolidacion
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        observacionBoleta, observacionPersonal, consolidada, fechaFinalConsolidacion,
+        encuestador_id
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `
 
     const info = db.prepare(sql).run(
@@ -190,6 +191,7 @@ router.post('/', authMiddleware, (req, res) => {
       data.detalleObservaciones, finalTotal, finalBoletaObs,
       finalEstado, finalObservacion, data.observacionPersonal,
       data.consolidada, data.fechaFinalConsolidacion,
+      data.encuestador_id || null,
     )
     res.json({ id: info.lastInsertRowid, ...data, totalObservaciones: finalTotal, boletaObservada: finalBoletaObs, estadoBoleta: finalEstado, observacionBoleta: finalObservacion })
   } catch (err) {
@@ -263,7 +265,7 @@ router.put('/:id', authMiddleware, (req, res) => {
         visita=?, panel=?, numeroCorrelativo=?, voe=?, usuarioEncuestador=?, nombreEncuestador=?,
         incidencia=?, detalleObservaciones=?, totalObservaciones=?, boletaObservada=?,
         estadoBoleta=?, observacionBoleta=?, observacionPersonal=?, consolidada=?,
-        fechaFinalConsolidacion=?
+        fechaFinalConsolidacion=?, encuestador_id=?
       WHERE id=?
     `
 
@@ -273,7 +275,8 @@ router.put('/:id', authMiddleware, (req, res) => {
       data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
       data.detalleObservaciones, finalTotal, finalBoletaObs,
       finalEstado, finalObservacion, data.observacionPersonal,
-      data.consolidada, data.fechaFinalConsolidacion, id,
+      data.consolidada, data.fechaFinalConsolidacion,
+      data.encuestador_id || null, id,
     )
     res.json({ message: 'Registro actualizado correctamente' })
   } catch (err) {
@@ -335,8 +338,9 @@ router.post('/batch', authMiddleware, (req, res) => {
       departamento, brigada, folio, upm, upmReemplazo, upmAdicional, semana, visita, panel,
       numeroCorrelativo, voe, usuarioEncuestador, nombreEncuestador, incidencia,
       detalleObservaciones, totalObservaciones, boletaObservada, estadoBoleta,
-      observacionBoleta, observacionPersonal, consolidada, fechaFinalConsolidacion
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      observacionBoleta, observacionPersonal, consolidada, fechaFinalConsolidacion,
+      encuestador_id
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `
 
   try {
@@ -368,6 +372,7 @@ router.post('/batch', authMiddleware, (req, res) => {
         finalEstado, finalObservacion, data.observacionPersonal,
         data.consolidada,
         data.fechaFinalConsolidacion || fechaBatch,
+        data.encuestador_id || null,
       )
       insertados++
     }

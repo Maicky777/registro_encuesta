@@ -1,4 +1,6 @@
 const express = require('express')
+const fs = require('fs')
+const path = require('path')
 const cors = require('cors')
 const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
@@ -96,27 +98,42 @@ if (process.env.ADMIN_PASSWORD.length < 8) {
   process.exit(1)
 }
 
+function crearBackup() {
+  try {
+    const db = getDB()
+    db.pragma('wal_checkpoint(TRUNCATE)')
+    const backupDir = path.join(__dirname, 'backups')
+    fs.mkdirSync(backupDir, { recursive: true })
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const backupPath = path.join(backupDir, `boletas-${timestamp}.db`)
+    fs.copyFileSync(path.join(__dirname, 'boletas.db'), backupPath)
+    console.log(`Backup creado: ${backupPath}`)
+    return true
+  } catch (e) {
+    console.error('Error durante el backup:', e.message)
+    return false
+  }
+}
+
 function startServer() {
   initDatabase()
+  crearBackup()
+
   const server = app.listen(PORT, () =>
     console.log(`Servidor Backend corriendo en http://localhost:${PORT}`),
   )
 
   const shutdown = (signal) => {
     console.log(`\n${signal} recibido. Cerrando servidor...`)
-    server.close(() => {
-      try {
-        getDB().close()
-        console.log('Conexión a la base de datos cerrada.')
-      } catch (e) {
-        console.error('Error al cerrar la BD:', e.message)
-      }
-      process.exit(0)
-    })
+    crearBackup()
+    try { getDB().close() } catch {}
+    server.close(() => process.exit(0))
+    setTimeout(() => process.exit(0), 3000)
   }
 
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGBREAK', () => shutdown('SIGBREAK'))
 }
 
 startServer()

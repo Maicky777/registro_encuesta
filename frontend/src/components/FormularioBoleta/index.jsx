@@ -1,6 +1,10 @@
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { INCIDENCIAS } from '../../utils/constants'
-import { calcularPanel, calcularUPM, computeObservacionFields } from '../../utils/helpers'
+import {
+  calcularPanel,
+  calcularUPM,
+  computeObservacionFields,
+} from '../../utils/helpers'
 import { useBoletas } from '../../hooks/useBoletas'
 import { useFiltros } from '../../hooks/useFiltros'
 import { useModal } from '../../hooks/useModal'
@@ -37,6 +41,7 @@ const INITIAL_FORM_STATE = {
   voe: '',
   usuarioEncuestador: '',
   nombreEncuestador: '',
+  encuestador_id: '',
   incidencia: INCIDENCIAS[0],
   detalleObservaciones: '',
   totalObservaciones: 0,
@@ -59,7 +64,11 @@ export default function FormularioBoleta({ sessionUser }) {
     departments,
     selectedDepartamento,
     setSelectedDepartamento,
-  } = useAsignaciones(sessionUser.departamento, sessionUser.brigadas, sessionUser.rol)
+  } = useAsignaciones(
+    sessionUser.departamento,
+    sessionUser.brigadas,
+    sessionUser.rol,
+  )
 
   const {
     registros,
@@ -82,32 +91,45 @@ export default function FormularioBoleta({ sessionUser }) {
     confirmAction,
   } = useModal()
 
-  const getFormState = useCallback(() => ({
-    ...INITIAL_FORM_STATE,
-    departamento: sessionUser.rol === 'administrador' ? selectedDepartamento : sessionUser.departamento,
-    brigada: brigadas[0]?.nombre || '',
-    usuarioEncuestador: '',
-    nombreEncuestador: '',
-  }), [sessionUser, brigadas, encuestadores, selectedDepartamento])
+  const getFormState = useCallback(
+    () => ({
+      ...INITIAL_FORM_STATE,
+      departamento:
+        sessionUser.rol === 'administrador'
+          ? selectedDepartamento
+          : sessionUser.departamento,
+      brigada: brigadas[0]?.nombre || '',
+      usuarioEncuestador: '',
+      nombreEncuestador: '',
+      encuestador_id: '',
+    }),
+    [sessionUser, brigadas, selectedDepartamento],
+  )
 
-  const initialFormState = useMemo(() => getFormState(), [getFormState])
-  const [formData, setFormData] = useState(initialFormState)
+  const [formData, setFormData] = useState(() => ({
+    ...INITIAL_FORM_STATE,
+    departamento:
+      sessionUser.rol === 'administrador'
+        ? selectedDepartamento
+        : sessionUser.departamento,
+  }))
+
+  const dataReady = brigadas.length > 0 && encuestadores.length > 0
+
+  if (dataReady && !formData.brigada) {
+    setFormData(getFormState())
+  }
 
   const registrosSemana = useMemo(
-    () => registros.filter((r) => parseInt(r.semana, 10) === parseInt(formData.semana, 10)),
+    () =>
+      registros.filter(
+        (r) => parseInt(r.semana, 10) === parseInt(formData.semana, 10),
+      ),
     [registros, formData.semana],
   )
 
-  const { filtroGeneral, setFiltroGeneral, registrosFiltrados } = useFiltros(registrosSemana)
-
-  useEffect(() => {
-    if (brigadas.length > 0 && encuestadores.length > 0) {
-      setFormData((prev) => {
-        if (prev.brigada) return prev
-        return getFormState()
-      })
-    }
-  }, [brigadas, encuestadores, getFormState])
+  const { filtroGeneral, setFiltroGeneral, registrosFiltrados } =
+    useFiltros(registrosSemana)
 
   const limpiarFormulario = useCallback(() => {
     setFormData(getFormState())
@@ -117,38 +139,45 @@ export default function FormularioBoleta({ sessionUser }) {
 
   const canEditUpmReemplazo = useMemo(() => {
     const visita = parseInt(formData.visita, 10)
-    return visita === 1 && formData.numeroCorrelativo === 1 && formData.upm !== ''
+    return (
+      visita === 1 && formData.numeroCorrelativo === 1 && formData.upm !== ''
+    )
   }, [formData.visita, formData.numeroCorrelativo, formData.upm])
 
-  const handleFolioChange = useCallback(async (val) => {
-    const upmCalculada = calcularUPM(val)
-    const registrosMismaUpm = registros.filter(
-      (r) => r.upm === upmCalculada && r.id !== editandoId,
-    )
+  const handleFolioChange = useCallback(
+    async (val) => {
+      const upmCalculada = calcularUPM(val)
+      const registrosMismaUpm = registros.filter(
+        (r) => r.upm === upmCalculada && r.id !== editandoId,
+      )
 
-    const conteoUpmPrevias = registrosMismaUpm.length
-    const primerRegistroUpm = registrosMismaUpm
-      .filter((r) => r.upmReemplazo && r.upmReemplazo.trim() !== '')
-      .sort((a, b) => a.id - b.id)[0]
+      const conteoUpmPrevias = registrosMismaUpm.length
+      const primerRegistroUpm = registrosMismaUpm
+        .filter((r) => r.upmReemplazo && r.upmReemplazo.trim() !== '')
+        .sort((a, b) => a.id - b.id)[0]
 
-    setFormData((prev) => {
-      const numVisita = parseInt(prev.visita, 10)
-      return {
-        ...prev,
-        numeroCorrelativo: conteoUpmPrevias + 1,
-        upmReemplazo: primerRegistroUpm ? primerRegistroUpm.upmReemplazo : '',
-        ...(numVisita === 1 && { panel: calcularPanel(prev.visita, upmCalculada) }),
+      setFormData((prev) => {
+        const numVisita = parseInt(prev.visita, 10)
+        return {
+          ...prev,
+          numeroCorrelativo: conteoUpmPrevias + 1,
+          upmReemplazo: primerRegistroUpm ? primerRegistroUpm.upmReemplazo : '',
+          ...(numVisita === 1 && {
+            panel: calcularPanel(prev.visita, upmCalculada),
+          }),
+        }
+      })
+
+      if (val.trim() === '') {
+        setFolioDuplicado(false)
+        return
       }
-    })
 
-    if (val.trim() === '') {
-      setFolioDuplicado(false)
-      return
-    }
-
-    const existe = await verificarFolio(val, editandoId)
-    setFolioDuplicado(existe)
-  }, [registros, editandoId, verificarFolio])
+      const existe = await verificarFolio(val, editandoId)
+      setFolioDuplicado(existe)
+    },
+    [registros, editandoId, verificarFolio],
+  )
 
   const handleVisitaChange = useCallback((val) => {
     setFormData((prev) => ({
@@ -158,34 +187,46 @@ export default function FormularioBoleta({ sessionUser }) {
     }))
   }, [])
 
-  const handleUsuarioEncuestadorChange = useCallback((userSel) => {
-    const encDB = encuestadores.find((e) => e.codigo === userSel)
-    setFormData((prev) => ({
-      ...prev,
-      usuarioEncuestador: userSel,
-      nombreEncuestador: encDB?.nombre || '',
-    }))
-  }, [encuestadores])
+  const handleUsuarioEncuestadorChange = useCallback(
+    (userSel) => {
+      const encDB = encuestadores.find((e) => e.codigo === userSel)
+      setFormData((prev) => ({
+        ...prev,
+        usuarioEncuestador: userSel,
+        nombreEncuestador: encDB?.nombre || '',
+        encuestador_id: encDB?.encuestador_id || '',
+      }))
+    },
+    [encuestadores],
+  )
 
-  const handleBrigadaChange = useCallback(async (brigadaNombre) => {
-    await fetchEncuestadores(brigadaNombre)
-    setFormData((prev) => ({
-      ...prev,
-      brigada: brigadaNombre,
-      usuarioEncuestador: '',
-      nombreEncuestador: '',
-    }))
-  }, [fetchEncuestadores])
+  const handleBrigadaChange = useCallback(
+    async (brigadaNombre) => {
+      await fetchEncuestadores(brigadaNombre)
+      setFormData((prev) => ({
+        ...prev,
+        brigada: brigadaNombre,
+        usuarioEncuestador: '',
+        nombreEncuestador: '',
+        encuestador_id: '',
+      }))
+    },
+    [fetchEncuestadores],
+  )
 
-  const handleDepartamentoChange = useCallback((newDept) => {
-    setSelectedDepartamento(newDept)
-    setFormData((prev) => ({
-      ...prev,
-      brigada: '',
-      usuarioEncuestador: '',
-      nombreEncuestador: '',
-    }))
-  }, [setSelectedDepartamento])
+  const handleDepartamentoChange = useCallback(
+    (newDept) => {
+      setSelectedDepartamento(newDept)
+      setFormData((prev) => ({
+        ...prev,
+        brigada: '',
+        usuarioEncuestador: '',
+        nombreEncuestador: '',
+        encuestador_id: '',
+      }))
+    },
+    [setSelectedDepartamento],
+  )
 
   const handleObservacionesChange = useCallback((texto) => {
     const obsFields = computeObservacionFields(texto)
@@ -212,10 +253,20 @@ export default function FormularioBoleta({ sessionUser }) {
         await actualizarRegistro(editandoId, formData)
         if (formData.upmReemplazo) {
           try {
-            const res = await actualizarUpmReemplazo(formData.upm, formData.upmReemplazo, editandoId)
-            showAlert(`Registro actualizado. UPM Reemplazo propagado a ${res?.actualizados || 0} registro(s).`, 'success')
+            const res = await actualizarUpmReemplazo(
+              formData.upm,
+              formData.upmReemplazo,
+              editandoId,
+            )
+            showAlert(
+              `Registro actualizado. UPM Reemplazo propagado a ${res?.actualizados || 0} registro(s).`,
+              'success',
+            )
           } catch {
-            showAlert('Registro guardado, pero hubo un error al propagar UPM Reemplazo a los demás registros.', 'error')
+            showAlert(
+              'Registro guardado, pero hubo un error al propagar UPM Reemplazo a los demás registros.',
+              'error',
+            )
           }
         } else {
           showAlert('Registro actualizado correctamente.', 'success')
@@ -224,10 +275,19 @@ export default function FormularioBoleta({ sessionUser }) {
         await crearRegistro(formData)
         if (formData.upmReemplazo) {
           try {
-            const res = await actualizarUpmReemplazo(formData.upm, formData.upmReemplazo)
-            showAlert(`Registro guardado. UPM Reemplazo propagado a ${res?.actualizados || 0} registro(s).`, 'success')
+            const res = await actualizarUpmReemplazo(
+              formData.upm,
+              formData.upmReemplazo,
+            )
+            showAlert(
+              `Registro guardado. UPM Reemplazo propagado a ${res?.actualizados || 0} registro(s).`,
+              'success',
+            )
           } catch {
-            showAlert('Registro guardado, pero hubo un error al propagar UPM Reemplazo a los demás registros.', 'error')
+            showAlert(
+              'Registro guardado, pero hubo un error al propagar UPM Reemplazo a los demás registros.',
+              'error',
+            )
           }
         } else {
           showAlert('Registro guardado en SQLite.', 'success')
@@ -246,96 +306,111 @@ export default function FormularioBoleta({ sessionUser }) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
-  const handleEliminar = useCallback(async (id) => {
-    const confirmado = await showConfirm(
-      '¿Está seguro de eliminar este registro de la base de datos?',
-    )
-    if (confirmado) {
-      try {
-        await eliminarRegistro(id)
-        if (editandoId === id) {
-          limpiarFormulario()
-        }
-        showAlert('Registro eliminado correctamente.', 'success')
-      } catch (err) {
-        showAlert('Error al eliminar: ' + err.message, 'error')
-      }
-    }
-  }, [showConfirm, eliminarRegistro, showAlert, editandoId, limpiarFormulario])
-
-  const handleDoubleClickCorregir = useCallback(async (reg) => {
-    if (reg.estadoBoleta !== 'OBSERVADO') return
-    const confirmado = await showConfirm(
-      `¿Marcar el folio "${reg.folio}" como CORREGIDO?`,
-    )
-    if (!confirmado) return
-    try {
-      await actualizarRegistro(reg.id, {
-        ...reg,
-        estadoBoleta: 'CORREGIDO',
-      })
-      showAlert('Boleta marcada como CORREGIDA.', 'success')
-    } catch (err) {
-      showAlert('Error al actualizar estado: ' + err.message, 'error')
-    }
-  }, [showConfirm, actualizarRegistro, showAlert])
-
-  const handleReporte = useCallback(async (reg) => {
-    const grupo = registros.filter(
-      (r) =>
-        r.brigada === reg.brigada &&
-        String(r.semana) === String(reg.semana) &&
-        r.estadoBoleta === 'OBSERVADO',
-    )
-    if (grupo.length === 0) return
-
-    setModalData({
-      brigada: reg.brigada,
-      semana: reg.semana,
-      registros: grupo,
-      registroSeleccionado: reg,
-    })
-
-    try {
-      await actualizarRegistro(reg.id, {
-        ...reg,
-        observacionBoleta: 'ENVIADO',
-      })
-    } catch (err) {
-      showAlert('Error al marcar boleta como enviada: ' + err.message, 'error')
-    }
-  }, [registros, actualizarRegistro, showAlert])
-
-  const handleCargarJSON = useCallback(async (e) => {
-    const fileReader = new FileReader()
-    if (e.target.files[0]) {
-      fileReader.readAsText(e.target.files[0], 'UTF-8')
-      fileReader.onload = async (event) => {
+  const handleEliminar = useCallback(
+    async (id) => {
+      const confirmado = await showConfirm(
+        '¿Está seguro de eliminar este registro de la base de datos?',
+      )
+      if (confirmado) {
         try {
-          const parsedData = JSON.parse(event.target.result)
-          if (Array.isArray(parsedData)) {
-            if (parsedData.length === 0) {
-              showAlert('El archivo JSON no contiene registros.', 'warning')
-              return
-            }
-            const result = await cargarBatch(parsedData)
-            const msg = result
-              ? `Importación completada: ${result.insertados} insertados, ${result.omitidos} omitidos (duplicados).`
-              : 'Datos del archivo JSON importados correctamente.'
-            showAlert(msg, 'success')
-          } else {
-            showAlert(
-              'El archivo JSON debe contener una lista de registros.',
-              'warning',
-            )
+          await eliminarRegistro(id)
+          if (editandoId === id) {
+            limpiarFormulario()
           }
+          showAlert('Registro eliminado correctamente.', 'success')
         } catch (err) {
-          const msg = err.response?.data?.error || err.message
-          showAlert('Error al importar: ' + msg, 'error')
+          showAlert('Error al eliminar: ' + err.message, 'error')
         }
       }
-    }
-  }, [cargarBatch, showAlert])
+    },
+    [showConfirm, eliminarRegistro, showAlert, editandoId, limpiarFormulario],
+  )
+
+  const handleDoubleClickCorregir = useCallback(
+    async (reg) => {
+      if (reg.estadoBoleta !== 'OBSERVADO') return
+      const confirmado = await showConfirm(
+        `¿Marcar el folio "${reg.folio}" como CORREGIDO?`,
+      )
+      if (!confirmado) return
+      try {
+        await actualizarRegistro(reg.id, {
+          ...reg,
+          estadoBoleta: 'CORREGIDO',
+        })
+        showAlert('Boleta marcada como CORREGIDA.', 'success')
+      } catch (err) {
+        showAlert('Error al actualizar estado: ' + err.message, 'error')
+      }
+    },
+    [showConfirm, actualizarRegistro, showAlert],
+  )
+
+  const handleReporte = useCallback(
+    async (reg) => {
+      const grupo = registros.filter(
+        (r) =>
+          r.brigada === reg.brigada &&
+          String(r.semana) === String(reg.semana) &&
+          r.estadoBoleta === 'OBSERVADO',
+      )
+      if (grupo.length === 0) return
+
+      setModalData({
+        brigada: reg.brigada,
+        semana: reg.semana,
+        registros: grupo,
+        registroSeleccionado: reg,
+      })
+
+      try {
+        await actualizarRegistro(reg.id, {
+          ...reg,
+          observacionBoleta: 'ENVIADO',
+        })
+      } catch (err) {
+        showAlert(
+          'Error al marcar boleta como enviada: ' + err.message,
+          'error',
+        )
+      }
+    },
+    [registros, actualizarRegistro, showAlert],
+  )
+
+  const handleCargarJSON = useCallback(
+    async (e) => {
+      const fileReader = new FileReader()
+      if (e.target.files[0]) {
+        fileReader.readAsText(e.target.files[0], 'UTF-8')
+        fileReader.onload = async (event) => {
+          try {
+            const parsedData = JSON.parse(event.target.result)
+            if (Array.isArray(parsedData)) {
+              if (parsedData.length === 0) {
+                showAlert('El archivo JSON no contiene registros.', 'warning')
+                return
+              }
+              const result = await cargarBatch(parsedData)
+              const msg = result
+                ? `Importación completada: ${result.insertados} insertados, ${result.omitidos} omitidos (duplicados).`
+                : 'Datos del archivo JSON importados correctamente.'
+              showAlert(msg, 'success')
+            } else {
+              showAlert(
+                'El archivo JSON debe contener una lista de registros.',
+                'warning',
+              )
+            }
+          } catch (err) {
+            const msg = err.response?.data?.error || err.message
+            showAlert('Error al importar: ' + msg, 'error')
+          }
+        }
+      }
+    },
+    [cargarBatch, showAlert],
+  )
 
   if (loading) {
     return (
