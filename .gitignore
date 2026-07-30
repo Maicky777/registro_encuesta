@@ -9,7 +9,8 @@
 # Archivos de bases de datos locales (SQLite)
 *.sqlite
 *.sqlite3
-**/*.db
+*.db
+#**/*.db
 
 # Carpetas de compilación de producción de React (Vite)
 frontend/dist/
