@@ -6,16 +6,6 @@ export const getEncuestadores = async (departamento) => {
   return response.data
 }
 
-export const getEncuestador = async (id) => {
-  const response = await api.get(`/encuestadores/${id}`)
-  return response.data
-}
-
-export const getEncuestadorByCodigo = async (codigo) => {
-  const response = await api.get(`/encuestadores/por-codigo/${codigo}`)
-  return response.data
-}
-
 export const createEncuestador = async (data) => {
   const response = await api.post('/encuestadores', data)
   return response.data
@@ -28,12 +18,6 @@ export const updateEncuestador = async (id, data) => {
 
 export const deleteEncuestador = async (id) => {
   const response = await api.delete(`/encuestadores/${id}`)
-  return response.data
-}
-
-export const getAsignaciones = async (departamento) => {
-  const params = departamento ? { departamento } : {}
-  const response = await api.get('/asignaciones', { params })
   return response.data
 }
 

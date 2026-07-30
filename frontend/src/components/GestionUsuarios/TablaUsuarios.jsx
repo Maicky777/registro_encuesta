@@ -114,7 +114,7 @@ export default function TablaUsuarios({ usuarios, loading, currentUserId, onElim
                     ) : (
                       <div className="flex items-center justify-center gap-1.5">
                         <button
-                          className="bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-1 rounded text-[0.7rem] font-semibold cursor-pointer hover:bg-blue-100 transition-colors"
+                          className="bg-amber-50 text-amber-600 border border-amber-200 px-2.5 py-1 rounded text-[0.7rem] font-semibold cursor-pointer hover:bg-amber-100 transition-colors"
                           onClick={() => onEditar(u)}
                         >
                           Editar

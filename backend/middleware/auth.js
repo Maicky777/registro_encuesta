@@ -2,19 +2,21 @@ const jwt = require('jsonwebtoken')
 
 const JWT_SECRET = process.env.JWT_SECRET
 
-if (!JWT_SECRET) {
-  console.error('ERROR FATAL: JWT_SECRET no está definido en las variables de entorno.')
-  console.error('Crea un archivo .env con JWT_SECRET=<tu-secreto-seguro>')
-  process.exit(1)
-}
-
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const cookieToken = req.cookies?.token
+
+  let token
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1]
+  } else if (cookieToken) {
+    token = cookieToken
+  }
+
+  if (!token) {
     return res.status(401).json({ error: 'Token de autenticación requerido' })
   }
 
-  const token = authHeader.split(' ')[1]
   try {
     const decoded = jwt.verify(token, JWT_SECRET)
     req.user = decoded

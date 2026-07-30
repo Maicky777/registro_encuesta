@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
 const rateLimit = require('express-rate-limit')
+const cookieParser = require('cookie-parser')
 require('dotenv').config()
 
 const { initDatabase, getDB } = require('./db/connection')
@@ -14,14 +15,33 @@ const asistenciaRoutes = require('./routes/asistencia')
 
 const app = express()
 
+// Validación de variables de entorno al inicio
+if (!process.env.JWT_SECRET) {
+  console.error('ERROR FATAL: JWT_SECRET no está definido en las variables de entorno.')
+  console.error('Crea un archivo .env con JWT_SECRET=<tu-secreto-seguro>')
+  process.exit(1)
+}
+
 // Seguridad
 app.use(helmet())
+
+// Cookie parser para tokens HttpOnly
+app.use(cookieParser())
 
 // Rate limiting para login (previene fuerza bruta)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   message: { error: 'Demasiados intentos de login. Intenta de nuevo en 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+// Rate limiting para register (evita creación masiva de cuentas)
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { error: 'Demasiados intentos de registro. Intenta de nuevo en 1 hora.' },
   standardHeaders: true,
   legacyHeaders: false,
 })
@@ -37,10 +57,14 @@ const generalLimiter = rateLimit({
 
 app.use(generalLimiter)
 app.use(express.json({ limit: '5mb' }))
-app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }))
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true,
+}))
 
 // Rutas
 app.use('/api/auth/login', loginLimiter)
+app.use('/api/auth/register', registerLimiter)
 app.use('/api/auth', authRoutes)
 app.use('/api/boletas', boletasRoutes)
 app.use('/api/brigadas', brigadasRoutes)
@@ -64,6 +88,11 @@ const PORT = process.env.PORT || 5000
 if (!process.env.ADMIN_PASSWORD) {
   console.error('ERROR FATAL: ADMIN_PASSWORD no está definido en .env')
   console.error('Crea un archivo .env con ADMIN_PASSWORD=<contraseña-segura>')
+  process.exit(1)
+}
+if (process.env.ADMIN_PASSWORD.length < 8) {
+  console.error('ERROR FATAL: ADMIN_PASSWORD debe tener al menos 8 caracteres.')
+  console.error('Usa una combinación de mayúsculas, minúsculas, números y símbolos.')
   process.exit(1)
 }
 

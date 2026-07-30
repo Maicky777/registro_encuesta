@@ -2,6 +2,7 @@ const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
 const { parseBrigadas } = require('../utils/parseBrigadas')
+const { computeObservacionFields } = require('../utils/observaciones')
 
 const router = express.Router()
 
@@ -19,25 +20,6 @@ const ALLOWED_INCIDENCIAS = [
 
 const ALLOWED_ESTADOS = ['SIN OBSERVACION', 'OBSERVADO', 'CORREGIDO']
 const ALLOWED_OBS_BOLETA = ['', 'ENVIADO', 'NO ENVIADO']
-
-function computeObservacionFields(detalleObservaciones) {
-  const frases = (detalleObservaciones || '').split(';').filter((f) => f.trim().length > 0)
-  const total = frases.length
-  return {
-    totalObservaciones: total,
-    estadoBoleta: total > 0 ? 'OBSERVADO' : 'SIN OBSERVACION',
-    boletaObservada: total > 0 ? 'SI' : 'NO',
-    observacionBoleta: total > 0 ? 'NO ENVIADO' : '',
-  }
-}
-
-const BOLETA_FIELDS = [
-  'departamento', 'brigada', 'folio', 'upm', 'upmReemplazo', 'upmAdicional',
-  'semana', 'visita', 'panel', 'numeroCorrelativo', 'voe', 'usuarioEncuestador',
-  'nombreEncuestador', 'incidencia', 'detalleObservaciones', 'totalObservaciones',
-  'boletaObservada', 'estadoBoleta', 'observacionBoleta', 'observacionPersonal',
-  'consolidada', 'fechaFinalConsolidacion',
-]
 
 function validateBoleta(data, { isUpdate = false } = {}) {
   const errors = []

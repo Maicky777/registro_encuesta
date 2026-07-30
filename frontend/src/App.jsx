@@ -1,6 +1,6 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
 import Login from './Login'
-import { getToken, removeToken, isAuthenticated, getMe } from './services/authService'
+import { logout as apiLogout, getMe } from './services/authService'
 
 const FormularioBoleta = lazy(() => import('./components/FormularioBoleta'))
 const GestionUsuarios = lazy(() => import('./components/GestionUsuarios'))
@@ -16,13 +16,6 @@ export default function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const token = getToken()
-      if (!token || !isAuthenticated()) {
-        removeToken()
-        setLoading(false)
-        return
-      }
-
       try {
         const user = await getMe()
         setCurrentUser({
@@ -33,7 +26,7 @@ export default function App() {
           rol: user.rol,
         })
       } catch {
-        removeToken()
+        setCurrentUser(null)
       } finally {
         setLoading(false)
       }
@@ -42,8 +35,12 @@ export default function App() {
     checkAuth()
   }, [])
 
-  const handleLogout = () => {
-    removeToken()
+  const handleLogout = async () => {
+    try {
+      await apiLogout()
+    } catch {
+      // Ignore logout errors
+    }
     setCurrentUser(null)
   }
 

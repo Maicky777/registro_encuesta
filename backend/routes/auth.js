@@ -7,7 +7,7 @@ const { parseBrigadas } = require('../utils/parseBrigadas')
 
 const router = express.Router()
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username, password } = req.body
 
   if (!username || !password) {
@@ -21,7 +21,7 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ error: 'Credenciales inválidas' })
     }
 
-    const validPassword = bcrypt.compareSync(password, user.password_hash)
+    const validPassword = await bcrypt.compare(password, user.password_hash)
     if (!validPassword) {
       return res.status(401).json({ error: 'Credenciales inválidas' })
     }
@@ -32,6 +32,13 @@ router.post('/login', (req, res) => {
       JWT_SECRET,
       { expiresIn: '8h' }
     )
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      sameSite: 'strict',
+      maxAge: 8 * 60 * 60 * 1000,
+      secure: process.env.NODE_ENV === 'production',
+    })
 
     res.json({
       token,
@@ -49,7 +56,7 @@ router.post('/login', (req, res) => {
   }
 })
 
-router.post('/register', authMiddleware, requireRole('administrador'), (req, res) => {
+router.post('/register', authMiddleware, requireRole('administrador'), async (req, res) => {
   const { username, password, departamento, brigadas, rol } = req.body
 
   const userRol = rol === 'administrador' ? 'administrador' : 'usuarios'
@@ -91,7 +98,7 @@ router.post('/register', authMiddleware, requireRole('administrador'), (req, res
       return res.status(409).json({ error: 'El usuario ya existe' })
     }
 
-    const hashedPassword = bcrypt.hashSync(password, 10)
+    const hashedPassword = await bcrypt.hash(password, 10)
     const brigadasJson = Array.isArray(brigadas) ? JSON.stringify(brigadas) : brigadas || '[]'
 
     const result = db.prepare(
@@ -103,6 +110,11 @@ router.post('/register', authMiddleware, requireRole('administrador'), (req, res
     console.error('Error en register:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
   }
+})
+
+router.post('/logout', (req, res) => {
+  res.clearCookie('token', { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' })
+  res.json({ message: 'Sesión cerrada correctamente' })
 })
 
 router.get('/users', authMiddleware, requireRole('administrador'), (req, res) => {
@@ -142,7 +154,7 @@ router.delete('/users/:id', authMiddleware, requireRole('administrador'), (req, 
   }
 })
 
-router.put('/users/:id', authMiddleware, requireRole('administrador'), (req, res) => {
+router.put('/users/:id', authMiddleware, requireRole('administrador'), async (req, res) => {
   const { id } = req.params
   const { username, password, departamento, brigadas, rol } = req.body
 
@@ -192,7 +204,7 @@ router.put('/users/:id', authMiddleware, requireRole('administrador'), (req, res
     const brigadasJson = Array.isArray(brigadas) ? JSON.stringify(brigadas) : brigadas || '[]'
 
     if (password) {
-      const hashedPassword = bcrypt.hashSync(password, 10)
+      const hashedPassword = await bcrypt.hash(password, 10)
       db.prepare('UPDATE usuarios SET username = ?, password_hash = ?, departamento = ?, brigadas = ?, rol = ? WHERE id = ?')
         .run(username, hashedPassword, departamento || '', brigadasJson, userRol, id)
     } else {

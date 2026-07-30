@@ -13,6 +13,16 @@ import ModalReporte from './ModalReporte'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
 
+const getDefaultSemana = () => {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), 6, 29)
+  const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24))
+  if (diffDays < 0) return 1
+  if (diffDays <= 4) return 4
+  const week = 5 + Math.floor((diffDays - 5) / 7)
+  return week <= 13 ? week : 1
+}
+
 const INITIAL_FORM_STATE = {
   departamento: '',
   brigada: '',
@@ -20,7 +30,7 @@ const INITIAL_FORM_STATE = {
   upm: '',
   upmReemplazo: '',
   upmAdicional: '',
-  semana: 4,
+  semana: getDefaultSemana(),
   visita: '',
   panel: '',
   numeroCorrelativo: 1,
@@ -63,8 +73,6 @@ export default function FormularioBoleta({ sessionUser }) {
     cargarBatch,
   } = useBoletas()
 
-  const { filtroGeneral, setFiltroGeneral, registrosFiltrados } = useFiltros(registros)
-
   const {
     alertModal,
     confirmModal,
@@ -84,6 +92,13 @@ export default function FormularioBoleta({ sessionUser }) {
 
   const initialFormState = useMemo(() => getFormState(), [getFormState])
   const [formData, setFormData] = useState(initialFormState)
+
+  const registrosSemana = useMemo(
+    () => registros.filter((r) => parseInt(r.semana, 10) === parseInt(formData.semana, 10)),
+    [registros, formData.semana],
+  )
+
+  const { filtroGeneral, setFiltroGeneral, registrosFiltrados } = useFiltros(registrosSemana)
 
   useEffect(() => {
     if (brigadas.length > 0 && encuestadores.length > 0) {

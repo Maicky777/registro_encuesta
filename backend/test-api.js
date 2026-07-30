@@ -73,20 +73,24 @@ async function run() {
     const express = require('express')
     const cors = require('cors')
     const helmet = require('helmet')
+    const cookieParser = require('cookie-parser')
     const rateLimit = require('express-rate-limit')
     require('dotenv').config()
 
     const app = express()
     app.use(helmet())
+    app.use(cookieParser())
     app.use(express.json({ limit: '5mb' }))
-    app.use(cors({ origin: '*' }))
+    app.use(cors({ origin: '*', credentials: true }))
 
     const authRoutes = require('./routes/auth')
+    const boletasRoutes = require('./routes/boletas')
     const brigadasRoutes = require('./routes/brigadas')
     const encuestadoresRoutes = require('./routes/encuestadores')
     const asignacionesRoutes = require('./routes/asignaciones')
 
     app.use('/api/auth', authRoutes)
+    app.use('/api/boletas', boletasRoutes)
     app.use('/api/brigadas', brigadasRoutes)
     app.use('/api/encuestadores', encuestadoresRoutes)
     app.use('/api/asignaciones', asignacionesRoutes)
@@ -109,7 +113,7 @@ async function run() {
   console.log('\n2. Autenticacion')
   const loginRes = await request('POST', '/api/auth/login', {
     username: 'mcayo',
-    password: '4852264',
+    password: process.env.ADMIN_PASSWORD || '4852264',
   })
   debug('login', loginRes)
   assert('Login exitoso', loginRes.status === 200, `status=${loginRes.status}`)
@@ -125,6 +129,15 @@ async function run() {
     cleanup()
     return
   }
+
+  // ─── 2.5. AUTH LOGOUT ───
+  console.log('\n2.5. Logout y re-autenticación')
+  const logoutRes = await request('POST', '/api/auth/logout', {}, TOKEN)
+  assert('Logout endpoint responde', logoutRes.status === 200, `status=${logoutRes.status}`)
+
+  // Verificar que el token aún funciona (el logout solo limpia cookie, no invalida token)
+  const meAfterLogout = await request('GET', '/api/auth/me', null, TOKEN)
+  assert('Token sigue válido tras logout', meAfterLogout.status === 200)
 
   // ─── 3. BRIGADAS ───
   console.log('\n3. CRUD Brigadas')
@@ -174,6 +187,91 @@ async function run() {
     assert('Brigada eliminada no aparece', getDeleted.status === 404)
   } else {
     console.log('    Saltando tests de brigada por falta de ID')
+  }
+
+  // ─── 3.5. BOLETAS CRUD ───
+  console.log('\n3.5. CRUD Boletas')
+
+  // Obtener una brigada real para la prueba
+  const brigadaTest = Array.isArray((await request('GET', '/api/brigadas', null, TOKEN)).body)
+    ? (await request('GET', '/api/brigadas', null, TOKEN)).body[0]
+    : null
+
+  if (brigadaTest) {
+    const boletaData = {
+      departamento: brigadaTest.departamento,
+      brigada: brigadaTest.nombre,
+      folio: 'TESTFOLIO000001',
+      upm: 'TESTUPM00000000001',
+      semana: 4,
+      visita: 1,
+      panel: 'PANEL 46',
+      incidencia: '1: ENTREVISTA COMPLETA',
+    }
+
+    // Crear boleta
+    const crearBoleta = await request('POST', '/api/boletas', boletaData, TOKEN)
+    debug('crearBoleta', crearBoleta)
+    assert('Crear boleta', crearBoleta.status === 200, `id=${crearBoleta.body.id}`)
+    const boletaId = crearBoleta.body.id
+
+    if (boletaId) {
+      // Listar boletas
+      const listBoletas = await request('GET', '/api/boletas?limit=10', null, TOKEN)
+      assert('Listar boletas', listBoletas.status === 200 && Array.isArray(listBoletas.body.data))
+      assert('Paginación presente', listBoletas.body.pagination && typeof listBoletas.body.pagination.total === 'number')
+
+      // Check folio duplicado
+      const checkFolio = await request('GET', '/api/boletas/check-folio?folio=TESTFOLIO000001', null, TOKEN)
+      assert('Detectar folio duplicado', checkFolio.status === 200 && checkFolio.body.exists === true)
+
+      // Actualizar boleta
+      const updateBoleta = await request('PUT', `/api/boletas/${boletaId}`, {
+        ...boletaData,
+        incidencia: '6: RECHAZO',
+        estadoBoleta: 'SIN OBSERVACION',
+      }, TOKEN)
+      assert('Actualizar boleta', updateBoleta.status === 200)
+
+      // Validar folio duplicado rechazado
+      const dupBoleta = await request('POST', '/api/boletas', boletaData, TOKEN)
+      assert('Rechazar folio duplicado en creación', dupBoleta.status === 409)
+
+      // Validar campos requeridos
+      const noFolio = await request('POST', '/api/boletas', { departamento: 'X', brigada: 'Y' }, TOKEN)
+      assert('Rechazar boleta sin folio', noFolio.status === 400)
+
+      // Validar week range
+      const badWeek = await request('POST', '/api/boletas', {
+        ...boletaData,
+        folio: 'OTROFOLIO000001',
+        semana: 99,
+      }, TOKEN)
+      assert('Rechazar semana inválida', badWeek.status === 400)
+
+      // Batch import
+      const batchData = [
+        { ...boletaData, folio: 'BATCHFOLIO00001' },
+        { ...boletaData, folio: 'BATCHFOLIO00002' },
+      ]
+      const batchRes = await request('POST', '/api/boletas/batch', batchData, TOKEN)
+      assert('Importación batch', batchRes.status === 200, `insertados=${batchRes.body.insertados}`)
+      assert('Batch inserta 2 registros', batchRes.body.insertados === 2)
+
+      // Batch evita duplicados
+      const batchDup = await request('POST', '/api/boletas/batch', batchData, TOKEN)
+      assert('Batch omite duplicados', batchDup.status === 200 && batchDup.body.omitidos === 2)
+
+      // Eliminar boleta de prueba
+      const delBoleta = await request('DELETE', `/api/boletas/${boletaId}`, null, TOKEN)
+      assert('Eliminar boleta', delBoleta.status === 200)
+
+      // Verificar eliminada
+      const checkFolioDel = await request('GET', '/api/boletas/check-folio?folio=TESTFOLIO000001', null, TOKEN)
+      assert('Boleta eliminada ya no existe en check', checkFolioDel.status === 200 && checkFolioDel.body.exists === false)
+    }
+  } else {
+    console.log('    Saltando tests de boletas - no hay brigadas disponibles')
   }
 
   // ─── 4. ENCUESTADORES ───
@@ -326,6 +424,73 @@ async function run() {
       encuestador_id: -1,
     }, TOKEN)
     assert('Eliminar asignación inexistente retorna 404', delNotExist.status === 404)
+  }
+
+  // ─── 5.5. GESTIÓN DE USUARIOS ───
+  console.log('\n5.5. Gestión de Usuarios')
+
+  // Listar usuarios
+  const listUsers = await request('GET', '/api/auth/users', null, TOKEN)
+  assert('Listar usuarios', listUsers.status === 200 && Array.isArray(listUsers.body))
+  const userCount = Array.isArray(listUsers.body) ? listUsers.body.length : 0
+  console.log(`    Usuarios existentes: ${userCount}`)
+
+  // Crear usuario de prueba
+  const crearUser = await request('POST', '/api/auth/register', {
+    username: 'testuser001',
+    password: 'Test123456',
+    departamento: 'SANTA CRUZ',
+    brigadas: ['Brigada 1'],
+    rol: 'usuarios',
+  }, TOKEN)
+  debug('crearUser', crearUser)
+  assert('Crear usuario', crearUser.status === 200, `id=${crearUser.body.id}`)
+  const newUserId = crearUser.body.id
+
+  // Verificar que aparece en la lista
+  const listUsersAfter = await request('GET', '/api/auth/users', null, TOKEN)
+  assert('Usuario aparece en lista', Array.isArray(listUsersAfter.body) && listUsersAfter.body.length === userCount + 1)
+
+  if (newUserId) {
+    // Actualizar usuario
+    const updateUser = await request('PUT', `/api/auth/users/${newUserId}`, {
+      username: 'testuser002',
+      departamento: 'SANTA CRUZ',
+      brigadas: ['Brigada 1', 'Brigada 2'],
+      rol: 'usuarios',
+    }, TOKEN)
+    assert('Actualizar usuario sin password', updateUser.status === 200)
+    assert('Nombre actualizado', updateUser.body.username === 'testuser002')
+
+    // Actualizar con password
+    const updateUserPwd = await request('PUT', `/api/auth/users/${newUserId}`, {
+      username: 'testuser003',
+      password: 'NewPass123456',
+      departamento: 'SANTA CRUZ',
+      brigadas: ['Brigada 1'],
+      rol: 'usuarios',
+    }, TOKEN)
+    assert('Actualizar usuario con password', updateUserPwd.status === 200)
+
+    // Validar username corto
+    const shortUser = await request('POST', '/api/auth/register', {
+      username: 'ab',
+      password: 'Test123456',
+    }, TOKEN)
+    assert('Rechazar username corto', shortUser.status === 400)
+
+    // Validar password corto
+    const shortPwd = await request('POST', '/api/auth/register', {
+      username: 'valido123',
+      password: '12345',
+    }, TOKEN)
+    assert('Rechazar password corto', shortPwd.status === 400)
+
+    // Eliminar usuario de prueba
+    const delUser = await request('DELETE', `/api/auth/users/${newUserId}`, null, TOKEN)
+    assert('Eliminar usuario', delUser.status === 200)
+    const listFinal = await request('GET', '/api/auth/users', null, TOKEN)
+    assert('Usuario eliminado de la lista', Array.isArray(listFinal.body) && listFinal.body.length === userCount)
   }
 
   // ─── 6. PERMISOS (sin token / sin rol admin) ───

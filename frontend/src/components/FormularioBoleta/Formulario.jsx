@@ -446,14 +446,20 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="cod-consolidado">Consolidada</label>
-            <input
+            <select
               id="cod-consolidado"
               className={inputClass}
-              type="text"
               value={formData.consolidada}
-              readOnly
-              disabled
-            />
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  consolidada: e.target.value,
+                }))
+              }
+            >
+              <option value="SI">SI</option>
+              <option value="NO">NO</option>
+            </select>
           </div>
         </div>
         <div className="flex gap-5 mx-5 mt-5 justify-center">

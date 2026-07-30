@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { login, saveToken } from './services/authService'
+import { login } from './services/authService'
 import ModalAlert from './components/ui/ModalAlert'
 import { useModal } from './hooks/useModal'
 
@@ -15,7 +15,6 @@ export default function Login({ onLogin }) {
 
     try {
       const data = await login(username, password)
-      saveToken(data.token)
       onLogin({
         id: data.user.id,
         user: data.user.username,

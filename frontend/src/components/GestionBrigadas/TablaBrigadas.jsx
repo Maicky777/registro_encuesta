@@ -148,7 +148,7 @@ export default function TablaBrigadas({
                       <div className="flex gap-1 justify-center">
                         {onEditar && (
                           <button
-                            className="bg-sky-50 text-sky-600 border border-sky-200 px-2.5 py-1 rounded text-[0.7rem] font-semibold cursor-pointer hover:bg-sky-100 transition-colors"
+                            className="bg-amber-50 text-amber-600 border border-amber-200 px-2.5 py-1 rounded text-[0.7rem] font-semibold cursor-pointer hover:bg-amber-100 transition-colors"
                             onClick={() => onEditar(b)}
                           >
                             Editar

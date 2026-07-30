@@ -1,4 +1,4 @@
-export const computeObservacionFields = (detalleObservaciones) => {
+function computeObservacionFields(detalleObservaciones) {
   const frases = (detalleObservaciones || '').split(';').filter((f) => f.trim().length > 0)
   const total = frases.length
   return {
@@ -8,3 +8,5 @@ export const computeObservacionFields = (detalleObservaciones) => {
     observacionBoleta: total > 0 ? 'NO ENVIADO' : '',
   }
 }
+
+module.exports = { computeObservacionFields }

@@ -8,6 +8,7 @@ function connectDB(dbPath) {
   const resolvedPath = dbPath || path.join(__dirname, '..', 'boletas.db')
   try {
     db = new Database(resolvedPath)
+    db.pragma('foreign_keys = ON')
     console.log('Conectado exitosamente a la base de datos SQLite')
   } catch (err) {
     console.error('Error al abrir la base de datos:', err.message)
@@ -203,6 +204,78 @@ function seedBrigadasYEncuestadores(database) {
   if (existingBrigadas.count > 0) return
 
   const BRIGADAS_DATA_SEED = {
+    'CHUQUISACA': [
+      { nombre: 'Brigada 1', encuestadores: [
+        { codigo: 'ece10101', nombre: 'Maria', telefono: '' },
+        { codigo: 'ece10102', nombre: 'Carlos', telefono: '' },
+        { codigo: 'ece10103', nombre: 'Rosa', telefono: '' },
+      ]},
+      { nombre: 'Brigada 2', encuestadores: [
+        { codigo: 'ece10201', nombre: 'Pedro', telefono: '' },
+        { codigo: 'ece10202', nombre: 'Ana', telefono: '' },
+        { codigo: 'ece10203', nombre: 'Luis', telefono: '' },
+      ]},
+    ],
+    'LA PAZ': [
+      { nombre: 'Brigada 1', encuestadores: [
+        { codigo: 'ece20101', nombre: 'Juan', telefono: '' },
+        { codigo: 'ece20102', nombre: 'Sofia', telefono: '' },
+        { codigo: 'ece20103', nombre: 'Marcos', telefono: '' },
+      ]},
+      { nombre: 'Brigada 2', encuestadores: [
+        { codigo: 'ece20201', nombre: 'Elena', telefono: '' },
+        { codigo: 'ece20202', nombre: 'Pablo', telefono: '' },
+        { codigo: 'ece20203', nombre: 'Carmen', telefono: '' },
+      ]},
+    ],
+    'COCHABAMBA': [
+      { nombre: 'Brigada 1', encuestadores: [
+        { codigo: 'ece30101', nombre: 'Victor', telefono: '' },
+        { codigo: 'ece30102', nombre: 'Lucia', telefono: '' },
+        { codigo: 'ece30103', nombre: 'Raul', telefono: '' },
+      ]},
+      { nombre: 'Brigada 2', encuestadores: [
+        { codigo: 'ece30201', nombre: 'Gloria', telefono: '' },
+        { codigo: 'ece30202', nombre: 'Hugo', telefono: '' },
+        { codigo: 'ece30203', nombre: 'Irene', telefono: '' },
+      ]},
+    ],
+    'ORURO': [
+      { nombre: 'Brigada 1', encuestadores: [
+        { codigo: 'ece40101', nombre: 'Mario', telefono: '' },
+        { codigo: 'ece40102', nombre: 'Nadia', telefono: '' },
+        { codigo: 'ece40103', nombre: 'Oscar', telefono: '' },
+      ]},
+      { nombre: 'Brigada 2', encuestadores: [
+        { codigo: 'ece40201', nombre: 'Patricia', telefono: '' },
+        { codigo: 'ece40202', nombre: 'Ramiro', telefono: '' },
+        { codigo: 'ece40203', nombre: 'Silvia', telefono: '' },
+      ]},
+    ],
+    'POTOSI': [
+      { nombre: 'Brigada 1', encuestadores: [
+        { codigo: 'ece50101', nombre: 'Teodoro', telefono: '' },
+        { codigo: 'ece50102', nombre: 'Ulises', telefono: '' },
+        { codigo: 'ece50103', nombre: 'Veronica', telefono: '' },
+      ]},
+      { nombre: 'Brigada 2', encuestadores: [
+        { codigo: 'ece50201', nombre: 'Walter', telefono: '' },
+        { codigo: 'ece50202', nombre: 'Ximena', telefono: '' },
+        { codigo: 'ece50203', nombre: 'Yuri', telefono: '' },
+      ]},
+    ],
+    'TARIJA': [
+      { nombre: 'Brigada 1', encuestadores: [
+        { codigo: 'ece60101', nombre: 'Zulema', telefono: '' },
+        { codigo: 'ece60102', nombre: 'Adrian', telefono: '' },
+        { codigo: 'ece60103', nombre: 'Beatriz', telefono: '' },
+      ]},
+      { nombre: 'Brigada 2', encuestadores: [
+        { codigo: 'ece60201', nombre: 'Claudio', telefono: '' },
+        { codigo: 'ece60202', nombre: 'Diana', telefono: '' },
+        { codigo: 'ece60203', nombre: 'Esteban', telefono: '' },
+      ]},
+    ],
     'SANTA CRUZ': [
       { nombre: 'Brigada 1', encuestadores: [
         { codigo: 'ece70101', nombre: 'Griselda', telefono: '' },
@@ -218,6 +291,30 @@ function seedBrigadasYEncuestadores(database) {
         { codigo: 'ece70701', nombre: 'Cristian', telefono: '' },
         { codigo: 'ece70702', nombre: 'Jesica', telefono: '' },
         { codigo: 'ece70703', nombre: 'Sulmian', telefono: '' },
+      ]},
+    ],
+    'BENI': [
+      { nombre: 'Brigada 1', encuestadores: [
+        { codigo: 'ece80101', nombre: 'Fabiola', telefono: '' },
+        { codigo: 'ece80102', nombre: 'Gaston', telefono: '' },
+        { codigo: 'ece80103', nombre: 'Helena', telefono: '' },
+      ]},
+      { nombre: 'Brigada 2', encuestadores: [
+        { codigo: 'ece80201', nombre: 'Ignacio', telefono: '' },
+        { codigo: 'ece80202', nombre: 'Julia', telefono: '' },
+        { codigo: 'ece80203', nombre: 'Kevin', telefono: '' },
+      ]},
+    ],
+    'PANDO': [
+      { nombre: 'Brigada 1', encuestadores: [
+        { codigo: 'ece90101', nombre: 'Laura', telefono: '' },
+        { codigo: 'ece90102', nombre: 'Miguel', telefono: '' },
+        { codigo: 'ece90103', nombre: 'Nora', telefono: '' },
+      ]},
+      { nombre: 'Brigada 2', encuestadores: [
+        { codigo: 'ece90201', nombre: 'Omar', telefono: '' },
+        { codigo: 'ece90202', nombre: 'Paola', telefono: '' },
+        { codigo: 'ece90203', nombre: 'Rene', telefono: '' },
       ]},
     ],
   }
@@ -256,6 +353,10 @@ function seedDefaultUser(database) {
     console.error('ADMIN_PASSWORD no está definido en .env. Saltando seed de usuario admin.')
     return
   }
+  if (adminPassword.length < 8) {
+    console.error('ADMIN_PASSWORD debe tener al menos 8 caracteres. Saltando seed de usuario admin.')
+    return
+  }
   const existingUser = database.prepare('SELECT id, rol FROM usuarios WHERE username = ?').get(adminUser)
   if (!existingUser) {
     const allDeps = database.prepare('SELECT DISTINCT departamento FROM brigadas ORDER BY departamento').all().map((r) => r.departamento)
@@ -266,7 +367,16 @@ function seedDefaultUser(database) {
     ).run(adminUser, hashedPassword, JSON.stringify(allDeps), JSON.stringify(allBrigadas), 'administrador')
     console.log(`Usuario administrador "${adminUser}" creado con acceso a todos los departamentos y brigadas`)
   } else {
-    console.log(`Usuario "${adminUser}" ya existe. Saltando seed (para resetear, elimina el usuario primero).`)
+    // Asegurar que el admin tenga el rol correcto y acceso a todos los departamentos/brigadas
+    if (existingUser.rol !== 'administrador') {
+      const allDeps = database.prepare('SELECT DISTINCT departamento FROM brigadas ORDER BY departamento').all().map((r) => r.departamento)
+      const allBrigadas = database.prepare('SELECT DISTINCT nombre FROM brigadas ORDER BY nombre').all().map((r) => r.nombre)
+      database.prepare('UPDATE usuarios SET rol = ?, departamento = ?, brigadas = ? WHERE id = ?')
+        .run('administrador', JSON.stringify(allDeps), JSON.stringify(allBrigadas), existingUser.id)
+      console.log(`Usuario "${adminUser}" actualizado a administrador con acceso completo.`)
+    } else {
+      console.log(`Usuario "${adminUser}" ya existe con rol administrador.`)
+    }
   }
 }
 
@@ -285,4 +395,4 @@ function getDB() {
   return db
 }
 
-module.exports = { connectDB, runMigrations, seedDefaultUser, initDatabase, getDB }
+module.exports = { initDatabase, getDB }
