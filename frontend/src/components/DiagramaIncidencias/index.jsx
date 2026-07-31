@@ -5,13 +5,36 @@ import { useModal } from '../../hooks/useModal'
 import ModalAlert from '../ui/ModalAlert'
 import { INCIDENCIAS, INCIDENCIA_COMPLETA } from '../../utils/constants'
 import ExcelJS from 'exceljs/dist/exceljs.min.js'
+import {
+  GraficoLineas,
+  GraficoBarras,
+  GraficoRadar,
+  GraficoEvolucionUsuario,
+} from './graficos'
 
 const SEMANA_MIN = 1
 const SEMANA_MAX = 13
 
 const BASE_ROJO = [239, 68, 68]
-const BASE_AZUL = [59, 130, 246]
 const BASE_VERDE = [34, 197, 94]
+
+const PALETA = [
+  '#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0d9488',
+  '#db2777', '#4f46e5', '#0ea5e9', '#65a30d', '#e11d48', '#854d0e',
+  '#9333ea', '#ca8a04', '#0891b2', '#be185d',
+]
+
+const TIPOS_GRAFICO = [
+  { value: 'linea', label: 'Líneas' },
+  { value: 'barrasApiladas', label: 'Barras apiladas' },
+  { value: 'barrasAgrupadas', label: 'Barras agrupadas' },
+  { value: 'radar', label: 'Radar' },
+]
+
+const opcionesSemanas = Array.from(
+  { length: SEMANA_MAX - SEMANA_MIN + 1 },
+  (_, i) => SEMANA_MIN + i,
+)
 
 function colorScale(value, max, base = BASE_ROJO) {
   if (!value || value <= 0 || !max) {
@@ -35,7 +58,14 @@ export default function DiagramaIncidencias({ sessionUser }) {
   const [usuarioSel, setUsuarioSel] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [vista, setVista] = useState('usuario')
-  const [excluirCompleta, setExcluirCompleta] = useState(true)
+  const [agruparPor, setAgruparPor] = useState('usuario')
+  const [tipoGrafico, setTipoGrafico] = useState('linea')
+  const [incidenciasActivas, setIncidenciasActivas] = useState(() =>
+    INCIDENCIAS.filter((inc) => inc !== INCIDENCIA_COMPLETA),
+  )
+  const [ocultos, setOcultos] = useState(() => new Set())
+  const [semanaInicio, setSemanaInicio] = useState(SEMANA_MIN)
+  const [semanaFin, setSemanaFin] = useState(SEMANA_MAX)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -89,7 +119,12 @@ export default function DiagramaIncidencias({ sessionUser }) {
     return list
   }, [data, departamento, brigada])
 
-  const semanas = useMemo(() => data?.semanas || [], [data])
+  const semanas = useMemo(() => {
+    if (!data) return []
+    const min = Math.min(semanaInicio, semanaFin)
+    const max = Math.max(semanaInicio, semanaFin)
+    return data.semanas.filter((s) => s >= min && s <= max)
+  }, [data, semanaInicio, semanaFin])
 
   const getCount = useCallback(
     (usuario, incidencia, semana) => {
@@ -99,17 +134,22 @@ export default function DiagramaIncidencias({ sessionUser }) {
     [data],
   )
 
+  const esIncidenciaActiva = useCallback(
+    (inc) => incidenciasActivas.includes(inc),
+    [incidenciasActivas],
+  )
+
   const getUsuarioTotalSemana = useCallback(
     (usuario, semana) => {
       if (!data || !data.data[usuario]) return 0
       let total = 0
       for (const inc of INCIDENCIAS) {
-        if (excluirCompleta && inc === INCIDENCIA_COMPLETA) continue
+        if (!esIncidenciaActiva(inc)) continue
         total += data.data[usuario][inc]?.[semana] || 0
       }
       return total
     },
-    [data, excluirCompleta],
+    [data, esIncidenciaActiva],
   )
 
   const getUsuarioTotalIncidencia = useCallback(
@@ -136,16 +176,6 @@ export default function DiagramaIncidencias({ sessionUser }) {
     [data, semanas],
   )
 
-  const maxUsuarioSemana = useMemo(() => {
-    let max = 0
-    for (const u of usuarios) {
-      for (const s of semanas) {
-        max = Math.max(max, getUsuarioTotalSemana(u.usuario, s))
-      }
-    }
-    return max
-  }, [usuarios, semanas, getUsuarioTotalSemana])
-
   const maxIncidenciaSemana = useMemo(() => {
     let max = 0
     for (const inc of INCIDENCIAS) {
@@ -160,12 +190,12 @@ export default function DiagramaIncidencias({ sessionUser }) {
     (semana) => {
       let total = 0
       for (const inc of INCIDENCIAS) {
-        if (excluirCompleta && inc === INCIDENCIA_COMPLETA) continue
+        if (!esIncidenciaActiva(inc)) continue
         total += getCount(usuarioSel, inc, semana)
       }
       return total
     },
-    [usuarioSel, getCount, excluirCompleta],
+    [usuarioSel, getCount, esIncidenciaActiva],
   )
 
   const totalMaxSemanaIncidencia = useMemo(() => {
@@ -190,16 +220,156 @@ export default function DiagramaIncidencias({ sessionUser }) {
     return data?.usuarios.find((u) => u.usuario === usuarioSel) || null
   }, [data, usuarioSel])
 
-  const evolucionSemanal = useMemo(() => {
-    if (!usuarioSel) return []
-    return semanas.map((s) => ({ semana: s, total: getUsuarioTotalSemana(usuarioSel, s) }))
-  }, [semanas, usuarioSel, getUsuarioTotalSemana])
+  const series = useMemo(() => {
+    const grupos = []
+    if (!data) return grupos
+    if (agruparPor === 'usuario') {
+      for (const u of usuariosFiltrados) {
+        grupos.push({
+          key: u.usuario,
+          label: u.usuario,
+          sub: u.nombre || u.departamento || u.brigada || '',
+        })
+      }
+    } else if (agruparPor === 'departamento') {
+      const map = new Map()
+      for (const u of usuarios) {
+        const k = u.departamento || 'SIN DEPARTAMENTO'
+        if (!map.has(k)) map.set(k, [])
+        map.get(k).push(u)
+      }
+      for (const [k, list] of Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+        grupos.push({ key: k, label: k, sub: `${list.length} usuario(s)`, grupo: list })
+      }
+    } else if (agruparPor === 'brigada') {
+      const map = new Map()
+      for (const u of usuarios) {
+        const k = u.brigada || 'SIN BRIGADA'
+        if (!map.has(k)) map.set(k, [])
+        map.get(k).push(u)
+      }
+      for (const [k, list] of Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+        grupos.push({ key: k, label: k, sub: `${list.length} usuario(s)`, grupo: list })
+      }
+    } else if (agruparPor === 'incidencia') {
+      for (const inc of INCIDENCIAS) {
+        if (!esIncidenciaActiva(inc)) continue
+        grupos.push({ key: inc, label: inc, sub: '' })
+      }
+    }
+    return grupos
+  }, [data, agruparPor, usuarios, usuariosFiltrados, esIncidenciaActiva])
 
-  const maxEvolucion = useMemo(() => {
-    let max = 0
-    for (const e of evolucionSemanal) max = Math.max(max, e.total)
-    return max
-  }, [evolucionSemanal])
+  const seriesConColor = useMemo(
+    () => series.map((s, idx) => ({ ...s, color: s.color || PALETA[idx % PALETA.length] })),
+    [series],
+  )
+
+  const totalesPorSerie = useMemo(() => {
+    const map = {}
+    for (const serie of series) {
+      map[serie.key] = {}
+      for (const s of semanas) {
+        let total = 0
+        if (agruparPor === 'incidencia') {
+          for (const u of usuarios) total += getCount(u.usuario, serie.key, s)
+        } else if (agruparPor === 'usuario') {
+          total = getUsuarioTotalSemana(serie.key, s)
+        } else {
+          for (const u of serie.grupo) total += getUsuarioTotalSemana(u.usuario, s)
+        }
+        map[serie.key][s] = total
+      }
+    }
+    return map
+  }, [series, agruparPor, usuarios, semanas, getCount, getUsuarioTotalSemana])
+
+  const seriesTotales = useMemo(() => {
+    const map = {}
+    for (const serie of series) {
+      let total = 0
+      for (const s of semanas) total += totalesPorSerie[serie.key]?.[s] || 0
+      map[serie.key] = total
+    }
+    return map
+  }, [series, totalesPorSerie, semanas])
+
+  const seriesIncidenciaUsuario = useMemo(() => {
+    return INCIDENCIAS.filter((inc) => esIncidenciaActiva(inc)).map((inc) => ({
+      key: inc,
+      label: inc,
+      color: PALETA[INCIDENCIAS.indexOf(inc) % PALETA.length],
+    }))
+  }, [esIncidenciaActiva])
+
+  const totalesIncidenciaUsuario = useMemo(() => {
+    const map = {}
+    for (const inc of INCIDENCIAS) {
+      if (!esIncidenciaActiva(inc)) continue
+      map[inc] = {}
+      for (const s of semanas) map[inc][s] = getCount(usuarioSel, inc, s)
+    }
+    return map
+  }, [esIncidenciaActiva, usuarioSel, semanas, getCount])
+
+  const totalesSemanaUsuario = useMemo(() => {
+    const map = {}
+    for (const s of semanas) map[s] = totalSemanaIncidencia(s)
+    return map
+  }, [semanas, totalSemanaIncidencia])
+
+  const completasSemanaUsuario = useMemo(() => {
+    const map = {}
+    for (const s of semanas) map[s] = getCount(usuarioSel, INCIDENCIA_COMPLETA, s)
+    return map
+  }, [semanas, usuarioSel, getCount])
+
+  const cambiarAgrupar = (value) => {
+    setAgruparPor(value)
+    setOcultos(new Set())
+  }
+
+  const toggleSerie = useCallback((key) => {
+    setOcultos((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
+  const toggleIncidencia = (inc) => {
+    setIncidenciasActivas((prev) =>
+      prev.includes(inc) ? prev.filter((i) => i !== inc) : [...prev, inc],
+    )
+  }
+
+  const toggleTodasIncidencias = () => {
+    setIncidenciasActivas((prev) => (prev.length === INCIDENCIAS.length ? [] : [...INCIDENCIAS]))
+  }
+
+  const todasActivas = incidenciasActivas.length === INCIDENCIAS.length
+
+  const seleccionarPunto = useCallback(
+    (key) => {
+      if (agruparPor === 'usuario') {
+        setUsuarioSel(key)
+        setVista('incidencia')
+      } else if (agruparPor === 'departamento') {
+        setDepartamento(departamento === key ? '' : key)
+      }
+    },
+    [agruparPor, departamento],
+  )
+
+  const tituloGrafica = {
+    usuario: 'Evolución semanal de incidencias por usuario',
+    departamento: 'Evolución semanal de incidencias por departamento',
+    brigada: 'Evolución semanal de incidencias por brigada',
+    incidencia: 'Evolución semanal por tipo de incidencia',
+  }[agruparPor]
+
+  const mostrarValores = series.length * semanas.length <= 40
 
   const exportarExcel = async () => {
     if (!data || usuarios.length === 0) {
@@ -303,23 +473,58 @@ export default function DiagramaIncidencias({ sessionUser }) {
           </div>
           <div className="flex flex-col">
             <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
-              Semanas
+              Semana inicial
             </label>
-            <span className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-slate-50 text-slate-600">
-              S{SEMANA_MIN} a S{SEMANA_MAX}
-            </span>
+            <select
+              className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white min-w-[110px]"
+              value={semanaInicio}
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                setSemanaInicio(n)
+                if (n > semanaFin) setSemanaFin(n)
+              }}
+            >
+              {opcionesSemanas.map((s) => (
+                <option key={s} value={s}>
+                  S{s}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="flex items-center gap-1.5 py-1.5">
-            <input
-              id="excluir-completa"
-              type="checkbox"
-              className="accent-blue-600 w-4 h-4 cursor-pointer"
-              checked={excluirCompleta}
-              onChange={(e) => setExcluirCompleta(e.target.checked)}
-            />
-            <label htmlFor="excluir-completa" className="text-xs font-medium text-slate-600 cursor-pointer">
-              Excluir ENTREVISTA COMPLETA (1)
+          <div className="flex flex-col">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+              Semana final
             </label>
+            <select
+              className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white min-w-[110px]"
+              value={semanaFin}
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                setSemanaFin(n)
+                if (n < semanaInicio) setSemanaInicio(n)
+              }}
+            >
+              {opcionesSemanas.map((s) => (
+                <option key={s} value={s}>
+                  S{s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+              Agrupar por
+            </label>
+            <select
+              className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white min-w-[170px]"
+              value={agruparPor}
+              onChange={(e) => cambiarAgrupar(e.target.value)}
+            >
+              <option value="usuario">Usuario</option>
+              <option value="departamento">Departamento</option>
+              <option value="brigada">Brigada</option>
+              <option value="incidencia">Tipo de incidencia</option>
+            </select>
           </div>
           <div className="flex flex-col ml-auto">
             <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
@@ -329,6 +534,43 @@ export default function DiagramaIncidencias({ sessionUser }) {
               {usuarios.length} en el filtro
             </span>
           </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center mt-3 pt-3 border-t border-slate-100">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase mr-1">
+            Incidencia(s)
+          </span>
+          <button
+            type="button"
+            className="text-[11px] font-semibold text-blue-600 hover:underline cursor-pointer"
+            onClick={toggleTodasIncidencias}
+          >
+            {todasActivas ? 'Ninguna' : 'Todas'}
+          </button>
+          {INCIDENCIAS.map((inc) => {
+            const activa = esIncidenciaActiva(inc)
+            const esCompleta = inc === INCIDENCIA_COMPLETA
+            return (
+              <label
+                key={inc}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] cursor-pointer select-none transition-colors ${
+                  activa
+                    ? esCompleta
+                      ? 'bg-green-50 border-green-300 text-green-800'
+                      : 'bg-red-50 border-red-300 text-red-700'
+                    : 'bg-slate-100 border-slate-200 text-slate-400'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="accent-blue-600 w-3.5 h-3.5 cursor-pointer"
+                  checked={activa}
+                  onChange={() => toggleIncidencia(inc)}
+                />
+                {inc}
+              </label>
+            )
+          })}
         </div>
 
         <div className="flex flex-wrap gap-2 items-center mt-4 border-t border-slate-100 pt-3">
@@ -341,7 +583,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
               }`}
               onClick={() => setVista('usuario')}
             >
-              Matriz por Usuario
+              Gráfica por Usuario
             </button>
             <button
               className={`px-4 py-1.5 text-xs font-semibold cursor-pointer border-none transition-colors ${
@@ -388,99 +630,147 @@ export default function DiagramaIncidencias({ sessionUser }) {
           {vista === 'usuario' && (
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center gap-3">
-                <h3 className="text-sm font-semibold text-slate-800">
-                  Matriz de comportamiento por usuario (total de incidencias por semana)
-                </h3>
-                <input
-                  type="text"
-                  className="ml-auto border border-slate-300 rounded px-3 py-1.5 text-xs w-56"
-                  placeholder="Buscar usuario o nombre..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                />
+                <h3 className="text-sm font-semibold text-slate-800">{tituloGrafica}</h3>
+                <span className="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2.5 py-1 rounded">
+                  Rango: S{semanaInicio} a S{semanaFin}
+                </span>
+                <div className="flex border border-slate-200 rounded-lg overflow-hidden">
+                  {TIPOS_GRAFICO.map((t) => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      className={`px-3 py-1.5 text-[11px] font-semibold cursor-pointer border-none transition-colors ${
+                        tipoGrafico === t.value
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-slate-600 hover:bg-slate-100'
+                      }`}
+                      onClick={() => setTipoGrafico(t.value)}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                {agruparPor === 'usuario' && (
+                  <input
+                    type="text"
+                    className="ml-auto border border-slate-300 rounded px-3 py-1.5 text-xs w-56"
+                    placeholder="Buscar usuario o nombre..."
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                  />
+                )}
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-800 text-white">
-                      <th className="border border-slate-700 px-1.5 py-1 text-xs align-middle w-8">#</th>
-                      <th className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[90px]">USUARIO</th>
-                      <th className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[120px]">NOMBRE</th>
-                      <th className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[110px]">DEPARTAMENTO</th>
-                      <th className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[80px]">BRIGADA</th>
-                      {semanas.map((s) => (
-                        <th
-                          key={s}
-                          className="border border-slate-700 px-1 py-1 text-[10px] align-middle bg-blue-800 min-w-[34px]"
-                        >
-                          S{s}
-                        </th>
-                      ))}
-                      <th className="border border-slate-700 px-1.5 py-1 text-xs align-middle bg-slate-900 min-w-[60px]">TOTAL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usuariosFiltrados.length === 0 ? (
-                      <tr>
-                        <td colSpan={5 + semanas.length + 1} className="text-center py-10 text-slate-400 text-sm">
-                          No hay usuarios con boletas registradas para los filtros seleccionados.
-                        </td>
-                      </tr>
-                    ) : (
-                      usuariosFiltrados.map((u, idx) => {
-                        const total = getUsuarioGranTotal(u.usuario)
-                        return (
-                          <tr key={u.usuario} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                            <td className="border border-slate-200 px-1.5 py-1 text-xs text-center font-mono">{idx + 1}</td>
-                            <td
-                              className="border border-slate-200 px-1.5 py-1 text-xs font-mono text-blue-700 cursor-pointer hover:underline whitespace-nowrap"
-                              title="Ver detalle por incidencia"
-                              onClick={() => {
-                                setUsuarioSel(u.usuario)
-                                setVista('incidencia')
-                              }}
-                            >
-                              {u.usuario}
-                            </td>
-                            <td className="border border-slate-200 px-1.5 py-1 text-xs whitespace-nowrap">{u.nombre || '-'}</td>
-                            <td className="border border-slate-200 px-1.5 py-1 text-xs whitespace-nowrap">{u.departamento || '-'}</td>
-                            <td className="border border-slate-200 px-1.5 py-1 text-xs text-center whitespace-nowrap">{u.brigada || '-'}</td>
-                            {semanas.map((s) => {
-                              const v = getUsuarioTotalSemana(u.usuario, s)
-                              const cs = colorScale(v, maxUsuarioSemana, BASE_AZUL)
-                              return (
-                                <td
-                                  key={s}
-                                  className="border border-slate-200 px-1 py-1 text-[11px] text-center font-mono"
-                                  style={{ backgroundColor: cs.bg, color: cs.fg }}
-                                >
-                                  {v || ''}
-                                </td>
-                              )
-                            })}
-                            <td className="border border-slate-200 px-1.5 py-1 text-xs text-center font-bold bg-slate-100">
-                              {total}
-                            </td>
-                          </tr>
-                        )
-                      })
+              {series.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 text-sm">
+                  No hay series para mostrar con los filtros seleccionados.
+                </div>
+              ) : (
+                <div className="relative p-4">
+                  <div className="h-[400px]">
+                    {tipoGrafico === 'linea' && (
+                      <GraficoLineas
+                        semanas={semanas}
+                        series={seriesConColor}
+                        totales={totalesPorSerie}
+                        ocultos={ocultos}
+                        onSelect={
+                          agruparPor === 'usuario' || agruparPor === 'departamento'
+                            ? seleccionarPunto
+                            : undefined
+                        }
+                        mostrarValores={mostrarValores}
+                      />
                     )}
-                  </tbody>
-                </table>
-              </div>
-              {usuariosFiltrados.length > 0 && (
-                <div className="px-3 py-2 border-t border-slate-200 bg-slate-50 flex gap-4 text-[10px] text-slate-500">
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: `rgba(${BASE_AZUL.join(', ')}, 0.3)` }}></span>
-                    Baja
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: `rgba(${BASE_AZUL.join(', ')}, 0.9)` }}></span>
-                    Alta
-                  </span>
-                  <span>Click en un usuario para ver el detalle por incidencia.</span>
+                    {tipoGrafico === 'barrasApiladas' && (
+                      <GraficoBarras
+                        semanas={semanas}
+                        series={seriesConColor}
+                        totales={totalesPorSerie}
+                        ocultos={ocultos}
+                        stacked
+                        onSelect={
+                          agruparPor === 'usuario' || agruparPor === 'departamento'
+                            ? seleccionarPunto
+                            : undefined
+                        }
+                      />
+                    )}
+                    {tipoGrafico === 'barrasAgrupadas' && (
+                      <GraficoBarras
+                        semanas={semanas}
+                        series={seriesConColor}
+                        totales={totalesPorSerie}
+                        ocultos={ocultos}
+                        onSelect={
+                          agruparPor === 'usuario' || agruparPor === 'departamento'
+                            ? seleccionarPunto
+                            : undefined
+                        }
+                      />
+                    )}
+                    {tipoGrafico === 'radar' && (
+                      <GraficoRadar
+                        semanas={semanas}
+                        series={seriesConColor}
+                        totales={totalesPorSerie}
+                        ocultos={ocultos}
+                      />
+                    )}
+                  </div>
+                  <div className="absolute top-4 right-4 max-h-[300px] overflow-y-auto bg-white/95 border border-slate-200 rounded-lg shadow-sm p-2 z-10 w-72">
+                    <div className="flex items-center justify-between px-1 pb-1 border-b border-slate-100 mb-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Leyenda</span>
+                      <button
+                        type="button"
+                        className="text-[10px] font-semibold text-blue-600 hover:underline cursor-pointer"
+                        onClick={() => setOcultos(new Set())}
+                      >
+                        Mostrar todas
+                      </button>
+                    </div>
+                    {seriesConColor.map((serie) => {
+                      const color = serie.color
+                      const oculto = ocultos.has(serie.key)
+                      return (
+                        <button
+                          key={serie.key}
+                          type="button"
+                          className={`w-full flex items-center gap-2 px-1.5 py-1 rounded text-left text-[11px] cursor-pointer transition-colors ${
+                            oculto ? 'opacity-50 hover:opacity-80' : 'hover:bg-slate-100'
+                          }`}
+                          onClick={() => toggleSerie(serie.key)}
+                          title="Clic para mostrar/ocultar esta serie"
+                        >
+                          <span
+                            className="inline-block w-3 h-1 rounded-sm shrink-0"
+                            style={{ backgroundColor: oculto ? '#cbd5e1' : color }}
+                          ></span>
+                          <span
+                            className={`truncate flex-1 ${oculto ? 'line-through text-slate-400' : 'text-slate-700'}`}
+                            title={serie.sub ? `${serie.label} — ${serie.sub}` : serie.label}
+                          >
+                            {serie.label}
+                          </span>
+                          <span className="font-mono font-semibold text-slate-800 shrink-0">
+                            {seriesTotales[serie.key] ?? 0}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
+              <div className="px-4 py-2 border-t border-slate-100 bg-slate-50 text-[10px] text-slate-500 flex flex-wrap gap-x-4 gap-y-1">
+                <span>Eje X: semanas · Eje Y: total de incidencias</span>
+                <span>Click en la leyenda para mostrar/ocultar series</span>
+                <span>Cambia entre líneas, barras apiladas/agrupadas y radar</span>
+                {agruparPor === 'usuario' && (
+                  <span>Click en un punto/barra para ver el detalle por incidencia</span>
+                )}
+                {agruparPor === 'departamento' && (
+                  <span>Click en un punto/barra para filtrar por departamento</span>
+                )}
+              </div>
             </div>
           )}
 
@@ -522,7 +812,9 @@ export default function DiagramaIncidencias({ sessionUser }) {
                     <div className="px-4 py-3 border-b border-slate-200">
                       <h3 className="text-sm font-semibold text-slate-800">
                         Incidencias por semana — {usuarioSel}
-                        {excluirCompleta ? ' (sin ENTREVISTA COMPLETA)' : ''}
+                        <span className="text-[11px] font-normal text-slate-500">
+                          ({incidenciasActivas.length} de {INCIDENCIAS.length} incidencias activas)
+                        </span>
                       </h3>
                     </div>
                     <div className="overflow-x-auto">
@@ -542,10 +834,11 @@ export default function DiagramaIncidencias({ sessionUser }) {
                           {INCIDENCIAS.map((inc, idx) => {
                             const totalInc = getUsuarioTotalIncidencia(usuarioSel, inc)
                             const esCompleta = inc === INCIDENCIA_COMPLETA
+                            const activa = esIncidenciaActiva(inc)
                             return (
                               <tr
                                 key={inc}
-                                className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'} ${esCompleta ? 'opacity-60' : ''}`}
+                                className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'} ${activa ? '' : 'opacity-50'}`}
                               >
                                 <td className="border border-slate-200 px-1.5 py-1 text-xs align-middle">
                                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${esCompleta ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -607,22 +900,29 @@ export default function DiagramaIncidencias({ sessionUser }) {
 
                   <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
                     <h3 className="text-sm font-semibold text-slate-800 mb-4">
-                      Diagrama de evolución semanal — {usuarioSel}
+                      Evolución semanal (incidencias vs. entrevistas completas) — {usuarioSel}
                     </h3>
-                    <div className="flex items-end gap-1 h-44 px-2">
-                      {evolucionSemanal.map((e) => {
-                        const pct = maxEvolucion ? (e.total / maxEvolucion) * 100 : 0
-                        return (
-                          <div key={e.semana} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                            <span className="text-[10px] font-semibold text-slate-600">{e.total || ''}</span>
-                            <div
-                              className="w-full rounded-t bg-blue-600 transition-all"
-                              style={{ height: `${Math.max(pct, 2)}%` }}
-                            ></div>
-                            <span className="text-[9px] text-slate-400">S{e.semana}</span>
-                          </div>
-                        )
-                      })}
+                    <div className="h-[320px]">
+                      <GraficoEvolucionUsuario
+                        semanas={semanas}
+                        totalesSemana={totalesSemanaUsuario}
+                        completasSemana={completasSemanaUsuario}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
+                    <h3 className="text-sm font-semibold text-slate-800 mb-4">
+                      Incidencias por semana (apiladas) — {usuarioSel}
+                    </h3>
+                    <div className="h-[320px]">
+                      <GraficoBarras
+                        semanas={semanas}
+                        series={seriesIncidenciaUsuario}
+                        totales={totalesIncidenciaUsuario}
+                        ocultos={ocultos}
+                        stacked
+                      />
                     </div>
                   </div>
                 </>

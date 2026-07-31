@@ -5,6 +5,7 @@ import { getEncuestadoresByBrigada } from '../services/encuestadorService'
 export const useAsignaciones = (departamento, brigadasPermitidas, rol) => {
   const [brigadas, setBrigadas] = useState([])
   const [encuestadores, setEncuestadores] = useState([])
+  const [encuestadoresBrigada, setEncuestadoresBrigada] = useState('')
   const [loadingBrigadas, setLoadingBrigadas] = useState(true)
   const [loadingEncuestadores, setLoadingEncuestadores] = useState(false)
   const [brigadaMap, setBrigadaMap] = useState({})
@@ -52,6 +53,7 @@ export const useAsignaciones = (departamento, brigadasPermitidas, rol) => {
 
         if (filtradas.length > 0 && !cancelled) {
           const primeraBrigada = filtradas[0]
+          setEncuestadoresBrigada(primeraBrigada.nombre)
           setLoadingEncuestadores(true)
           try {
             const encData = await getEncuestadoresByBrigada(primeraBrigada.id)
@@ -74,8 +76,10 @@ export const useAsignaciones = (departamento, brigadasPermitidas, rol) => {
     const brigadaId = brigadaMap[brigadaNombre]
     if (!brigadaId) {
       setEncuestadores([])
+      setEncuestadoresBrigada(brigadaNombre)
       return
     }
+    setEncuestadoresBrigada(brigadaNombre)
     setLoadingEncuestadores(true)
     try {
       const data = await getEncuestadoresByBrigada(brigadaId)
@@ -90,6 +94,7 @@ export const useAsignaciones = (departamento, brigadasPermitidas, rol) => {
   return {
     brigadas,
     encuestadores,
+    encuestadoresBrigada,
     loadingBrigadas,
     loadingEncuestadores,
     fetchEncuestadores,

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { INCIDENCIAS } from '../../utils/constants'
 import {
   calcularPanel,
@@ -60,6 +60,8 @@ export default function FormularioBoleta({ sessionUser }) {
   const {
     brigadas,
     encuestadores,
+    encuestadoresBrigada,
+    loadingEncuestadores,
     fetchEncuestadores,
     departments,
     selectedDepartamento,
@@ -190,29 +192,37 @@ export default function FormularioBoleta({ sessionUser }) {
   const handleUsuarioEncuestadorChange = useCallback(
     (userSel) => {
       const encDB = encuestadores.find((e) => e.codigo === userSel)
+      if (userSel && !encDB) {
+        showAlert(
+          'El encuestador seleccionado no pertenece a la brigada actual. Seleccione la brigada correcta.',
+          'warning',
+        )
+      }
       setFormData((prev) => ({
         ...prev,
-        usuarioEncuestador: userSel,
+        usuarioEncuestador: encDB ? userSel : '',
         nombreEncuestador: encDB?.nombre || '',
         encuestador_id: encDB?.encuestador_id || '',
       }))
     },
-    [encuestadores],
+    [encuestadores, showAlert],
   )
 
-  const handleBrigadaChange = useCallback(
-    async (brigadaNombre) => {
-      await fetchEncuestadores(brigadaNombre)
-      setFormData((prev) => ({
-        ...prev,
-        brigada: brigadaNombre,
-        usuarioEncuestador: '',
-        nombreEncuestador: '',
-        encuestador_id: '',
-      }))
-    },
-    [fetchEncuestadores],
-  )
+  const handleBrigadaChange = useCallback((brigadaNombre) => {
+    setFormData((prev) => ({
+      ...prev,
+      brigada: brigadaNombre,
+      usuarioEncuestador: '',
+      nombreEncuestador: '',
+      encuestador_id: '',
+    }))
+  }, [])
+
+  useEffect(() => {
+    if (formData.brigada && encuestadoresBrigada !== formData.brigada) {
+      fetchEncuestadores(formData.brigada)
+    }
+  }, [formData.brigada, encuestadoresBrigada, fetchEncuestadores])
 
   const handleDepartamentoChange = useCallback(
     (newDept) => {
@@ -246,6 +256,19 @@ export default function FormularioBoleta({ sessionUser }) {
         'error',
       )
       return
+    }
+
+    if (!loadingEncuestadores && formData.usuarioEncuestador) {
+      const encActual = encuestadores.find(
+        (e) => e.codigo === formData.usuarioEncuestador,
+      )
+      if (!encActual) {
+        showAlert(
+          'El encuestador seleccionado no pertenece a la brigada seleccionada. Verifique la brigada antes de guardar.',
+          'error',
+        )
+        return
+      }
     }
 
     try {
