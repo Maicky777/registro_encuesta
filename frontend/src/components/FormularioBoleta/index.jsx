@@ -258,6 +258,19 @@ export default function FormularioBoleta({ sessionUser }) {
       return
     }
 
+    const semanaNum = Number(formData.semana)
+    if (
+      formData.semana === '' ||
+      formData.semana === null ||
+      formData.semana === undefined ||
+      !Number.isInteger(semanaNum) ||
+      semanaNum < 1 ||
+      semanaNum > 53
+    ) {
+      showAlert('La semana debe ser un número entero entre 1 y 53.', 'error')
+      return
+    }
+
     if (!loadingEncuestadores && formData.usuarioEncuestador) {
       const encActual = encuestadores.find(
         (e) => e.codigo === formData.usuarioEncuestador,

@@ -21,6 +21,12 @@ const ALLOWED_INCIDENCIAS = [
 const ALLOWED_ESTADOS = ['SIN OBSERVACION', 'OBSERVADO', 'CORREGIDO']
 const ALLOWED_OBS_BOLETA = ['', 'ENVIADO', 'NO ENVIADO']
 
+const toInteger = (value) => {
+  if (value === undefined || value === null || value === '') return value
+  const num = Number(value)
+  return Number.isInteger(num) ? num : value
+}
+
 function validateBoleta(data, { isUpdate = false } = {}) {
   const errors = []
 
@@ -186,7 +192,7 @@ router.post('/', authMiddleware, (req, res) => {
 
     const info = db.prepare(sql).run(
       data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
-      data.upmAdicional, data.semana, data.visita, data.panel, data.numeroCorrelativo,
+      data.upmAdicional, toInteger(data.semana), data.visita, data.panel, data.numeroCorrelativo,
       data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
       data.detalleObservaciones, finalTotal, finalBoletaObs,
       finalEstado, finalObservacion, data.observacionPersonal,
@@ -271,7 +277,7 @@ router.put('/:id', authMiddleware, (req, res) => {
 
     db.prepare(sql).run(
       data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
-      data.upmAdicional, data.semana, data.visita, data.panel, data.numeroCorrelativo,
+      data.upmAdicional, toInteger(data.semana), data.visita, data.panel, data.numeroCorrelativo,
       data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
       data.detalleObservaciones, finalTotal, finalBoletaObs,
       finalEstado, finalObservacion, data.observacionPersonal,
@@ -366,7 +372,7 @@ router.post('/batch', authMiddleware, (req, res) => {
 
       stmt.run(
         data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
-        data.upmAdicional, data.semana, data.visita, data.panel, data.numeroCorrelativo,
+        data.upmAdicional, toInteger(data.semana), data.visita, data.panel, data.numeroCorrelativo,
         data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
         data.detalleObservaciones, finalTotal, finalBoletaObs,
         finalEstado, finalObservacion, data.observacionPersonal,

@@ -61,6 +61,24 @@ const Formulario = ({
     }))
   }
 
+  const handleSemanaChange = (val) => {
+    const digitos = val.replace(/\D/g, '')
+    const parsed = digitos === '' ? '' : parseInt(digitos, 10)
+    setFormData((prev) => ({ ...prev, semana: parsed }))
+  }
+
+  const semanaVal =
+    formData.semana === '' || formData.semana === null || formData.semana === undefined
+      ? ''
+      : formData.semana
+  const semanaNum = Number(semanaVal)
+  const semanaError =
+    semanaVal === ''
+      ? 'La semana es obligatoria.'
+      : !Number.isInteger(semanaNum) || semanaNum < 1 || semanaNum > 53
+        ? 'La semana debe ser un número entero entre 1 y 53.'
+        : ''
+
   const inputClass =
     'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed'
 
@@ -372,20 +390,20 @@ const Formulario = ({
             </label>
             <input
               id="cod-semana"
-              className={inputClass}
+              className={`${inputClass} ${semanaError ? 'border-red-500 bg-red-50' : ''}`}
               type="number"
               min="1"
               max="53"
               step="1"
               required
               value={formData.semana}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  semana: parseInt(e.target.value, 10) || 0,
-                }))
-              }
+              onChange={(e) => handleSemanaChange(e.target.value)}
             />
+            {semanaError && (
+              <span className="text-red-500 text-[0.75rem] mt-0.5 block">
+                {semanaError}
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col">

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { MAX_POR_UPM, INCIDENCIA_TRASLADO, INCIDENCIAS } from '../../utils/constants'
+import { MAX_POR_UPM, INCIDENCIA_TRASLADO, INCIDENCIA_COMPLETA, INCIDENCIAS } from '../../utils/constants'
 
 function getColor(pct) {
   if (pct >= 100) return { bar: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', border: 'border-emerald-200', ring: 'ring-emerald-500/20' }
@@ -24,6 +24,47 @@ function getIncidenciaColor(inc) {
   if (inc === INCIDENCIA_TRASLADO)
     return { bar: 'bg-slate-400', bg: 'bg-slate-50', text: 'text-slate-600', dot: 'bg-slate-400', border: 'border-slate-200', ring: 'ring-slate-500/10' }
   return INCIDENCIA_COLOR
+}
+
+const INCIDENCIA_BADGES = {
+  '2': { bar: 'bg-amber-500', bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500', border: 'border-amber-200', solid: 'bg-amber-500' },
+  '3': { bar: 'bg-sky-500', bg: 'bg-sky-50', text: 'text-sky-700', dot: 'bg-sky-500', border: 'border-sky-200', solid: 'bg-sky-500' },
+  '4': { bar: 'bg-violet-500', bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-500', border: 'border-violet-200', solid: 'bg-violet-500' },
+  '5': { bar: 'bg-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500', border: 'border-orange-200', solid: 'bg-orange-500' },
+  '6': { bar: 'bg-red-500', bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', border: 'border-red-200', solid: 'bg-red-500' },
+  '7': { bar: 'bg-slate-500', bg: 'bg-slate-100', text: 'text-slate-600', dot: 'bg-slate-500', border: 'border-slate-200', solid: 'bg-slate-500' },
+  '8': { bar: 'bg-fuchsia-500', bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', dot: 'bg-fuchsia-500', border: 'border-fuchsia-200', solid: 'bg-fuchsia-500' },
+  '9': { bar: 'bg-slate-400', bg: 'bg-slate-50', text: 'text-slate-500', dot: 'bg-slate-400', border: 'border-slate-200', solid: 'bg-slate-400' },
+}
+
+function getIncidenciaBadge(inc) {
+  const code = inc.split(':')[0].trim()
+  return INCIDENCIA_BADGES[code] || INCIDENCIA_BADGES['9']
+}
+
+function getInitials(name) {
+  return String(name)
+    .split(/[\s._]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('') || String(name).slice(0, 2).toUpperCase()
+}
+
+const BRIGADE_COLORS = [
+  { text: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', solid: 'bg-blue-600', soft: 'bg-blue-500/10', softText: 'text-blue-700', ring: 'ring-blue-500/20' },
+  { text: 'text-pink-700', bg: 'bg-pink-50', border: 'border-pink-200', solid: 'bg-pink-600', soft: 'bg-pink-500/10', softText: 'text-pink-700', ring: 'ring-pink-500/20' },
+  { text: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-200', solid: 'bg-violet-600', soft: 'bg-violet-500/10', softText: 'text-violet-700', ring: 'ring-violet-500/20' },
+  { text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', solid: 'bg-amber-500', soft: 'bg-amber-500/10', softText: 'text-amber-700', ring: 'ring-amber-500/20' },
+  { text: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200', solid: 'bg-rose-600', soft: 'bg-rose-500/10', softText: 'text-rose-700', ring: 'ring-rose-500/20' },
+  { text: 'text-cyan-700', bg: 'bg-cyan-50', border: 'border-cyan-200', solid: 'bg-cyan-600', soft: 'bg-cyan-500/10', softText: 'text-cyan-700', ring: 'ring-cyan-500/20' },
+  { text: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200', solid: 'bg-indigo-600', soft: 'bg-indigo-500/10', softText: 'text-indigo-700', ring: 'ring-indigo-500/20' },
+  { text: 'text-fuchsia-700', bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', solid: 'bg-fuchsia-600', soft: 'bg-fuchsia-500/10', softText: 'text-fuchsia-700', ring: 'ring-fuchsia-500/20' },
+  { text: 'text-sky-700', bg: 'bg-sky-50', border: 'border-sky-200', solid: 'bg-sky-600', soft: 'bg-sky-500/10', softText: 'text-sky-700', ring: 'ring-sky-500/20' },
+]
+
+function getBrigadeColor(index) {
+  return BRIGADE_COLORS[index % BRIGADE_COLORS.length]
 }
 
 const StatCard = ({ label, value, color, sub }) => (
@@ -91,16 +132,20 @@ const ReporteAvance = ({ registros, semana }) => {
 
     const porUsuario = {}
     for (const r of registrosSemana) {
+      if (r.incidencia === INCIDENCIA_COMPLETA) continue
       const key = r.nombreEncuestador || r.usuarioEncuestador
-      if (!porUsuario[key]) porUsuario[key] = { brigada: r.brigada, incidencias: {} }
+      if (!porUsuario[key]) porUsuario[key] = { brigada: r.brigada, incidencias: {}, folios: {} }
       porUsuario[key].incidencias[r.incidencia] = (porUsuario[key].incidencias[r.incidencia] || 0) + 1
+      if (!porUsuario[key].folios[r.incidencia]) porUsuario[key].folios[r.incidencia] = []
+      if (r.folio) porUsuario[key].folios[r.incidencia].push(r.folio)
     }
 
     return Object.entries(porUsuario)
       .map(([usuario, info]) => {
         const total = Object.values(info.incidencias).reduce((a, b) => a + b, 0)
-        return { usuario, brigada: info.brigada, incidencias: info.incidencias, total }
+        return { usuario, brigada: info.brigada, incidencias: info.incidencias, folios: info.folios, total }
       })
+      .filter((u) => u.total > 0)
       .sort((a, b) => b.total - a.total)
   }, [registros, semana])
 
@@ -356,63 +401,131 @@ const ReporteAvance = ({ registros, semana }) => {
       </div>
 
           
-      {/* Incidencias table */}
+      {/* Incidencias por Usuario */}
       {usuariosIncidencias.length > 0 && (
         <div className="border-t border-slate-100">
-          <div className="px-6 py-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-5 bg-red-500 rounded-full" />
-                <h4 className="text-[0.8rem] font-bold text-slate-700 uppercase tracking-wider">Incidencias por Usuario</h4>
+          <div className="px-6 py-6">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50 border border-red-200 ring-4 ring-red-500/10 shrink-0">
+                  <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-[0.85rem] font-bold text-slate-900 tracking-tight">Incidencias por Usuario</h4>
+                  <p className="text-[0.68rem] text-slate-400 mt-0.5">
+                    {usuariosIncidencias.length} encuestador{usuariosIncidencias.length !== 1 ? 'es' : ''} con incidencias · Semana {avanceData.semana}
+                  </p>
+                </div>
               </div>
-              <span className="text-[0.65rem] text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full">
-                Todos los tipos de incidencia
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[0.62rem] font-medium text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                {usuariosIncidencias.reduce((s, u) => s + u.total, 0)} incidencias en total
               </span>
             </div>
 
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <table className="w-full text-[0.72rem]">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider w-8">#</th>
-                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider">Usuario</th>
-                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider">Brigada</th>
-                    <th className="text-center py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider w-16">Total</th>
-                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider">Detalle de Incidencias</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {usuariosIncidencias.map((u, i) => (
-                    <tr key={u.usuario} className="hover:bg-slate-50/80 transition-colors duration-100">
-                      <td className="py-2.5 px-3 text-slate-300 font-medium text-[0.68rem]">{i + 1}</td>
-                      <td className="py-2.5 px-3">
-                        <span className="font-semibold text-slate-800">{u.usuario}</span>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span className="inline-flex items-center bg-slate-100 text-slate-600 text-[0.62rem] font-semibold px-2 py-0.5 rounded-md">
-                          {u.brigada}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[0.7rem] font-bold">
-                          {u.total}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <div className="flex flex-wrap gap-1">
-                          {Object.entries(u.incidencias).map(([inc, count]) => (
-                            <span key={inc} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 text-slate-600 rounded-lg px-2 py-0.5 text-[0.62rem]">
-                              <span className="font-bold text-slate-400">{count}x</span>
-                              <span className="font-medium">{inc.split(': ')[1] || inc}</span>
-                            </span>
-                          ))}
+            {/* Agrupado por brigadas */}
+            {(() => {
+              const porBrigada = {}
+              for (const u of usuariosIncidencias) {
+                if (!porBrigada[u.brigada]) porBrigada[u.brigada] = []
+                porBrigada[u.brigada].push(u)
+              }
+              const brigadasList = Object.entries(porBrigada).sort((a, b) =>
+                a[0].localeCompare(b[0], undefined, { numeric: true }),
+              )
+
+              return (
+                <div className="space-y-5">
+                  {brigadasList.map(([brigada, usuarios], bi) => {
+                    const color = getBrigadeColor(bi)
+                    const totalBrigada = usuarios.reduce((s, u) => s + u.total, 0)
+
+                    return (
+                      <div key={brigada} className={`rounded-2xl border ${color.border} overflow-hidden`}>
+                        {/* Header brigada */}
+                        <div className={`px-5 py-3.5 ${color.bg} border-b ${color.border} flex items-center justify-between gap-3`}>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className={`shrink-0 w-1.5 h-8 rounded-full ${color.solid}`} />
+                            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white border ${color.border} shadow-sm shrink-0">
+                              <svg className={`w-4 h-4 ${color.text}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
+                              </svg>
+                            </div>
+                            <div className="min-w-0">
+                              <div className={`font-bold text-[0.8rem] ${color.text} truncate`}>{brigada}</div>
+                              <div className="text-[0.62rem] text-slate-400">
+                                {usuarios.length} encuestador{usuarios.length !== 1 ? 'es' : ''}
+                              </div>
+                            </div>
+                          </div>
+                          <div className={`shrink-0 flex items-center gap-1.5 ${color.bg} border ${color.border} rounded-lg px-2.5 py-1`}>
+                            <span className={`text-sm font-extrabold ${color.text} leading-none`}>{totalBrigada}</span>
+                            <span className={`text-[0.55rem] font-semibold ${color.text} opacity-70 uppercase tracking-wider`}>incid.</span>
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+
+                        {/* Usuarios de la brigada */}
+                        <div className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 px-5 py-4`}>
+                          {usuarios.map((u) => {
+                            const entries = Object.entries(u.incidencias).sort((a, b) => b[1] - a[1])
+                            const total = u.total
+                            const initials = getInitials(u.usuario)
+
+                            return (
+                              <div key={u.usuario} className="bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-sm transition-all duration-150 overflow-hidden">
+                                {/* Header usuario */}
+                                <div className={`flex items-center gap-2 px-3 py-2 border-b border-slate-100 ${color.soft}`}>
+                                  <div className="relative shrink-0">
+                                    <div className={`flex items-center justify-center w-6 h-6 rounded-full ${color.solid} text-white text-[0.55rem] font-bold ring-2 ring-white`}>
+                                      {initials}
+                                    </div>
+                                    <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border border-white" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-semibold text-[0.68rem] text-slate-800 truncate">{u.usuario}</div>
+                                    <div className="text-[0.55rem] text-slate-400">{total} incidencias</div>
+                                  </div>
+                                  <span className={`shrink-0 flex items-center justify-center min-w-5 h-5 px-1.5 rounded-md bg-white border ${color.border} ${color.text} text-[0.62rem] font-extrabold`}>
+                                    {total}
+                                  </span>
+                                </div>
+
+                                {/* Detalle compacto */}
+                                <div className="px-3 py-2 flex flex-col gap-1.5">
+                                  {entries.map(([inc, count]) => {
+                                    const badge = getIncidenciaBadge(inc)
+                                    const pct = total > 0 ? Math.round((count / total) * 100) : 0
+                                    const folios = (u.folios && u.folios[inc]) || []
+                                    return (
+                                      <div key={inc} className="flex flex-wrap items-center gap-1">
+                                        <span className={`inline-flex items-center gap-1 ${badge.bg} border ${badge.border} rounded px-1.5 py-0.5`}>
+                                          <span className={`w-1 h-1 rounded-full ${badge.dot}`} />
+                                          <span className={`text-[0.58rem] font-bold ${badge.text}`}>{count}</span>
+                                          <span className="text-[0.56rem] font-medium text-slate-500">{inc.split(': ')[1] || inc}</span>
+                                          <span className={`text-[0.52rem] font-semibold ${badge.text} opacity-70`}>{pct}%</span>
+                                        </span>
+                                        {folios.length > 0 && folios.map((f) => (
+                                          <span key={f} className="font-mono text-[0.57rem] font-bold text-slate-500 bg-white border border-slate-200 rounded px-1 py-0.5">
+                                            {f}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}

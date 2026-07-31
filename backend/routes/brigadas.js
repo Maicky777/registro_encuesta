@@ -30,7 +30,8 @@ router.get('/', authMiddleware, (req, res) => {
         const brigadas = db.prepare(`
           SELECT b.*, 
             (SELECT COUNT(*) FROM brigada_encuestadores WHERE brigada_id = b.id) as total_encuestadores,
-            (SELECT GROUP_CONCAT(e.nombre, ', ') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as nombres_encuestadores
+            (SELECT GROUP_CONCAT(e.nombre, ', ') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as nombres_encuestadores,
+            (SELECT GROUP_CONCAT(COALESCE(e.telefono, ''), '|') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as telefonos_encuestadores
           FROM brigadas b 
           WHERE b.departamento = ? AND b.nombre IN (${placeholders})
           ORDER BY b.nombre
@@ -47,7 +48,8 @@ router.get('/', authMiddleware, (req, res) => {
       brigadas = db.prepare(`
         SELECT b.*, 
           (SELECT COUNT(*) FROM brigada_encuestadores WHERE brigada_id = b.id) as total_encuestadores,
-          (SELECT GROUP_CONCAT(e.nombre, ', ') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as nombres_encuestadores
+          (SELECT GROUP_CONCAT(e.nombre, ', ') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as nombres_encuestadores,
+          (SELECT GROUP_CONCAT(COALESCE(e.telefono, ''), '|') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as telefonos_encuestadores
         FROM brigadas b 
         WHERE b.departamento = ? 
         ORDER BY b.nombre
@@ -56,7 +58,8 @@ router.get('/', authMiddleware, (req, res) => {
       brigadas = db.prepare(`
         SELECT b.*, 
           (SELECT COUNT(*) FROM brigada_encuestadores WHERE brigada_id = b.id) as total_encuestadores,
-          (SELECT GROUP_CONCAT(e.nombre, ', ') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as nombres_encuestadores
+          (SELECT GROUP_CONCAT(e.nombre, ', ') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as nombres_encuestadores,
+          (SELECT GROUP_CONCAT(COALESCE(e.telefono, ''), '|') FROM brigada_encuestadores be JOIN encuestadores e ON e.id = be.encuestador_id WHERE be.brigada_id = b.id) as telefonos_encuestadores
         FROM brigadas b 
         ORDER BY b.departamento, b.nombre
       `).all()
@@ -97,7 +100,7 @@ router.get('/:id', authMiddleware, (req, res) => {
 })
 
 router.post('/', authMiddleware, requireRole('administrador'), (req, res) => {
-  const { nombre, departamento } = req.body
+  const { nombre, departamento, telefono } = req.body
 
   if (!nombre || typeof nombre !== 'string' || !nombre.trim()) {
     return res.status(400).json({ error: 'El nombre de la brigada es requerido' })
@@ -114,8 +117,8 @@ router.post('/', authMiddleware, requireRole('administrador'), (req, res) => {
       return res.status(409).json({ error: `La brigada "${nombre}" ya existe en ${departamento}` })
     }
 
-    const result = db.prepare('INSERT INTO brigadas (nombre, departamento) VALUES (?, ?)').run(nombre.trim(), departamento.trim())
-    res.json({ id: result.lastInsertRowid, nombre: nombre.trim(), departamento: departamento.trim() })
+    const result = db.prepare('INSERT INTO brigadas (nombre, departamento, telefono) VALUES (?, ?, ?)').run(nombre.trim(), departamento.trim(), (telefono || '').trim())
+    res.json({ id: result.lastInsertRowid, nombre: nombre.trim(), departamento: departamento.trim(), telefono: (telefono || '').trim() })
   } catch (err) {
     console.error('Error al crear brigada:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -124,7 +127,7 @@ router.post('/', authMiddleware, requireRole('administrador'), (req, res) => {
 
 router.put('/:id', authMiddleware, requireRole('administrador'), (req, res) => {
   const { id } = req.params
-  const { nombre, departamento } = req.body
+  const { nombre, departamento, telefono } = req.body
 
   if (!Number.isInteger(Number(id)) || Number(id) <= 0) {
     return res.status(400).json({ error: 'El ID debe ser un numero entero positivo.' })
@@ -150,7 +153,7 @@ router.put('/:id', authMiddleware, requireRole('administrador'), (req, res) => {
       return res.status(409).json({ error: `La brigada "${nombre}" ya existe en ${departamento}` })
     }
 
-    db.prepare('UPDATE brigadas SET nombre = ?, departamento = ? WHERE id = ?').run(nombre.trim(), departamento.trim(), id)
+    db.prepare('UPDATE brigadas SET nombre = ?, departamento = ?, telefono = ? WHERE id = ?').run(nombre.trim(), departamento.trim(), (telefono || '').trim(), id)
     res.json({ message: 'Brigada actualizada correctamente' })
   } catch (err) {
     console.error('Error al actualizar brigada:', err.message)

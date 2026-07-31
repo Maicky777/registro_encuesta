@@ -179,6 +179,15 @@ const MIGRATIONS = [
       `)
     },
   },
+  {
+    name: '010_add_telefono_to_brigadas',
+    up(database) {
+      const columns = database.prepare('PRAGMA table_info(brigadas)').all()
+      if (!columns.some((c) => c.name === 'telefono')) {
+        database.exec("ALTER TABLE brigadas ADD COLUMN telefono TEXT DEFAULT ''")
+      }
+    },
+  },
 ]
 
 function runMigrations(database) {
