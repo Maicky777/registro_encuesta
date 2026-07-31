@@ -10,7 +10,7 @@ const TOOLTIP = {
   bodyFont: { size: 11 },
 }
 
-export default function GraficoBarras({ semanas, series, totales, ocultos, onSelect, stacked }) {
+export default function GraficoBarras({ semanas, series, totales, ocultos, onSelect, stacked, folios }) {
   const datasets = useMemo(
     () =>
       series.map((serie) => ({
@@ -36,10 +36,14 @@ export default function GraficoBarras({ semanas, series, totales, ocultos, onSel
         onSelect(series[elements[0].datasetIndex]?.key)
       },
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { boxWidth: 12, boxHeight: 12, color: '#334155', font: { size: 11 } },
+        },
         tooltip: {
           ...TOOLTIP,
-          callbacks: buildTooltipCallbacks(series),
+          callbacks: buildTooltipCallbacks(series, folios),
         },
       },
       scales: {
@@ -56,8 +60,8 @@ export default function GraficoBarras({ semanas, series, totales, ocultos, onSel
         },
       },
     }),
-    [onSelect, series, stacked],
+    [onSelect, series, stacked, folios],
   )
 
-  return <Bar data={{ labels: semanas.map((s) => `S${s}`), datasets }} options={options} />
+  return <Bar data={{ labels: semanas.map((s) => `Semana ${s}`), datasets }} options={options} />
 }

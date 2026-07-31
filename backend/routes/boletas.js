@@ -21,6 +21,8 @@ const ALLOWED_INCIDENCIAS = [
 const ALLOWED_ESTADOS = ['SIN OBSERVACION', 'OBSERVADO', 'CORREGIDO']
 const ALLOWED_OBS_BOLETA = ['', 'ENVIADO', 'NO ENVIADO']
 
+const nowISO = () => new Date().toISOString()
+
 const toInteger = (value) => {
   if (value === undefined || value === null || value === '') return value
   const num = Number(value)
@@ -186,9 +188,11 @@ router.post('/', authMiddleware, (req, res) => {
         numeroCorrelativo, voe, usuarioEncuestador, nombreEncuestador, incidencia,
         detalleObservaciones, totalObservaciones, boletaObservada, estadoBoleta,
         observacionBoleta, observacionPersonal, consolidada, fechaFinalConsolidacion,
-        encuestador_id
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        encuestador_id, fecha_registro, fecha_modificacion
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `
+
+    const fechaRegistro = nowISO()
 
     const info = db.prepare(sql).run(
       data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
@@ -198,8 +202,9 @@ router.post('/', authMiddleware, (req, res) => {
       finalEstado, finalObservacion, data.observacionPersonal,
       data.consolidada, data.fechaFinalConsolidacion,
       data.encuestador_id || null,
+      fechaRegistro, fechaRegistro,
     )
-    res.json({ id: info.lastInsertRowid, ...data, totalObservaciones: finalTotal, boletaObservada: finalBoletaObs, estadoBoleta: finalEstado, observacionBoleta: finalObservacion })
+    res.json({ id: info.lastInsertRowid, ...data, totalObservaciones: finalTotal, boletaObservada: finalBoletaObs, estadoBoleta: finalEstado, observacionBoleta: finalObservacion, fecha_registro: fechaRegistro, fecha_modificacion: fechaRegistro })
   } catch (err) {
     console.error('Error al crear boleta:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -271,7 +276,7 @@ router.put('/:id', authMiddleware, (req, res) => {
         visita=?, panel=?, numeroCorrelativo=?, voe=?, usuarioEncuestador=?, nombreEncuestador=?,
         incidencia=?, detalleObservaciones=?, totalObservaciones=?, boletaObservada=?,
         estadoBoleta=?, observacionBoleta=?, observacionPersonal=?, consolidada=?,
-        fechaFinalConsolidacion=?, encuestador_id=?
+        fechaFinalConsolidacion=?, encuestador_id=?, fecha_modificacion=?
       WHERE id=?
     `
 
@@ -282,7 +287,7 @@ router.put('/:id', authMiddleware, (req, res) => {
       data.detalleObservaciones, finalTotal, finalBoletaObs,
       finalEstado, finalObservacion, data.observacionPersonal,
       data.consolidada, data.fechaFinalConsolidacion,
-      data.encuestador_id || null, id,
+      data.encuestador_id || null, nowISO(), id,
     )
     res.json({ message: 'Registro actualizado correctamente' })
   } catch (err) {
@@ -345,8 +350,8 @@ router.post('/batch', authMiddleware, (req, res) => {
       numeroCorrelativo, voe, usuarioEncuestador, nombreEncuestador, incidencia,
       detalleObservaciones, totalObservaciones, boletaObservada, estadoBoleta,
       observacionBoleta, observacionPersonal, consolidada, fechaFinalConsolidacion,
-      encuestador_id
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      encuestador_id, fecha_registro, fecha_modificacion
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `
 
   try {
@@ -357,6 +362,7 @@ router.post('/batch', authMiddleware, (req, res) => {
     let omitidos = 0
 
   const fechaBatch = new Date().toISOString().split('T')[0]
+  const fechaRegistro = nowISO()
 
   const insertMany = db.transaction((dataArray) => {
     for (const data of dataArray) {
@@ -379,6 +385,7 @@ router.post('/batch', authMiddleware, (req, res) => {
         data.consolidada,
         data.fechaFinalConsolidacion || fechaBatch,
         data.encuestador_id || null,
+        fechaRegistro, fechaRegistro,
       )
       insertados++
     }

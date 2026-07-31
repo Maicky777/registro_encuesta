@@ -51,8 +51,21 @@ router.get('/comportamiento', authMiddleware, requireRole('administrador'), (req
       ORDER BY b.usuarioEncuestador, CAST(b.semana AS INTEGER)
     `).all(...params)
 
+    const folioRows = db.prepare(`
+      SELECT
+        b.usuarioEncuestador AS usuario,
+        b.incidencia,
+        CAST(b.semana AS INTEGER) AS semana,
+        b.folio
+      FROM boletas b
+      ${where}
+      ORDER BY b.incidencia, CAST(b.semana AS INTEGER), b.folio
+    `).all(...params)
+
     const usuariosMap = new Map()
     const data = {}
+    const foliosByIncidencia = {}
+    const foliosPorUsuario = {}
 
     for (const r of rows) {
       const usuario = r.usuario || '(SIN USUARIO)'
@@ -71,11 +84,30 @@ router.get('/comportamiento', authMiddleware, requireRole('administrador'), (req
       data[usuario][r.incidencia][r.semana] = (data[usuario][r.incidencia][r.semana] || 0) + r.total
     }
 
+    for (const r of folioRows) {
+      if (!r.folio) continue
+      if (!foliosByIncidencia[r.incidencia]) foliosByIncidencia[r.incidencia] = {}
+      if (!foliosByIncidencia[r.incidencia][r.semana]) foliosByIncidencia[r.incidencia][r.semana] = []
+      if (!foliosByIncidencia[r.incidencia][r.semana].includes(r.folio)) {
+        foliosByIncidencia[r.incidencia][r.semana].push(r.folio)
+      }
+      if (!foliosPorUsuario[r.usuario || '(SIN USUARIO)']) foliosPorUsuario[r.usuario || '(SIN USUARIO)'] = {}
+      if (!foliosPorUsuario[r.usuario || '(SIN USUARIO)'][r.incidencia]) foliosPorUsuario[r.usuario || '(SIN USUARIO)'][r.incidencia] = {}
+      if (!foliosPorUsuario[r.usuario || '(SIN USUARIO)'][r.incidencia][r.semana]) {
+        foliosPorUsuario[r.usuario || '(SIN USUARIO)'][r.incidencia][r.semana] = []
+      }
+      if (!foliosPorUsuario[r.usuario || '(SIN USUARIO)'][r.incidencia][r.semana].includes(r.folio)) {
+        foliosPorUsuario[r.usuario || '(SIN USUARIO)'][r.incidencia][r.semana].push(r.folio)
+      }
+    }
+
     res.json({
       semanas: Array.from({ length: SEMANA_MAX - SEMANA_MIN + 1 }, (_, i) => SEMANA_MIN + i),
       incidencias: INCIDENCIAS,
       usuarios: Array.from(usuariosMap.values()),
       data,
+      foliosByIncidencia,
+      foliosPorUsuario,
     })
   } catch (err) {
     console.error('Error al obtener comportamiento de incidencias:', err.message)

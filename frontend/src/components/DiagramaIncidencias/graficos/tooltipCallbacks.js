@@ -1,4 +1,4 @@
-export function buildTooltipCallbacks(series) {
+export function buildTooltipCallbacks(series, folios) {
   const sumaIndice = (chart, idx) => {
     let total = 0
     chart.data.datasets.forEach((ds) => {
@@ -10,10 +10,7 @@ export function buildTooltipCallbacks(series) {
   }
 
   return {
-    title: (items) => {
-      const week = items[0]?.label || ''
-      return `Semana ${week.replace('S', '')}`
-    },
+    title: (items) => items[0]?.label || '',
     label: (ctx) => {
       const value = ctx.parsed.y ?? ctx.parsed.r ?? 0
       const total = sumaIndice(ctx.chart, ctx.dataIndex)
@@ -26,9 +23,19 @@ export function buildTooltipCallbacks(series) {
     },
     footer: (items) => {
       const chart = items[0]?.chart
-      if (!chart) return ''
+      if (!chart) return []
+      const serie = series[items[0].datasetIndex]
+      const lines = []
       const total = sumaIndice(chart, items[0].dataIndex)
-      return total > 0 ? `Total semana: ${total}` : ''
+      if (total > 0) lines.push(`Total semana: ${total}`)
+      const semana = (items[0]?.label || '').replace(/\D/g, '')
+      const foliosList = folios?.[serie?.key]?.[semana]
+      if (foliosList?.length) {
+        const visibles = foliosList.slice(0, 5).join(', ')
+        const restantes = foliosList.length - 5
+        lines.push(`Folios: ${visibles}${restantes > 0 ? ` +${restantes} más` : ''}`)
+      }
+      return lines
     },
   }
 }

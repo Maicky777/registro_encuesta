@@ -36,7 +36,7 @@ function pluginValores(enabled) {
   }
 }
 
-export default function GraficoLineas({ semanas, series, totales, ocultos, onSelect, mostrarValores }) {
+export default function GraficoLineas({ semanas, series, totales, ocultos, onSelect, mostrarValores, folios }) {
   const datasets = useMemo(
     () =>
       series.map((serie) => ({
@@ -70,10 +70,14 @@ export default function GraficoLineas({ semanas, series, totales, ocultos, onSel
         onSelect(series[elements[0].datasetIndex]?.key)
       },
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { boxWidth: 12, boxHeight: 12, color: '#334155', font: { size: 11 } },
+        },
         tooltip: {
           ...TOOLTIP,
-          callbacks: buildTooltipCallbacks(series),
+          callbacks: buildTooltipCallbacks(series, folios),
         },
       },
       scales: {
@@ -88,12 +92,12 @@ export default function GraficoLineas({ semanas, series, totales, ocultos, onSel
         },
       },
     }),
-    [onSelect, series],
+    [onSelect, series, folios],
   )
 
   return (
     <Line
-      data={{ labels: semanas.map((s) => `S${s}`), datasets }}
+      data={{ labels: semanas.map((s) => `Semana ${s}`), datasets }}
       options={options}
       plugins={[pluginValores(mostrarValores)]}
     />

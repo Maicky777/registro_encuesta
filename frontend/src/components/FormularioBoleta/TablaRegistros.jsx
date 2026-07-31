@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { getEstadoClass } from '../../utils/helpers'
+import { getEstadoClass, formatearFecha } from '../../utils/helpers'
 
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100]
 
@@ -118,7 +118,9 @@ const TablaRegistros = ({
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Obs. Total</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Estado Boleta</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Incidencia</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Fecha</th>
+              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">F. Registro</th>
+              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">F. Modificación</th>
+              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">F. Consolidación</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -199,12 +201,14 @@ const TablaRegistros = ({
                   </td>
                   <td className="px-3 py-2 text-slate-500">{reg.observacionBoleta}</td>
                   <td className="px-3 py-2 text-slate-500">{reg.incidencia}</td>
+                  <td className="px-3 py-2 text-slate-400 text-[0.72rem]">{formatearFecha(reg.fecha_registro)}</td>
+                  <td className="px-3 py-2 text-slate-400 text-[0.72rem]">{formatearFecha(reg.fecha_modificacion)}</td>
                   <td className="px-3 py-2 text-slate-400 text-[0.72rem]">{reg.fechaFinalConsolidacion}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="13">
+                <td colSpan="15">
                   <EmptyState />
                 </td>
               </tr>

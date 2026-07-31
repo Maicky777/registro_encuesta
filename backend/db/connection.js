@@ -188,6 +188,23 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    name: '011_add_fechas_boletas',
+    up(database) {
+      const columns = database.prepare('PRAGMA table_info(boletas)').all()
+      if (!columns.some((c) => c.name === 'fecha_registro')) {
+        database.exec('ALTER TABLE boletas ADD COLUMN fecha_registro TEXT')
+      }
+      if (!columns.some((c) => c.name === 'fecha_modificacion')) {
+        database.exec('ALTER TABLE boletas ADD COLUMN fecha_modificacion TEXT')
+      }
+      database.exec(`
+        UPDATE boletas SET
+          fecha_registro = COALESCE(fecha_registro, datetime('now')),
+          fecha_modificacion = COALESCE(fecha_modificacion, datetime('now'))
+      `)
+    },
+  },
 ]
 
 function runMigrations(database) {

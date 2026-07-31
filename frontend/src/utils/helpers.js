@@ -35,6 +35,14 @@ export const calcularVOE = (folio) => {
 }
 
 
+export const formatearFecha = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export const computeObservacionFields = (detalleObservaciones) => {
   const frases = (detalleObservaciones || '').split(';').filter((f) => f.trim().length > 0)
   const total = frases.length

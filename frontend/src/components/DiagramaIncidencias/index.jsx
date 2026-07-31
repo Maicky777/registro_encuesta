@@ -58,7 +58,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
   const [usuarioSel, setUsuarioSel] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [vista, setVista] = useState('usuario')
-  const [agruparPor, setAgruparPor] = useState('usuario')
+  const [agruparPor, setAgruparPor] = useState('incidencia')
   const [tipoGrafico, setTipoGrafico] = useState('linea')
   const [incidenciasActivas, setIncidenciasActivas] = useState(() =>
     INCIDENCIAS.filter((inc) => inc !== INCIDENCIA_COMPLETA),
@@ -323,6 +323,10 @@ export default function DiagramaIncidencias({ sessionUser }) {
     for (const s of semanas) map[s] = getCount(usuarioSel, INCIDENCIA_COMPLETA, s)
     return map
   }, [semanas, usuarioSel, getCount])
+
+  const foliosPorIncidencia = useMemo(() => data?.foliosByIncidencia || {}, [data])
+
+  const foliosPorUsuario = useMemo(() => data?.foliosPorUsuario || {}, [data])
 
   const cambiarAgrupar = (value) => {
     setAgruparPor(value)
@@ -679,6 +683,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
                             : undefined
                         }
                         mostrarValores={mostrarValores}
+                        folios={foliosPorIncidencia}
                       />
                     )}
                     {tipoGrafico === 'barrasApiladas' && (
@@ -693,6 +698,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
                             ? seleccionarPunto
                             : undefined
                         }
+                        folios={foliosPorIncidencia}
                       />
                     )}
                     {tipoGrafico === 'barrasAgrupadas' && (
@@ -706,6 +712,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
                             ? seleccionarPunto
                             : undefined
                         }
+                        folios={foliosPorIncidencia}
                       />
                     )}
                     {tipoGrafico === 'radar' && (
@@ -714,6 +721,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
                         series={seriesConColor}
                         totales={totalesPorSerie}
                         ocultos={ocultos}
+                        folios={foliosPorIncidencia}
                       />
                     )}
                   </div>
@@ -922,6 +930,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
                         totales={totalesIncidenciaUsuario}
                         ocultos={ocultos}
                         stacked
+                        folios={foliosPorUsuario[usuarioSel] || {}}
                       />
                     </div>
                   </div>

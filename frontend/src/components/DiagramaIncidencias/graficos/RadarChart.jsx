@@ -2,7 +2,7 @@ import { Radar } from 'react-chartjs-2'
 import { useMemo } from 'react'
 import { buildTooltipCallbacks } from './tooltipCallbacks'
 
-export default function GraficoRadar({ semanas, series, totales, ocultos }) {
+export default function GraficoRadar({ semanas, series, totales, ocultos, folios }) {
   const datasets = useMemo(
     () =>
       series.map((serie) => ({
@@ -28,14 +28,18 @@ export default function GraficoRadar({ semanas, series, totales, ocultos }) {
       maintainAspectRatio: false,
       animation: { duration: 700, easing: 'easeOutQuart' },
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { boxWidth: 12, boxHeight: 12, color: '#334155', font: { size: 11 } },
+        },
         tooltip: {
           backgroundColor: '#0f172a',
           padding: 10,
           cornerRadius: 6,
           titleFont: { size: 11, weight: '600' },
           bodyFont: { size: 11 },
-          callbacks: buildTooltipCallbacks(series),
+          callbacks: buildTooltipCallbacks(series, folios),
         },
       },
       scales: {
@@ -53,8 +57,8 @@ export default function GraficoRadar({ semanas, series, totales, ocultos }) {
         },
       },
     }),
-    [series],
+    [series, folios],
   )
 
-  return <Radar data={{ labels: semanas.map((s) => `S${s}`), datasets }} options={options} />
+  return <Radar data={{ labels: semanas.map((s) => `Semana ${s}`), datasets }} options={options} />
 }

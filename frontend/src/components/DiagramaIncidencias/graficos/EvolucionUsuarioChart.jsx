@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 export default function GraficoEvolucionUsuario({ semanas, totalesSemana, completasSemana }) {
   const data = useMemo(
     () => ({
-      labels: semanas.map((s) => `S${s}`),
+      labels: semanas.map((s) => `Semana ${s}`),
       datasets: [
         {
           type: 'bar',
@@ -56,7 +56,7 @@ export default function GraficoEvolucionUsuario({ semanas, totalesSemana, comple
           titleFont: { size: 11, weight: '600' },
           bodyFont: { size: 11 },
           callbacks: {
-            title: (items) => `Semana ${items[0].label.replace('S', '')}`,
+            title: (items) => items[0]?.label || '',
           },
         },
       },
