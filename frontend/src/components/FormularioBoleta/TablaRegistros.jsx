@@ -106,10 +106,10 @@ const TablaRegistros = ({
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">N°</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">UPM</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Folio</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">VOE</th>
+              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Brigada</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Semana</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Visita</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Panel</th>
@@ -117,6 +117,7 @@ const TablaRegistros = ({
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Obs. Total</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Estado Boleta</th>
+              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Incidencia</th>
               <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Fecha</th>
             </tr>
           </thead>
@@ -172,12 +173,12 @@ const TablaRegistros = ({
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-slate-400 font-medium">{reg.numeroCorrelativo}</td>
                   <td className="px-3 py-2 text-slate-600">{reg.upm}</td>
                   <td className="px-3 py-2">
                     <span className="font-semibold text-slate-900">{reg.folio}</span>
                   </td>
                   <td className="px-3 py-2 text-slate-500">{reg.voe}</td>
+                  <td className="px-3 py-2 text-slate-500">{reg.brigada}</td>
                   <td className="px-3 py-2 text-slate-600 text-center">{parseInt(reg.semana, 10)}</td>
                   <td className="px-3 py-2 text-slate-600 text-center">{reg.visita}</td>
                   <td className="px-3 py-2 text-slate-500">{reg.panel}</td>
@@ -193,10 +194,11 @@ const TablaRegistros = ({
                         {reg.totalObservaciones}
                       </span>
                     ) : (
-                      <span className="text-slate-300">0</span>
+                      <span className="text-slate-300"></span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-slate-500">{reg.observacionBoleta}</td>
+                  <td className="px-3 py-2 text-slate-500">{reg.incidencia}</td>
                   <td className="px-3 py-2 text-slate-400 text-[0.72rem]">{reg.fechaFinalConsolidacion}</td>
                 </tr>
               ))

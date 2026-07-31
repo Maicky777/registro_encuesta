@@ -12,6 +12,7 @@ export const INCIDENCIAS = [
 
 export const MAX_POR_UPM = 12
 export const INCIDENCIA_TRASLADO = '9: TRASLADO'
+export const INCIDENCIA_COMPLETA = '1: ENTREVISTA COMPLETA'
 
 export const TRIMESTRE_ACTUAL = 'III/2026'
 

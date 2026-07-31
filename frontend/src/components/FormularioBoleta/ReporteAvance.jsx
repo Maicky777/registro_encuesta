@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react'
-import { MAX_POR_UPM, INCIDENCIA_TRASLADO } from '../../utils/constants'
+import { MAX_POR_UPM, INCIDENCIA_TRASLADO, INCIDENCIAS } from '../../utils/constants'
 
-const INCIDENCIAS_EXCLUIDAS = new Set([
-  '1: ENTREVISTA COMPLETA',
-  '2: ENTREVISTA INCOMPLETA',
-  '8: ENTREVISTA FUERA DE PERIODO',
-  '9: TRASLADO',
-])
+function getInitials(name) {
+  return String(name)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('')
+}
 
 function getColor(pct) {
   if (pct >= 100) return { bar: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', border: 'border-emerald-200', ring: 'ring-emerald-500/20' }
@@ -14,6 +16,36 @@ function getColor(pct) {
   if (pct >= 50) return { bar: 'bg-orange-500', bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500', border: 'border-orange-200', ring: 'ring-orange-500/20' }
   if (pct > 0) return { bar: 'bg-red-500', bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500', border: 'border-red-200', ring: 'ring-red-500/20' }
   return { bar: 'bg-slate-300', bg: 'bg-slate-50', text: 'text-slate-400', dot: 'bg-slate-300', border: 'border-slate-200', ring: 'ring-slate-500/10' }
+}
+
+const INCIDENCIA_COLOR = {
+  bar: 'bg-amber-500',
+  bg: 'bg-amber-50',
+  text: 'text-amber-700',
+  dot: 'bg-amber-500',
+  border: 'border-amber-200',
+  ring: 'ring-amber-500/20',
+}
+
+const BRIGADA_COLORS = [
+  { bg: 'bg-blue-500', bgLight: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200', chip: 'bg-blue-100 text-blue-700' },
+  { bg: 'bg-emerald-500', bgLight: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200', chip: 'bg-emerald-100 text-emerald-700' },
+  { bg: 'bg-violet-500', bgLight: 'bg-violet-50', text: 'text-violet-600', border: 'border-violet-200', chip: 'bg-violet-100 text-violet-700' },
+  { bg: 'bg-amber-500', bgLight: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200', chip: 'bg-amber-100 text-amber-700' },
+  { bg: 'bg-rose-500', bgLight: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-200', chip: 'bg-rose-100 text-rose-700' },
+  { bg: 'bg-cyan-500', bgLight: 'bg-cyan-50', text: 'text-cyan-600', border: 'border-cyan-200', chip: 'bg-cyan-100 text-cyan-700' },
+  { bg: 'bg-indigo-500', bgLight: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-200', chip: 'bg-indigo-100 text-indigo-700' },
+  { bg: 'bg-orange-500', bgLight: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200', chip: 'bg-orange-100 text-orange-700' },
+  { bg: 'bg-teal-500', bgLight: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-200', chip: 'bg-teal-100 text-teal-700' },
+  { bg: 'bg-pink-500', bgLight: 'bg-pink-50', text: 'text-pink-600', border: 'border-pink-200', chip: 'bg-pink-100 text-pink-700' },
+]
+
+function getIncidenciaColor(inc) {
+  if (inc.startsWith('1:'))
+    return { bar: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', border: 'border-emerald-200', ring: 'ring-emerald-500/20' }
+  if (inc === INCIDENCIA_TRASLADO)
+    return { bar: 'bg-slate-400', bg: 'bg-slate-50', text: 'text-slate-600', dot: 'bg-slate-400', border: 'border-slate-200', ring: 'ring-slate-500/10' }
+  return INCIDENCIA_COLOR
 }
 
 const StatCard = ({ label, value, color, sub }) => (
@@ -35,8 +67,9 @@ const ReporteAvance = ({ registros, semana }) => {
     for (const r of registrosSemana) {
       const key = r.brigada
       if (!agrupado[key]) agrupado[key] = {}
-      if (!agrupado[key][r.upm]) agrupado[key][r.upm] = { total: 0, validas: 0, traslados: 0, observadas: 0 }
+      if (!agrupado[key][r.upm]) agrupado[key][r.upm] = { total: 0, validas: 0, traslados: 0, observadas: 0, incidencias: {} }
       agrupado[key][r.upm].total++
+      agrupado[key][r.upm].incidencias[r.incidencia] = (agrupado[key][r.upm].incidencias[r.incidencia] || 0) + 1
       if (r.incidencia === INCIDENCIA_TRASLADO) {
         agrupado[key][r.upm].traslados++
       } else {
@@ -80,18 +113,41 @@ const ReporteAvance = ({ registros, semana }) => {
 
     const porUsuario = {}
     for (const r of registrosSemana) {
-      if (INCIDENCIAS_EXCLUIDAS.has(r.incidencia)) continue
+      if (r.incidencia?.startsWith('1:')) continue
       const key = r.nombreEncuestador || r.usuarioEncuestador
       if (!porUsuario[key]) porUsuario[key] = { brigada: r.brigada, incidencias: {} }
-      porUsuario[key].incidencias[r.incidencia] = (porUsuario[key].incidencias[r.incidencia] || 0) + 1
+      if (!porUsuario[key].incidencias[r.incidencia]) porUsuario[key].incidencias[r.incidencia] = []
+      porUsuario[key].incidencias[r.incidencia].push(r.folio)
     }
 
     return Object.entries(porUsuario)
       .map(([usuario, info]) => {
-        const total = Object.values(info.incidencias).reduce((a, b) => a + b, 0)
+        const total = Object.values(info.incidencias).reduce((a, folios) => a + folios.length, 0)
         return { usuario, brigada: info.brigada, incidencias: info.incidencias, total }
       })
-      .sort((a, b) => b.total - a.total)
+      .filter((u) => u.total > 0)
+      .sort(
+        (a, b) =>
+          a.brigada.localeCompare(b.brigada, undefined, { numeric: true }) ||
+          a.usuario.localeCompare(b.usuario),
+      )
+  }, [registros, semana])
+
+  const incidenciasResumen = useMemo(() => {
+    const semanaVal = semana || 3
+    const registrosSemana = registros.filter(
+      (r) => parseInt(r.semana, 10) === semanaVal,
+    )
+
+    const counts = {}
+    for (const r of registrosSemana) {
+      counts[r.incidencia] = (counts[r.incidencia] || 0) + 1
+    }
+
+    return INCIDENCIAS.map((inc) => ({
+      inc,
+      count: counts[inc] || 0,
+    }))
   }, [registros, semana])
 
   const brigadas = Object.keys(avanceData.agrupado)
@@ -99,10 +155,37 @@ const ReporteAvance = ({ registros, semana }) => {
 
   const generalColor = getColor(avanceData.pctGeneral)
 
+  const resumenIncidencias = useMemo(() => {
+    const counts = {}
+    let total = 0
+    for (const u of usuariosIncidencias) {
+      for (const [inc, folios] of Object.entries(u.incidencias)) {
+        counts[inc] = (counts[inc] || 0) + folios.length
+        total += folios.length
+      }
+    }
+    return {
+      counts: Object.entries(counts).sort(
+        (a, b) => INCIDENCIAS.indexOf(a[0]) - INCIDENCIAS.indexOf(b[0]),
+      ),
+      total,
+    }
+  }, [usuariosIncidencias])
+
+  const brigadasPorColor = useMemo(() => {
+    const brigadas = [...new Set(usuariosIncidencias.map((u) => u.brigada))]
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    return brigadas.map((brigada, i) => ({
+      brigada,
+      color: BRIGADA_COLORS[i % BRIGADA_COLORS.length],
+      usuarios: usuariosIncidencias.filter((u) => u.brigada === brigada),
+    }))
+  }, [usuariosIncidencias])
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
       {/* Header */}
-      <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+      <div className="px-6 py-5 border-b border-slate-100 bg-linear-to-r from-slate-50 to-white">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold text-slate-900 tracking-tight">Reporte de Avance</h3>
@@ -131,15 +214,24 @@ const ReporteAvance = ({ registros, semana }) => {
             />
           </div>
         </div>
+
       </div>
 
       {/* Stats row */}
       <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+          <StatCard label="UPMs" value={Object.values(avanceData.agrupado).reduce((s, b) => s + Object.keys(b).length, 0)} color={{ bar: 'bg-blue-500', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500', border: 'border-blue-200', ring: 'ring-blue-500/20' }} sub="visitadas" />
           <StatCard label="Validas" value={avanceData.totalValidasGeneral} color={getColor(100)} sub={`${avanceData.totalMaxGeneral} max`} />
           <StatCard label="Observadas" value={avanceData.totalObservadasGeneral} color={avanceData.totalObservadasGeneral > 0 ? getColor(10) : getColor(100)} sub="boletas" />
-          <StatCard label="Traslados" value={avanceData.totalTrasladosGeneral} color={getColor(50)} sub="registros" />
-          <StatCard label="UPMs" value={Object.values(avanceData.agrupado).reduce((s, b) => s + Object.keys(b).length, 0)} color={getColor(75)} sub="visitadas" />
+          {incidenciasResumen.map(({ inc, count }) => (
+            <StatCard
+              key={inc}
+              label={inc.split(': ')[1] || inc}
+              value={count}
+              color={count > 0 ? getIncidenciaColor(inc) : { ...getIncidenciaColor(inc), bg: 'bg-slate-50', text: 'text-slate-400', border: 'border-slate-200', ring: 'ring-slate-500/10' }}
+              sub="registros"
+            />
+          ))}
         </div>
       </div>
 
@@ -168,9 +260,6 @@ const ReporteAvance = ({ registros, semana }) => {
                 {/* Brigada header */}
                 <div className="px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg ${color.bg} border ${color.border} flex items-center justify-center ring-1 ${color.ring}`}>
-                      <span className={`text-[0.7rem] font-extrabold ${color.text}`}>{brigada.slice(-2)}</span>
-                    </div>
                     <div>
                       <div className="font-bold text-[0.82rem] text-slate-900">{brigada}</div>
                       <div className="text-[0.65rem] text-slate-400">{upmKeys.length} UPM{upmKeys.length !== 1 ? 's' : ''} visitadas</div>
@@ -228,11 +317,7 @@ const ReporteAvance = ({ registros, semana }) => {
                                 {info.validas}/{avanceData.maxPorUpm}
                               </div>
                             </div>
-                            {info.observadas > 0 && (
-                              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[0.45rem] font-bold rounded-full flex items-center justify-center ring-1 ring-white z-10">
-                                {info.observadas}
-                              </span>
-                            )}
+                            
                           </div>
 
                           {/* Tooltip */}
@@ -286,6 +371,21 @@ const ReporteAvance = ({ registros, semana }) => {
                                 </div>
                               </div>
 
+                              {/* Incidencias por tipo */}
+                              {Object.entries(info.incidencias).length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-slate-700/60">
+                                  <div className="text-[0.55rem] font-bold text-slate-400 uppercase tracking-wider mb-1">Incidencias</div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {Object.entries(info.incidencias).map(([inc, count]) => (
+                                      <span key={inc} className="inline-flex items-center gap-1 bg-slate-800 border border-slate-700 text-slate-200 rounded px-1.5 py-0.5 text-[0.55rem]">
+                                        <span className="font-bold">{count}x</span>
+                                        <span>{inc.split(': ')[1] || inc}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Barra mini */}
                               <div className="mt-2 pt-2 border-t border-slate-700/60">
                                 <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
@@ -311,6 +411,7 @@ const ReporteAvance = ({ registros, semana }) => {
         </div>
       </div>
 
+      
       {/* Incidencias table */}
       {usuariosIncidencias.length > 0 && (
         <div className="border-t border-slate-100">
@@ -320,53 +421,80 @@ const ReporteAvance = ({ registros, semana }) => {
                 <div className="w-1 h-5 bg-red-500 rounded-full" />
                 <h4 className="text-[0.8rem] font-bold text-slate-700 uppercase tracking-wider">Incidencias por Usuario</h4>
               </div>
-              <span className="text-[0.65rem] text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full">
-                Excluye entrevistas y traslados
+              <span className="flex flex-wrap items-center justify-end gap-1.5 max-w-[60%]">
+                <span className="inline-flex items-center gap-1 bg-slate-900 text-white text-[0.62rem] font-bold px-2.5 py-1 rounded-full">
+                  {resumenIncidencias.total} en total
+                </span>
+                {resumenIncidencias.counts.map(([inc, count]) => {
+                  const color = getIncidenciaColor(inc)
+                  return (
+                    <span key={inc} className={`inline-flex items-center gap-1 text-[0.6rem] font-semibold bg-white border ${color.border} ${color.text} px-2 py-1 rounded-full`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${color.dot}`} />
+                      {inc.split(': ')[1]}: {count}
+                    </span>
+                  )
+                })}
               </span>
             </div>
 
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <table className="w-full text-[0.72rem]">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider w-8">#</th>
-                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider">Usuario</th>
-                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider">Brigada</th>
-                    <th className="text-center py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider w-16">Total</th>
-                    <th className="text-left py-2.5 px-3 text-[0.65rem] font-semibold text-slate-500 uppercase tracking-wider">Detalle de Incidencias</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {usuariosIncidencias.map((u, i) => (
-                    <tr key={u.usuario} className="hover:bg-slate-50/80 transition-colors duration-100">
-                      <td className="py-2.5 px-3 text-slate-300 font-medium text-[0.68rem]">{i + 1}</td>
-                      <td className="py-2.5 px-3">
-                        <span className="font-semibold text-slate-800">{u.usuario}</span>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span className="inline-flex items-center bg-slate-100 text-slate-600 text-[0.62rem] font-semibold px-2 py-0.5 rounded-md">
-                          {u.brigada}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[0.7rem] font-bold">
-                          {u.total}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <div className="flex flex-wrap gap-1">
-                          {Object.entries(u.incidencias).map(([inc, count]) => (
-                            <span key={inc} className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 text-slate-600 rounded-lg px-2 py-0.5 text-[0.62rem]">
-                              <span className="font-bold text-slate-400">{count}x</span>
-                              <span className="font-medium">{inc.split(': ')[1] || inc}</span>
+            <div className="space-y-6">
+              {brigadasPorColor.map(({ brigada, color, usuarios }) => (
+                <div key={brigada}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`w-2.5 h-2.5 rounded-full ${color.bg} ring-2 ring-offset-1 ${color.bgLight}`} />
+                    <h5 className={`text-[0.75rem] font-bold uppercase tracking-wider ${color.text}`}>{brigada}</h5>
+                    <span className="text-[0.62rem] text-slate-400">· {usuarios.length} usuario{usuarios.length !== 1 ? 's' : ''}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {usuarios.map((u) => (
+                      <div key={u.usuario} className="rounded-xl border border-slate-200 bg-white overflow-hidden transition-all duration-200 hover:shadow-md">
+                        <div className="px-4 py-3 bg-slate-50/60 border-b border-slate-100 flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-full ${color.bgLight} border ${color.border} flex items-center justify-center shrink-0`}>
+                            <span className={`${color.text} font-bold text-sm`}>{getInitials(u.usuario)}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-[0.78rem] text-slate-900 truncate">{u.usuario}</div>
+                            <span className={`inline-flex items-center ${color.chip} text-[0.58rem] font-bold px-1.5 py-0.5 rounded-md`}>
+                              {u.brigada}
                             </span>
-                          ))}
+                          </div>
+                          <div className="flex flex-col items-center shrink-0">
+                            <span className="text-lg font-extrabold text-red-600 leading-none">{u.total}</span>
+                            <span className="text-[0.55rem] text-slate-400 uppercase tracking-wider">incidencias</span>
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+                        <div className="p-3 space-y-2">
+                          {Object.entries(u.incidencias)
+                            .sort((a, b) => INCIDENCIAS.indexOf(a[0]) - INCIDENCIAS.indexOf(b[0]))
+                            .map(([inc, folios]) => {
+                              const incColor = getIncidenciaColor(inc)
+                              return (
+                                <div key={inc} className={`rounded-lg border ${incColor.border} bg-slate-50/40 p-2.5`}>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className={`inline-flex items-center gap-1.5 text-[0.62rem] font-bold uppercase tracking-wide ${incColor.text}`}>
+                                      <span className={`w-2 h-2 rounded-full ${incColor.dot}`} />
+                                      {inc.split(': ')[1]}
+                                    </span>
+                                    <span className={`text-[0.65rem] font-extrabold ${incColor.text}`}>{folios.length}</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {folios.map((folio) => (
+                                      <span key={folio} className="font-mono font-semibold text-[0.6rem] text-slate-700 bg-white border border-slate-200 rounded-md px-2 py-0.5">
+                                        {folio}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

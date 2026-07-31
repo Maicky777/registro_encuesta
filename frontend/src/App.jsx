@@ -8,6 +8,7 @@ const GestionBrigadas = lazy(() => import('./components/GestionBrigadas'))
 const GestionEncuestadores = lazy(() => import('./components/GestionEncuestadores'))
 const AsignacionBrigadas = lazy(() => import('./components/AsignacionBrigadas'))
 const ReporteAsistencia = lazy(() => import('./components/ReporteAsistencia'))
+const DiagramaIncidencias = lazy(() => import('./components/DiagramaIncidencias'))
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null)
@@ -51,6 +52,7 @@ export default function App() {
     { key: 'encuestadores', label: 'Encuestadores' },
     { key: 'asignacion', label: 'Asignacion Brigadas' },
     { key: 'asistencia', label: 'Reporte de Asistencia' },
+    { key: 'incidencias', label: 'Diagrama de Incidencias' },
   ]
 
   const userTabs = [
@@ -131,6 +133,9 @@ export default function App() {
             {activeTab === 'encuestadores' && currentUser.rol === 'administrador' && <GestionEncuestadores />}
             {activeTab === 'asignacion' && currentUser.rol === 'administrador' && <AsignacionBrigadas />}
             {activeTab === 'asistencia' && <ReporteAsistencia sessionUser={currentUser} />}
+            {activeTab === 'incidencias' && currentUser.rol === 'administrador' && (
+              <DiagramaIncidencias sessionUser={currentUser} />
+            )}
           </Suspense>
         </div>
       )}

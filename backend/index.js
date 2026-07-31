@@ -14,6 +14,7 @@ const brigadasRoutes = require('./routes/brigadas')
 const encuestadoresRoutes = require('./routes/encuestadores')
 const asignacionesRoutes = require('./routes/asignaciones')
 const asistenciaRoutes = require('./routes/asistencia')
+const incidenciasRoutes = require('./routes/incidencias')
 
 const app = express()
 
@@ -73,6 +74,7 @@ app.use('/api/brigadas', brigadasRoutes)
 app.use('/api/encuestadores', encuestadoresRoutes)
 app.use('/api/asignaciones', asignacionesRoutes)
 app.use('/api/asistencia', asistenciaRoutes)
+app.use('/api/incidencias', incidenciasRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {
