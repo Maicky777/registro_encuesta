@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useModal } from '../../hooks/useModal'
-import { getBrigadas } from '../../services/brigadaService'
 import { getPersonalAsistencia, getAsistencia, saveAsistencia } from '../../services/asistenciaService'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
@@ -18,38 +17,39 @@ const METODOS_VERIFICACION = [
 
 const DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
 
-function getDiaFecha(semana, diaIndex) {
-  const year = new Date().getFullYear()
-  const target = new Date(year, 0, 1 + (semana - 1) * 7)
-  const dow = target.getDay()
-  const diff = dow === 0 ? -6 : 1 - dow
-  target.setDate(target.getDate() + diff + diaIndex)
-  const dd = String(target.getDate()).padStart(2, '0')
-  const mm = String(target.getMonth() + 1).padStart(2, '0')
-  return `${DIAS[diaIndex]} (${dd}/${mm}/${year})`
+const SEMANA_ANCLA = 5
+const FECHA_ANCLA = new Date(new Date().getFullYear(), 7, 3)
+
+function getFechaSemana(semana, diaIndex) {
+  const target = new Date(FECHA_ANCLA)
+  target.setDate(target.getDate() + (semana - SEMANA_ANCLA) * 7 + diaIndex)
+  return target
 }
 
 function getDiaFechaShort(diaIndex, semana) {
-  const year = new Date().getFullYear()
-  const target = new Date(year, 0, 1 + (semana - 1) * 7)
-  const dow = target.getDay()
-  const diff = dow === 0 ? -6 : 1 - dow
-  target.setDate(target.getDate() + diff + diaIndex)
+  const target = getFechaSemana(semana, diaIndex)
   const dd = String(target.getDate()).padStart(2, '0')
   const mm = String(target.getMonth() + 1).padStart(2, '0')
   return `${dd}/${mm}`
 }
 
+function getSemanaActual() {
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const ancla = new Date(FECHA_ANCLA)
+  ancla.setHours(0, 0, 0, 0)
+  const diffDias = Math.round((hoy - ancla) / 86400000)
+  return SEMANA_ANCLA + Math.floor(diffDias / 7)
+}
+
 export default function ReporteAsistencia({ sessionUser }) {
-  const { alertModal, confirmModal, showAlert, closeAlert, showConfirm, confirmAction } = useModal()
+  const { alertModal, confirmModal, showAlert, closeAlert, confirmAction } = useModal()
 
   const isAdmin = sessionUser?.rol === 'administrador'
   const userDept = sessionUser?.departamento || ''
 
   const [departamento, setDepartamento] = useState(isAdmin ? '' : userDept)
-  const [brigadas, setBrigadas] = useState([])
-  const [brigada, setBrigada] = useState('')
-  const [semana, setSemana] = useState(4)
+  const [semana, setSemana] = useState(getSemanaActual())
 
   const [personal, setPersonal] = useState([])
   const [attendanceMap, setAttendanceMap] = useState({})
@@ -58,33 +58,38 @@ export default function ReporteAsistencia({ sessionUser }) {
 
   const [diaActivo, setDiaActivo] = useState(0)
 
-  useEffect(() => {
-    if (departamento) {
-      getBrigadas(departamento).then(setBrigadas).catch(() => {})
-      setBrigada('')
-    } else {
-      setBrigadas([])
-      setBrigada('')
-    }
-  }, [departamento])
+  const [loteTurno, setLoteTurno] = useState('AMBOS')
+  const [loteIngreso, setLoteIngreso] = useState('')
+  const [loteFIngreso, setLoteFIngreso] = useState('')
+  const [loteSalida, setLoteSalida] = useState('')
+  const [loteFSalida, setLoteFSalida] = useState('')
+  const [loteObs, setLoteObs] = useState('')
+
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
 
   const cargarDatos = useCallback(async () => {
     if (!departamento || !semana) return
     setLoading(true)
     try {
       const params = { departamento, semana }
-      if (brigada) params.brigada = brigada
       const [personalData, existingData] = await Promise.all([
         getPersonalAsistencia(params),
         getAsistencia(params),
       ])
-      personalData.sort((a, b) => {
+      const vistos = new Set()
+      const personalUnico = personalData.filter((p) => {
+        if (vistos.has(p.encuestador_id)) return false
+        vistos.add(p.encuestador_id)
+        return true
+      })
+      personalUnico.sort((a, b) => {
         const numA = parseInt((a.codBrigada || '').replace(/\D/g, ''), 10) || 0
         const numB = parseInt((b.codBrigada || '').replace(/\D/g, ''), 10) || 0
         if (numA !== numB) return numA - numB
         return (a.usuario || '').localeCompare(b.usuario || '')
       })
-      setPersonal(personalData)
+      setPersonal(personalUnico)
+      setSelectedIds(new Set())
 
       const map = {}
       for (const rec of existingData) {
@@ -96,13 +101,13 @@ export default function ReporteAsistencia({ sessionUser }) {
     } finally {
       setLoading(false)
     }
-  }, [departamento, brigada, semana, showAlert])
+  }, [departamento, semana, showAlert])
 
   useEffect(() => {
     if (departamento && semana) {
       cargarDatos()
     }
-  }, [departamento, brigada, semana, cargarDatos])
+  }, [departamento, semana, cargarDatos])
 
   const updateField = (encuestadorId, dia, turno, field, value) => {
     const key = `${encuestadorId}_${dia}_${turno}`
@@ -155,7 +160,7 @@ export default function ReporteAsistencia({ sessionUser }) {
           salida: r.salida || '',
           fSalida: r.fSalida || '',
           observacion: r.observacion || '',
-          brigada: brigadaPorPersona[r.encuestador_id] || brigada || '',
+          brigada: brigadaPorPersona[r.encuestador_id] || '',
           departamento,
         })
       }
@@ -172,13 +177,108 @@ export default function ReporteAsistencia({ sessionUser }) {
         records,
         semana: parseInt(semana, 10),
         departamento,
-        brigada: brigada || undefined,
       })
       showAlert(`Asistencia guardada correctamente (${records.length} registros).`, 'success')
     } catch (err) {
       showAlert('Error al guardar: ' + (err.response?.data?.error || err.message), 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const ids = personal.map((p) => p.encuestador_id)
+      const allSelected = ids.length > 0 && ids.every((id) => prev.has(id))
+      return allSelected ? new Set() : new Set(ids)
+    })
+  }
+
+  const aplicarLote = () => {
+    if (!loteIngreso && !loteSalida && !loteFIngreso && !loteFSalida && !loteObs) {
+      showAlert('Ingrese al menos un valor para aplicar.', 'warning')
+      return
+    }
+    if (personal.length === 0) {
+      showAlert('No hay personal cargado para aplicar.', 'warning')
+      return
+    }
+
+    const aplicables = personal.filter((p) => selectedIds.has(p.encuestador_id))
+
+    if (aplicables.length === 0) {
+      showAlert('Seleccione al menos una persona (checkbox de la tabla) para aplicar.', 'warning')
+      return
+    }
+
+    const dia = DIAS[diaActivo]
+    const turnos = loteTurno === 'AMBOS' ? ['T1', 'T2'] : [loteTurno]
+
+    setAttendanceMap((prev) => {
+      const next = { ...prev }
+      for (const p of aplicables) {
+        for (const turno of turnos) {
+          const key = `${p.encuestador_id}_${dia}_${turno}`
+          const current = next[key] || {
+            encuestador_id: p.encuestador_id,
+            dia,
+            turno,
+            estatus: 'N/A',
+            ingreso: '',
+            fIngreso: '',
+            salida: '',
+            fSalida: '',
+            observacion: '',
+          }
+          next[key] = {
+            ...current,
+            ingreso: loteIngreso || current.ingreso,
+            fIngreso: loteFIngreso || current.fIngreso,
+            salida: loteSalida || current.salida,
+            fSalida: loteFSalida || current.fSalida,
+            observacion: loteObs || current.observacion,
+          }
+        }
+      }
+      return next
+    })
+
+    showAlert(
+      `Valores aplicados a ${aplicables.length} persona(s) en ${dia}${turnos.length > 1 ? ' (T1 y T2)' : ''}.`,
+      'success',
+    )
+
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur()
+    }
+
+    setLoteTurno('AMBOS')
+    setLoteIngreso('')
+    setLoteFIngreso('')
+    setLoteSalida('')
+    setLoteFSalida('')
+    setLoteObs('')
+    setSelectedIds(new Set())
+  }
+
+  const handleLoteKeyDown = (e) => {
+    if (
+      e.key === 'Enter' &&
+      !e.target.closest('button') &&
+      !alertModal.show &&
+      !confirmModal.show
+    ) {
+      e.preventDefault()
+      aplicarLote()
     }
   }
 
@@ -192,37 +292,111 @@ export default function ReporteAsistencia({ sessionUser }) {
       const workbook = new ExcelJS.Workbook()
       workbook.creator = 'Sistema de Asistencia'
       const sheet = workbook.addWorksheet(`ASISTENCIA SEM ${semana}`)
+      sheet.views = [{ state: 'normal', zoomScale: 80 }]
 
       const headers = [
         'ID DEP',
         'DEPARTAMENTO',
         'CÓDIGO BRIGADA',
         'SEMANA',
-        'ID',
+        'ID ENC',
         'CARGO',
         'NOMBRE',
         'USUARIO',
-        'DÍA / FECHA',
-        'INGRESO T1',
+        'INGRESO (FORMATO DE 24 HORAS)',
         'DETALLE INGRESO T1',
-        'SALIDA T1',
+        'SALIDA (Formato de 24 horas)',
         'DETALLE SALIDA T1',
-        'OBSERVACIÓN T1',
-        'INGRESO T2',
+        'OBSERVACIÓN',
+        'INGRESO (FORMATO DE 24 HORAS)',
         'DETALLE INGRESO T2',
-        'SALIDA T2',
+        'SALIDA (Formato de 24 horas)',
         'DETALLE SALIDA T2',
-        'OBSERVACIÓN T2',
+        'OBSERVACIÓN',
       ]
 
       sheet.columns = headers.map(() => ({ width: 18 }))
 
-      const headerRow = sheet.getRow(1)
+      const titleRow = sheet.getRow(1)
+      titleRow.getCell(1).value = 'REPORTE DE ASISTENCIA DE LAS BRIGADAS POR SEMANA'
+      titleRow.getCell(1).font = { name: 'Calibri', size: 20, bold: true }
+      titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' }
+      titleRow.height = 28
+      sheet.mergeCells(1, 1, 1, 8)
+
+      const trimestre = Math.floor(FECHA_ANCLA.getMonth() / 3) + 1
+      const infoRow2 = sheet.getRow(2)
+      infoRow2.getCell(1).value = 'TRIMESTRE'
+      infoRow2.getCell(1).font = { name: 'Calibri', size: 20, bold: true }
+      infoRow2.getCell(3).value = trimestre
+      infoRow2.getCell(3).font = { name: 'Calibri', size: 20, color: {argb: 'FF0000'}, bold: true }
+      infoRow2.getCell(3).alignment={horizontal: 'left'} 
+      
+      const infoRow3 = sheet.getRow(3)
+      infoRow3.getCell(1).value = 'SEMANA'
+      infoRow3.getCell(1).font = { name: 'Calibri', size: 20, bold: true }
+      infoRow3.getCell(3).value = semana
+      infoRow3.getCell(3).font = { name: 'Calibri', size: 20, color: {argb: 'FF0000'}, bold: true }
+      infoRow3.getCell(3).alignment={horizontal: 'left'} 
+
+      const borderThin = {
+        top: { style: 'thin' },
+        bottom: { style: 'thin' },
+        left: { style: 'thin' },
+        right: { style: 'thin' },
+      }
+
+      const fechaRegistro = getFechaSemana(semana, diaActivo)
+      const ddFecha = String(fechaRegistro.getDate()).padStart(2, '0')
+      const mmFecha = String(fechaRegistro.getMonth() + 1).padStart(2, '0')
+      const fechaRegistroStr = `${ddFecha}/${mmFecha}/${fechaRegistro.getFullYear()}`
+
+      sheet.mergeCells(1, 9, 1, 18)
+      const diaCell = sheet.getCell(1, 9)
+      diaCell.value = DIAS[diaActivo]
+      diaCell.font = { name: 'Calibri', size: 11, bold: true }
+      diaCell.alignment = { horizontal: 'center', vertical: 'middle' }
+      diaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F2F2F2' } }
+
+      sheet.mergeCells(2, 9, 2, 18)
+      const fechaCell = sheet.getCell(2, 9)
+      fechaCell.value = fechaRegistroStr
+      fechaCell.font = { name: 'Calibri', size: 11, bold: true }
+      fechaCell.alignment = { horizontal: 'center', vertical: 'middle' }
+      fechaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F1F5F9' } }
+
+      sheet.mergeCells(3, 9, 3, 13)
+      const turno1Cell = sheet.getCell(3, 9)
+      turno1Cell.value = 'TURNO 1'
+      turno1Cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: '000000' } }
+      turno1Cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      turno1Cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F2F2F2' } }
+
+      sheet.mergeCells(3, 14, 3, 18)
+      const turno2Cell = sheet.getCell(3, 14)
+      turno2Cell.value = 'TURNO 2'
+      turno2Cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: '000000' } }
+      turno2Cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      turno2Cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F2F2F2' } }
+
+      ;[
+        [1, 9, 1, 18],
+        [2, 9, 2, 18],
+        [3, 9, 3, 13],
+        [3, 14, 3, 18],
+      ].forEach(([r1, c1, r2, c2]) => {
+        for (let r = r1; r <= r2; r++) {
+          for (let c = c1; c <= c2; c++) {
+            sheet.getCell(r, c).border = borderThin
+          }
+        }
+      })
+
+      const headerRow = sheet.getRow(4)
+      headerRow.height = 39
       headers.forEach((h, i) => {
-        const cell = headerRow.getCell(i + 1)
-        cell.value = h
-        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFF' } }
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E293B' } }
+        const col = i + 1
+        const cell = headerRow.getCell(col)
         cell.border = {
           top: { style: 'thin' },
           bottom: { style: 'thin' },
@@ -230,14 +404,40 @@ export default function ReporteAsistencia({ sessionUser }) {
           right: { style: 'thin' },
         }
         cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+
+        if (col === 9 || col === 14) {
+          cell.value = {
+            richText: [
+              { text: 'INGRESO', font: { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } } },
+              { text: ' (FORMATO DE 24 HORAS)', font: { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFF0000' } } },
+            ],
+          }
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E293B' } }
+        } else if (col === 11 || col === 16) {
+          cell.value = {
+            richText: [
+              { text: 'SALIDA', font: { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } } },
+              { text: ' (Formato de 24 horas)', font: { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFF0000' } } },
+            ],
+          }
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E293B' } }
+        } else if (col === 13 || col === 18) {
+          cell.value = 'OBSERVACIÓN'
+          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF000000' } }
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2CC' } }
+        } else {
+          cell.value = h
+          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFF' } }
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E293B' } }
+        }
       })
 
       sheet.autoFilter = {
-        from: { row: 1, column: 1 },
-        to: { row: 1, column: headers.length },
+        from: { row: 4, column: 1 },
+        to: { row: 4, column: headers.length },
       }
 
-      let rowIdx = 2
+      let rowIdx = 5
       let hasData = false
 
       for (const p of personal) {
@@ -255,11 +455,10 @@ export default function ReporteAsistencia({ sessionUser }) {
             p.departamento || '',
             p.codBrigada || '',
             semana,
-            p.usuario || '',
+            '',
             p.cargo || '',
             p.nombre || '',
             p.usuario || '',
-            getDiaFecha(semana, d),
             t1.ingreso || '',
             t1.fIngreso || '',
             t1.salida || '',
@@ -275,7 +474,7 @@ export default function ReporteAsistencia({ sessionUser }) {
           values.forEach((v, i) => {
             const cell = row.getCell(i + 1)
             cell.value = v
-            cell.font = { name: 'Calibri', size: 10 }
+            cell.font = { name: 'Calibri', size: 11 }
             cell.border = {
               top: { style: 'thin' },
               bottom: { style: 'thin' },
@@ -283,7 +482,7 @@ export default function ReporteAsistencia({ sessionUser }) {
               right: { style: 'thin' },
             }
             cell.alignment = {
-              horizontal: i >= 9 ? 'center' : 'left',
+              horizontal: i >= 8 ? 'center' : 'left',
               vertical: 'middle',
             }
           })
@@ -316,22 +515,31 @@ export default function ReporteAsistencia({ sessionUser }) {
     }
   }
 
-  const brigadaOptions = brigadas.map((b) => ({
-    value: b.nombre,
-    label: b.nombre,
-  }))
-
   return (
     <div className="max-w-full mx-auto p-4">
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 mb-4">
-        <div className="flex flex-wrap gap-4 items-end">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+          <div className="flex items-center gap-2.5">
+            <span className="w-1 h-5 rounded-full bg-blue-600"></span>
+            <h2 className="text-sm font-semibold text-slate-800 tracking-wide">
+              Control de Asistencia
+            </h2>
+          </div>
+          {personal.length > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 bg-white border border-slate-200 rounded-full px-3 py-1 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              {personal.length} persona(s)
+            </span>
+          )}
+        </div>
+        <div className="p-4 flex flex-wrap items-end gap-x-4 gap-y-3">
           {isAdmin && (
             <div className="flex flex-col">
               <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
                 Departamento
               </label>
               <select
-                className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white min-w-[160px]"
+                className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
                 value={departamento}
                 onChange={(e) => setDepartamento(e.target.value)}
               >
@@ -345,66 +553,216 @@ export default function ReporteAsistencia({ sessionUser }) {
             </div>
           )}
           <div className="flex flex-col">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
-                Filtrar por Brigada
-              </label>
-              <select
-                className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white min-w-[160px]"
-                value={brigada}
-                onChange={(e) => setBrigada(e.target.value)}
-                disabled={!departamento}
-              >
-                <option value="">TODAS LAS BRIGADAS</option>
-                {brigadaOptions.map((b) => (
-                  <option key={b.value} value={b.value}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
-          </div>
-          <div className="flex flex-col">
             <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
               Semana N°
             </label>
             <input
               type="number"
-              className="border border-slate-300 rounded px-3 py-1.5 text-sm w-20"
+              className="border border-slate-300 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
               value={semana}
               onChange={(e) => setSemana(parseInt(e.target.value) || 0)}
               min={1}
               max={53}
             />
           </div>
-          {personal.length > 0 && (
-            <div className="flex items-center text-xs text-slate-500 ml-2">
-              <span className="font-semibold text-slate-700">{personal.length}</span> personas
-            </div>
-          )}
+          <div className="flex-1 hidden md:block"></div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 bg-blue-600 text-white border-none px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              onClick={handleSave}
+              disabled={saving || !departamento}
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+              {saving ? 'Guardando...' : 'Guardar Asistencia'}
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 bg-emerald-600 text-white border-none px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              onClick={exportarExcel}
+              disabled={personal.length === 0}
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Exportar Excel
+            </button>
+            {personal.length > 0 && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 bg-slate-600 text-white border-none px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer hover:bg-slate-700 transition-colors shadow-sm"
+                onClick={cargarDatos}
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                Recargar
+              </button>
+            )}
+          </div>
         </div>
-      </div>
-
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-3 mb-4 flex flex-wrap gap-2 items-center">
-        <button
-          className="bg-blue-600 text-white border-none px-4 py-1.5 rounded text-xs font-semibold cursor-pointer hover:bg-blue-700 transition-colors disabled:opacity-50"
-          onClick={handleSave}
-          disabled={saving || !departamento}
-        >
-          {saving ? 'Guardando...' : 'Guardar Asistencia'}
-        </button>
-        <button
-          className="bg-green-700 text-white border-none px-4 py-1.5 rounded text-xs font-semibold cursor-pointer hover:bg-green-800 transition-colors disabled:opacity-50"
-          onClick={exportarExcel}
-          disabled={personal.length === 0}
-        >
-          Exportar Excel
-        </button>
         {personal.length > 0 && (
-          <button
-            className="bg-slate-600 text-white border-none px-4 py-1.5 rounded text-xs font-semibold cursor-pointer hover:bg-slate-700 transition-colors"
-            onClick={cargarDatos}
-          >
-            Recargar
-          </button>
+        <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3">
+          <div className="flex items-center justify-between mb-3">
+            <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 uppercase">
+              <svg
+                className="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+              Registro en lote
+            </span>
+            <span className="text-[10px] text-slate-400">
+              Aplica al {DIAS[diaActivo]} ({getDiaFechaShort(diaActivo, semana)}) a los seleccionados
+              ({selectedIds.size} de {personal.length} persona(s))
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-3 items-end" onKeyDown={handleLoteKeyDown}>
+            <div className="flex flex-col">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                Turno
+              </label>
+              <select
+                className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white"
+                value={loteTurno}
+                onChange={(e) => setLoteTurno(e.target.value)}
+              >
+                <option value="AMBOS">Ambos turnos</option>
+                <option value="T1">Turno 1 (Mañana)</option>
+                <option value="T2">Turno 2 (Tarde/Noche)</option>
+              </select>
+            </div>
+            <div className="flex flex-col">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                Hora ingreso
+              </label>
+              <input
+                type="time"
+                className="border border-slate-300 rounded px-3 py-1.5 text-sm"
+                value={loteIngreso}
+                onChange={(e) => setLoteIngreso(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                Detalle ingreso
+              </label>
+              <select
+                className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white"
+                value={loteFIngreso}
+                onChange={(e) => setLoteFIngreso(e.target.value)}
+              >
+                <option value=""></option>
+                {METODOS_VERIFICACION.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                Hora salida
+              </label>
+              <input
+                type="time"
+                className="border border-slate-300 rounded px-3 py-1.5 text-sm"
+                value={loteSalida}
+                onChange={(e) => setLoteSalida(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                Detalle salida
+              </label>
+              <select
+                className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white"
+                value={loteFSalida}
+                onChange={(e) => setLoteFSalida(e.target.value)}
+              >
+                <option value=""></option>
+                {METODOS_VERIFICACION.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col min-w-[160px]">
+              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                Observación
+              </label>
+              <input
+                type="text"
+                className="border border-slate-300 rounded px-3 py-1.5 text-sm"
+                value={loteObs}
+                onChange={(e) => setLoteObs(e.target.value)}
+                placeholder="..."
+              />
+            </div>
+            <button
+              type="button"
+              className="bg-indigo-600 text-white border-none px-4 py-1.5 rounded text-xs font-semibold cursor-pointer hover:bg-indigo-700 transition-colors"
+              onClick={aplicarLote}
+            >
+              {selectedIds.size > 0
+                ? `Aplicar a ${selectedIds.size} seleccionado(s)`
+                : 'Aplicar seleccionados'}
+            </button>
+            <button
+              type="button"
+              className="bg-slate-500 text-white border-none px-4 py-1.5 rounded text-xs font-semibold cursor-pointer hover:bg-slate-600 transition-colors"
+              onClick={() => {
+                setLoteTurno('AMBOS')
+                setLoteIngreso('')
+                setLoteFIngreso('')
+                setLoteSalida('')
+                setLoteFSalida('')
+                setLoteObs('')
+              }}
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
         )}
       </div>
 
@@ -433,6 +791,15 @@ export default function ReporteAsistencia({ sessionUser }) {
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-800 text-white">
+                  <th rowSpan={2} className="border border-slate-700 px-1.5 py-1 text-xs align-middle w-8">
+                    <input
+                      type="checkbox"
+                      title="Seleccionar todos"
+                      className="accent-blue-500 cursor-pointer"
+                      checked={personal.length > 0 && personal.every((p) => selectedIds.has(p.encuestador_id))}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
                   <th rowSpan={2} className="border border-slate-700 px-1.5 py-1 text-xs align-middle w-8">
                     N°
                   </th>
@@ -498,7 +865,7 @@ export default function ReporteAsistencia({ sessionUser }) {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan={15}
+                      colSpan={16}
                       className="text-center py-10 text-slate-400 text-sm"
                     >
                       Cargando personal...
@@ -507,7 +874,7 @@ export default function ReporteAsistencia({ sessionUser }) {
                 ) : personal.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={15}
+                      colSpan={16}
                       className="text-center py-10 text-slate-400 text-sm"
                     >
                       Seleccione un departamento y semana para cargar el personal.
@@ -532,6 +899,14 @@ export default function ReporteAsistencia({ sessionUser }) {
                         key={p.encuestador_id}
                         className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
                       >
+                        <td className="border border-slate-200 px-1.5 py-1 text-xs align-middle text-center">
+                          <input
+                            type="checkbox"
+                            className="accent-blue-500 cursor-pointer"
+                            checked={selectedIds.has(p.encuestador_id)}
+                            onChange={() => toggleSelect(p.encuestador_id)}
+                          />
+                        </td>
                         <td className="border border-slate-200 px-1.5 py-1 text-xs align-middle text-center font-mono">
                           {idx + 1}
                         </td>

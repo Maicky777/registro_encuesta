@@ -4,7 +4,7 @@ import {
   MAX_POR_UPM,
   INCIDENCIA_TRASLADO,
 } from '../../utils/constants'
-import { calcularUPM, calcularVOE } from '../../utils/helpers'
+import { calcularUPM, calcularVOE, calcularPanel } from '../../utils/helpers'
 
 const estadoSelectClass = (estado) => {
   const base =
@@ -53,11 +53,31 @@ const Formulario = ({
     if (onFolioChange) {
       onFolioChange(val)
     }
+    setFormData((prev) => {
+      const upmFinal = prev.upmAdicional ? prev.upm : upmCalculada
+      return {
+        ...prev,
+        folio: val,
+        upm: upmFinal,
+        voe: voeCalculado,
+        panel: calcularPanel(prev.visita, upmFinal),
+      }
+    })
+  }
+
+  const handleUpmAdicionalChange = (val) => {
     setFormData((prev) => ({
       ...prev,
-      folio: val,
-      upm: upmCalculada,
-      voe: voeCalculado,
+      upmAdicional: val,
+      upm: val.trim() === '' ? calcularUPM(prev.folio) : prev.upm,
+    }))
+  }
+
+  const handleUpmManualChange = (val) => {
+    setFormData((prev) => ({
+      ...prev,
+      upm: val,
+      panel: calcularPanel(prev.visita, val),
     }))
   }
 
@@ -81,6 +101,12 @@ const Formulario = ({
 
   const inputClass =
     'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed'
+
+  const canEditUpmAdicional =
+    formData.visita === 1 && formData.numeroCorrelativo === 1
+  const canEditUpmManual = !!(
+    formData.upmAdicional && formData.upmAdicional.trim() !== ''
+  )
 
   const avanceBrigadas = useMemo(() => {
     if (!registros) return []
@@ -412,14 +438,20 @@ const Formulario = ({
               htmlFor="cod-upm-ti"
             >
               CODIGO DE UPM
+              {canEditUpmManual && (
+                <span className="ml-1 text-[0.6rem] font-normal text-amber-600 normal-case tracking-normal">
+                  (Ingreso manual)
+                </span>
+              )}
             </label>
             <input
               id="cod-upm-ti"
-              className={inputClass}
+              className={`${inputClass} ${canEditUpmManual ? 'border-amber-300 bg-amber-50/50' : ''}`}
               type="text"
+              disabled={!canEditUpmManual}
+              readOnly={!canEditUpmManual}
               value={formData.upm}
-              readOnly
-              disabled
+              onChange={(e) => handleUpmManualChange(e.target.value)}
             />
           </div>
 
@@ -578,14 +610,23 @@ const Formulario = ({
               htmlFor="cod-upm-adicional"
             >
               UPM Adicional
+              {canEditUpmAdicional && (
+                <span className="ml-1 text-[0.6rem] font-normal text-amber-600 normal-case tracking-normal">
+                  (Visita 1 - 1er registro)
+                </span>
+              )}
             </label>
             <input
               id="cod-upm-adicional"
-              className={inputClass}
+              className={`${inputClass} ${canEditUpmAdicional ? 'border-amber-300 bg-amber-50/50' : ''}`}
               type="text"
-              disabled
+              disabled={!canEditUpmAdicional}
+              readOnly={!canEditUpmAdicional}
               value={formData.upmAdicional || ''}
-              readOnly
+              onChange={(e) => handleUpmAdicionalChange(e.target.value)}
+              placeholder={
+                canEditUpmAdicional ? 'Ingrese UPM adicional...' : ''
+              }
             />
           </div>
 
