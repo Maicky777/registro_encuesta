@@ -157,15 +157,27 @@ export default function FormularioBoleta({ sessionUser }) {
       const primerRegistroUpm = registrosMismaUpm
         .filter((r) => r.upmReemplazo && r.upmReemplazo.trim() !== '')
         .sort((a, b) => a.id - b.id)[0]
+      const primerRegistro = [...registrosMismaUpm].sort((a, b) => a.id - b.id)[0]
 
       setFormData((prev) => {
-        const numVisita = parseInt(prev.visita, 10)
+        const visitaAuto = primerRegistro
+          ? String(primerRegistro.visita)
+          : prev.visita
+        const brigadaAuto = primerRegistro
+          ? primerRegistro.brigada
+          : prev.brigada
+        const brigadaCambio = brigadaAuto !== prev.brigada
         return {
           ...prev,
+          visita: visitaAuto,
+          brigada: brigadaAuto,
           numeroCorrelativo: conteoUpmPrevias + 1,
           upmReemplazo: primerRegistroUpm ? primerRegistroUpm.upmReemplazo : '',
-          ...(numVisita === 1 && {
-            panel: calcularPanel(prev.visita, upmCalculada),
+          panel: calcularPanel(visitaAuto, upmCalculada),
+          ...(brigadaCambio && {
+            usuarioEncuestador: '',
+            nombreEncuestador: '',
+            encuestador_id: '',
           }),
         }
       })

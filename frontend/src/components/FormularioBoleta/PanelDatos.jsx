@@ -81,7 +81,7 @@ const PanelDatos = ({
             <div className="flex rounded-lg border border-slate-200 overflow-hidden shadow-sm">
               <button
                 onClick={() => setActiveTab('avance')}
-                className={`flex items-center gap-1.5 px-4 py-1.5 text-[0.75rem] font-semibold transition-all duration-200 ${
+                className={`flex cursor-pointer items-center gap-1.5 px-4 py-1.5 text-[0.75rem] font-semibold transition-all duration-200 ${
                   activeTab === 'avance'
                     ? 'bg-slate-900 text-white shadow-inner'
                     : 'bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700'
@@ -92,7 +92,7 @@ const PanelDatos = ({
               </button>
               <button
                 onClick={() => setActiveTab('tabla')}
-                className={`flex items-center gap-1.5 px-4 py-1.5 text-[0.75rem] font-semibold transition-all duration-200 border-l border-slate-200 ${
+                className={`flex cursor-pointer items-center gap-1.5 px-4 py-1.5 text-[0.75rem] font-semibold transition-all duration-200 border-l border-slate-200 ${
                   activeTab === 'tabla'
                     ? 'bg-slate-900 text-white shadow-inner'
                     : 'bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700'

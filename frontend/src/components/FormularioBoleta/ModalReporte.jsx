@@ -1,5 +1,12 @@
 import React from 'react'
 
+const getSaludo = () => {
+  const hora = new Date().getHours()
+  if (hora >= 0 && hora < 12) return 'Buenos días'
+  if (hora >= 12 && hora < 19) return 'Buenas tardes'
+  return 'Buenas noches'
+}
+
 const ModalReporte = ({ modalData, onClose }) => {
   if (!modalData) return null
 
@@ -45,7 +52,7 @@ const ModalReporte = ({ modalData, onClose }) => {
         <div className="mt-4 p-3 bg-slate-100 rounded-md text-[0.85rem] text-left">
           <p>
             <span>
-              📲 *_Buenas tardes equipo, se adiciona una voe para su
+              📲 *_{getSaludo()} equipo, se adiciona una voe para su
               verificacion y/o correccion_*
             </span>{' '}
             <br />
