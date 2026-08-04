@@ -3,6 +3,7 @@ const { authMiddleware, requireRole } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
 const { parseBrigadas } = require('../utils/parseBrigadas')
 const { computeObservacionFields } = require('../utils/observaciones')
+const { broadcast } = require('../utils/events')
 
 const router = express.Router()
 
@@ -205,6 +206,7 @@ router.post('/', authMiddleware, (req, res) => {
       fechaRegistro, fechaRegistro,
     )
     res.json({ id: info.lastInsertRowid, ...data, totalObservaciones: finalTotal, boletaObservada: finalBoletaObs, estadoBoleta: finalEstado, observacionBoleta: finalObservacion, fecha_registro: fechaRegistro, fecha_modificacion: fechaRegistro })
+    broadcast('boletas:changed', { type: 'create', id: Number(info.lastInsertRowid) })
   } catch (err) {
     console.error('Error al crear boleta:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -226,6 +228,7 @@ router.put('/upm-reemplazo', authMiddleware, (req, res) => {
     }
     const info = db.prepare(sql).run(...params)
     res.json({ message: 'UPM reemplazo propagado', actualizados: info.changes })
+    broadcast('boletas:changed', { type: 'update', upmReemplazo: true })
   } catch (err) {
     console.error('Error al actualizar UPM reemplazo:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -290,6 +293,7 @@ router.put('/:id', authMiddleware, (req, res) => {
       data.encuestador_id || null, nowISO(), id,
     )
     res.json({ message: 'Registro actualizado correctamente' })
+    broadcast('boletas:changed', { type: 'update', id: Number(id) })
   } catch (err) {
     console.error('Error al actualizar boleta:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -309,6 +313,7 @@ router.delete('/:id', authMiddleware, requireRole('administrador'), (req, res) =
     }
     db.prepare('DELETE FROM boletas WHERE id = ?').run(id)
     res.json({ message: 'Registro eliminado' })
+    broadcast('boletas:changed', { type: 'delete', id: Number(id) })
   } catch (err) {
     console.error('Error al eliminar boleta:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -393,6 +398,7 @@ router.post('/batch', authMiddleware, (req, res) => {
 
     insertMany(registros)
     res.json({ message: 'Carga masiva completada', insertados, omitidos })
+    broadcast('boletas:changed', { type: 'batch', insertados, omitidos })
   } catch (err) {
     console.error('Error en batch:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })

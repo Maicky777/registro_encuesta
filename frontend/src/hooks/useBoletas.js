@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../services/api'
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 function getErrorMessage(err) {
   if (err.response?.data?.error) return err.response.data.error
@@ -31,6 +33,26 @@ export const useBoletas = () => {
 
   useEffect(() => {
     fetchRegistros()
+  }, [fetchRegistros])
+
+  const debounceRef = useRef(null)
+  useEffect(() => {
+    const scheduleRefetch = () => {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        fetchRegistros()
+      }, 300)
+    }
+
+    const source = new EventSource(`${API_BASE_URL}/events`, {
+      withCredentials: true,
+    })
+    source.addEventListener('boletas:changed', scheduleRefetch)
+
+    return () => {
+      clearTimeout(debounceRef.current)
+      source.close()
+    }
   }, [fetchRegistros])
 
   const crearRegistro = useCallback(async (data) => {
