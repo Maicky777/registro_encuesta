@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react'
 import {
   INCIDENCIAS,
-  MAX_POR_UPM,
-  INCIDENCIA_TRASLADO,
+  SEMANA_MIN,
+  SEMANA_MAX,
 } from '../../utils/constants'
-import { calcularUPM, calcularVOE, calcularPanel } from '../../utils/helpers'
+import { calcularUPM, calcularUPMEfectivo, calcularVOE, calcularPanel, validarFolio, calcularAvanceBrigadas } from '../../utils/helpers'
 
 const estadoSelectClass = (estado) => {
   const base =
@@ -48,13 +48,13 @@ const Formulario = ({
   }
 
   const handleFolioChangeLocal = (val) => {
-    const upmCalculada = calcularUPM(val)
-    const voeCalculado = calcularVOE(val)
     if (onFolioChange) {
       onFolioChange(val)
+      return
     }
+    const voeCalculado = calcularVOE(val)
     setFormData((prev) => {
-      const upmFinal = prev.upmAdicional ? prev.upm : upmCalculada
+      const upmFinal = calcularUPMEfectivo(val, prev.upmAdicional, prev.upm)
       return {
         ...prev,
         folio: val,
@@ -66,11 +66,15 @@ const Formulario = ({
   }
 
   const handleUpmAdicionalChange = (val) => {
-    setFormData((prev) => ({
-      ...prev,
-      upmAdicional: val,
-      upm: val.trim() === '' ? calcularUPM(prev.folio) : prev.upm,
-    }))
+    setFormData((prev) => {
+      const upm = val.trim() === '' ? calcularUPM(prev.folio) : prev.upm
+      return {
+        ...prev,
+        upmAdicional: val,
+        upm,
+        panel: calcularPanel(prev.visita, upm),
+      }
+    })
   }
 
   const handleUpmManualChange = (val) => {
@@ -83,7 +87,7 @@ const Formulario = ({
 
   const handleSemanaChange = (val) => {
     const digitos = val.replace(/\D/g, '')
-    const parsed = digitos === '' ? '' : parseInt(digitos, 10)
+    const parsed = digitos === '' ? '' : Math.min(parseInt(digitos, 10), SEMANA_MAX)
     setFormData((prev) => ({ ...prev, semana: parsed }))
   }
 
@@ -95,81 +99,28 @@ const Formulario = ({
   const semanaError =
     semanaVal === ''
       ? 'La semana es obligatoria.'
-      : !Number.isInteger(semanaNum) || semanaNum < 1 || semanaNum > 53
-        ? 'La semana debe ser un número entero entre 1 y 53.'
+      : !Number.isInteger(semanaNum) || semanaNum < SEMANA_MIN || semanaNum > SEMANA_MAX
+        ? `La semana debe ser un número entero entre ${SEMANA_MIN} y ${SEMANA_MAX}.`
         : ''
 
   const inputClass =
     'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed'
 
+  const folioError =
+    formData.folio !== '' && !validarFolio(formData.folio)
+      ? 'Revisar el folio, Formato invalido'
+      : ''
+
   const canEditUpmAdicional =
-    formData.visita === 1 && formData.numeroCorrelativo === 1
+    Number(formData.visita) === 1 && formData.numeroCorrelativo === 1
   const canEditUpmManual = !!(
     formData.upmAdicional && formData.upmAdicional.trim() !== ''
   )
 
-  const avanceBrigadas = useMemo(() => {
-    if (!registros) return []
-    const semana = parseInt(formData.semana, 10) || 0
-    const registrosSemana = registros.filter(
-      (r) => parseInt(r.semana, 10) === semana,
-    )
-    if (registrosSemana.length === 0) return []
-
-    const agrupado = {}
-    for (const r of registrosSemana) {
-      const key = r.brigada
-      if (!agrupado[key])
-        agrupado[key] = {
-          upms: new Set(),
-          validas: 0,
-          traslados: 0,
-          observadas: 0,
-          upmList: [],
-          upmDetalle: {},
-        }
-      agrupado[key].upms.add(r.upm)
-      if (r.incidencia !== INCIDENCIA_TRASLADO) {
-        agrupado[key].validas++
-      } else {
-        agrupado[key].traslados++
-      }
-      const isObservada = r.estadoBoleta === 'OBSERVADO'
-      if (isObservada) agrupado[key].observadas++
-      agrupado[key].upmList.push({
-        upm: r.upm,
-        folio: r.folio,
-        incidencia: r.incidencia,
-        observada: isObservada,
-      })
-
-      if (!agrupado[key].upmDetalle[r.upm])
-        agrupado[key].upmDetalle[r.upm] = { total: 0, observadas: 0 }
-      agrupado[key].upmDetalle[r.upm].total++
-      if (isObservada) agrupado[key].upmDetalle[r.upm].observadas++
-    }
-
-    return Object.entries(agrupado).map(([brigada, info]) => {
-      const max = info.upms.size * MAX_POR_UPM
-      const pct = max > 0 ? Math.round((info.validas / max) * 100) : 0
-      const upmResumen = Object.entries(info.upmDetalle).map(([upm, det]) => ({
-        upm,
-        total: det.total,
-        observadas: det.observadas,
-      }))
-      return {
-        brigada,
-        upms: info.upms.size,
-        validas: info.validas,
-        traslados: info.traslados,
-        observadas: info.observadas,
-        max,
-        pct,
-        upmList: info.upmList,
-        upmResumen,
-      }
-    })
-  }, [registros, formData.semana])
+  const avanceBrigadas = useMemo(
+    () => calcularAvanceBrigadas(registros, formData.semana, { contarSoloEstado: true }).brigadas,
+    [registros, formData.semana],
+  )
 
   return (
     <div className="max-w-6xl mx-auto my-5 bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
@@ -249,20 +200,25 @@ const Formulario = ({
               Codigo de Folio
             </label>
             <input
-              className={`${inputClass} ${folioDuplicado ? 'border-red-500 bg-red-50' : ''}`}
+              className={`${inputClass} ${folioDuplicado || folioError ? 'border-red-500 bg-red-50' : ''}`}
               type="text"
               id="cod-folio"
               required
-              minLength={10}
-              maxLength={30}
-              pattern="[A-Za-z0-9\-]+"
-              title="El folio debe contener entre 10 y 30 caracteres alfanuméricos"
+              maxLength={22}
+              pattern="\d{3}-\d{11}-[AD]-\d{4}"
+              title="Formato: 721-05388196879-A-0291"
+              placeholder="721-05388196879-A-0291"
               value={formData.folio}
               onChange={(e) => handleFolioChangeLocal(e.target.value.trim())}
             />
             {folioDuplicado && (
               <span className="text-red-500 text-[0.75rem] mt-0.5 block">
                 Folio duplicado
+              </span>
+            )}
+            {folioError && (
+              <span className="text-red-500 text-[0.75rem] mt-0.5 block">
+                {folioError}
               </span>
             )}
           </div>
@@ -418,8 +374,8 @@ const Formulario = ({
               id="cod-semana"
               className={`${inputClass} ${semanaError ? 'border-red-500 bg-red-50' : ''}`}
               type="number"
-              min="1"
-              max="53"
+              min={SEMANA_MIN}
+              max={SEMANA_MAX}
               step="1"
               required
               value={formData.semana}

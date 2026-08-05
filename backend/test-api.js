@@ -25,7 +25,7 @@ function request(method, path, body = null, token = null) {
       res.on('end', () => {
         let json = null
         try { json = JSON.parse(data) } catch { json = data }
-        resolve({ status: res.statusCode, body: json })
+        resolve({ status: res.statusCode, body: json, headers: res.headers })
       })
     })
     req.on('error', reject)
@@ -117,14 +117,20 @@ async function run() {
   })
   debug('login', loginRes)
   assert('Login exitoso', loginRes.status === 200, `status=${loginRes.status}`)
-  if (loginRes.status === 200 && loginRes.body.token) {
-    TOKEN = loginRes.body.token
-    assert('Token JWT recibido', typeof TOKEN === 'string' && TOKEN.length > 10)
+  if (loginRes.status === 200) {
+    const setCookie = Array.isArray(loginRes.headers['set-cookie'])
+      ? loginRes.headers['set-cookie'][0]
+      : loginRes.headers['set-cookie'] || ''
+    const match = setCookie.match(/(?:^|;\s*)token=([^;]+)/)
+    let tokenFromCookie = match ? match[1] : ''
+    try { tokenFromCookie = decodeURIComponent(tokenFromCookie) } catch {}
+    TOKEN = tokenFromCookie
+    assert('Token JWT recibido (cookie)', typeof TOKEN === 'string' && TOKEN.length > 10)
     if (loginRes.body.user) {
       console.log(`    Usuario: ${loginRes.body.user.username}, rol: ${loginRes.body.user.rol}, depto: ${loginRes.body.user.departamento}`)
     }
   } else {
-    assert('Token JWT recibido', false, JSON.stringify(loginRes.body))
+    assert('Token JWT recibido (cookie)', false, JSON.stringify(loginRes.body))
     console.log('\nNo se pudo obtener token. Abortando tests.\n')
     cleanup()
     return

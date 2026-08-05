@@ -6,6 +6,9 @@
 **/.env.local
 **/.env.production
 
+# Copias de seguridad de la base de datos
+backend/backups/
+
 # Archivos de bases de datos locales (SQLite)
 *.sqlite
 *.sqlite3

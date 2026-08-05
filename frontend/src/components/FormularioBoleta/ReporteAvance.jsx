@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
-import { MAX_POR_UPM, INCIDENCIA_TRASLADO, INCIDENCIA_COMPLETA, INCIDENCIAS } from '../../utils/constants'
+import { INCIDENCIA_TRASLADO, INCIDENCIA_COMPLETA, INCIDENCIAS } from '../../utils/constants'
+import { calcularAvanceBrigadas } from '../../utils/helpers'
 
 function getColor(pct) {
   if (pct >= 100) return { bar: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', border: 'border-emerald-200', ring: 'ring-emerald-500/20' }
@@ -76,53 +77,10 @@ const StatCard = ({ label, value, color, sub }) => (
 )
 
 const ReporteAvance = ({ registros, semana }) => {
-  const avanceData = useMemo(() => {
-    const SEMANA_DEFAULT = semana || 3
-    const registrosSemana = registros.filter(
-      (r) => parseInt(r.semana, 10) === SEMANA_DEFAULT,
-    )
-
-    const agrupado = {}
-    for (const r of registrosSemana) {
-      const key = r.brigada
-      if (!agrupado[key]) agrupado[key] = {}
-      if (!agrupado[key][r.upm]) agrupado[key][r.upm] = { total: 0, validas: 0, traslados: 0, observadas: 0, incidencias: {} }
-      agrupado[key][r.upm].total++
-      agrupado[key][r.upm].incidencias[r.incidencia] = (agrupado[key][r.upm].incidencias[r.incidencia] || 0) + 1
-      if (r.incidencia === INCIDENCIA_TRASLADO) {
-        agrupado[key][r.upm].traslados++
-      } else {
-        agrupado[key][r.upm].validas++
-      }
-      if (r.boletaObservada === 'SI') {
-        agrupado[key][r.upm].observadas++
-      }
-    }
-
-    let totalValidasGeneral = 0
-    let totalMaxGeneral = 0
-    let totalObservadasGeneral = 0
-    let totalTrasladosGeneral = 0
-    for (const brigada of Object.values(agrupado)) {
-      for (const upm of Object.values(brigada)) {
-        totalValidasGeneral += upm.validas
-        totalMaxGeneral += MAX_POR_UPM
-        totalObservadasGeneral += upm.observadas
-        totalTrasladosGeneral += upm.traslados
-      }
-    }
-
-    return {
-      agrupado,
-      semana: SEMANA_DEFAULT,
-      maxPorUpm: MAX_POR_UPM,
-      totalValidasGeneral,
-      totalMaxGeneral,
-      totalObservadasGeneral,
-      totalTrasladosGeneral,
-      pctGeneral: totalMaxGeneral > 0 ? Math.round((totalValidasGeneral / totalMaxGeneral) * 100) : 0,
-    }
-  }, [registros, semana])
+  const avanceData = useMemo(
+    () => calcularAvanceBrigadas(registros, semana || 3),
+    [registros, semana],
+  )
 
   const usuariosIncidencias = useMemo(() => {
     const semanaVal = semana || 3
@@ -187,7 +145,7 @@ const ReporteAvance = ({ registros, semana }) => {
           <div className="flex items-center gap-3">
             <div className="text-right">
               <div className="text-[0.65rem] text-slate-400 uppercase tracking-wider font-medium">Progreso General</div>
-              <div className="text-[0.72rem] text-slate-500 mt-0.5">{avanceData.totalValidasGeneral} / {avanceData.totalMaxGeneral} encuestas</div>
+              <div className="text-[0.72rem] text-slate-500 mt-0.5">{avanceData.totales.validas} / {avanceData.totales.max} encuestas</div>
             </div>
             <div className={`w-16 h-16 rounded-2xl ${generalColor.bg} border ${generalColor.border} flex flex-col items-center justify-center ring-1 ${generalColor.ring}`}>
               <span className={`text-xl font-extrabold ${generalColor.text} leading-none`}>{avanceData.pctGeneral}%</span>
@@ -210,8 +168,8 @@ const ReporteAvance = ({ registros, semana }) => {
       <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
           <StatCard label="UPMs" value={Object.values(avanceData.agrupado).reduce((s, b) => s + Object.keys(b).length, 0)} color={{ bar: 'bg-blue-500', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500', border: 'border-blue-200', ring: 'ring-blue-500/20' }} sub="visitadas" />
-          <StatCard label="Validas" value={avanceData.totalValidasGeneral} color={getColor(100)} sub={`${avanceData.totalMaxGeneral} max`} />
-          <StatCard label="Observadas" value={avanceData.totalObservadasGeneral} color={avanceData.totalObservadasGeneral > 0 ? getColor(10) : getColor(100)} sub="boletas" />
+          <StatCard label="Validas" value={avanceData.totales.validas} color={getColor(100)} sub={`${avanceData.totales.max} max`} />
+          <StatCard label="Observadas" value={avanceData.totales.observadas} color={avanceData.totales.observadas > 0 ? getColor(10) : getColor(100)} sub="boletas" />
           {incidenciasResumen.map(({ inc, count }) => (
             <StatCard
               key={inc}
@@ -231,14 +189,13 @@ const ReporteAvance = ({ registros, semana }) => {
           <h4 className="text-[0.8rem] font-bold text-slate-700 uppercase tracking-wider">Avance por Brigada</h4>
         </div>
         <div className="space-y-3">
-          {brigadas.map((brigada) => {
+          {avanceData.brigadas.map((resumen) => {
+            const brigada = resumen.brigada
             const upms = avanceData.agrupado[brigada]
             const upmKeys = Object.keys(upms).sort()
-            const totalValidasBrigada = upmKeys.reduce((s, u) => s + upms[u].validas, 0)
-            const totalObservadas = upmKeys.reduce((s, u) => s + upms[u].observadas, 0)
-            const totalTraslados = upmKeys.reduce((s, u) => s + upms[u].traslados, 0)
-            const totalMaxBrigada = upmKeys.length * avanceData.maxPorUpm
-            const pctBrigada = totalMaxBrigada > 0 ? Math.round((totalValidasBrigada / totalMaxBrigada) * 100) : 0
+            const totalObservadas = resumen.observadas
+            const totalTraslados = resumen.traslados
+            const pctBrigada = resumen.pct
             const color = getColor(pctBrigada)
 
             return (

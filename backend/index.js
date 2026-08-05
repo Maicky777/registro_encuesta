@@ -57,6 +57,7 @@ const generalLimiter = rateLimit({
   message: { error: 'Demasiadas peticiones. Intenta de nuevo más tarde.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/api/events'),
 })
 
 app.use(generalLimiter)
@@ -83,6 +84,11 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+// Ruta no encontrada (404)
+app.use((req, res) => {
+  res.status(404).json({ error: 'Ruta no encontrada' })
+})
+
 // Error handler centralizado
 app.use((err, req, res, next) => {
   console.error('Error no controlado:', err)
@@ -102,16 +108,54 @@ if (process.env.ADMIN_PASSWORD.length < 8) {
   process.exit(1)
 }
 
-function crearBackup() {
+const MAX_BACKUPS = 20
+
+function prunearBackups(backupDir) {
+  try {
+    const all = fs.readdirSync(backupDir)
+
+    for (const f of all) {
+      const full = path.join(backupDir, f)
+      let stat
+      try { stat = fs.statSync(full) } catch { continue }
+      if (!stat.isFile()) continue
+
+      if (/\.(db-journal|db-wal|db-shm)$/.test(f)) {
+        fs.unlinkSync(full)
+        console.log(`Restos de backup eliminados: ${f}`)
+        continue
+      }
+      if (f.endsWith('.db') && stat.size === 0) {
+        fs.unlinkSync(full)
+        console.log(`Backup incompleto eliminado: ${f}`)
+        continue
+      }
+    }
+
+    const files = fs.readdirSync(backupDir)
+      .filter((f) => f.endsWith('.db'))
+      .map((f) => ({ name: f, full: path.join(backupDir, f) }))
+      .sort((a, b) => fs.statSync(b.full).mtimeMs - fs.statSync(a.full).mtimeMs)
+
+    for (const file of files.slice(MAX_BACKUPS)) {
+      fs.unlinkSync(file.full)
+      console.log(`Backup antiguo eliminado: ${file.name}`)
+    }
+  } catch (e) {
+    console.error('Error al limpiar backups antiguos:', e.message)
+  }
+}
+
+async function crearBackup() {
   try {
     const db = getDB()
-    db.pragma('wal_checkpoint(TRUNCATE)')
     const backupDir = path.join(__dirname, 'backups')
     fs.mkdirSync(backupDir, { recursive: true })
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const backupPath = path.join(backupDir, `boletas-${timestamp}.db`)
-    fs.copyFileSync(path.join(__dirname, 'boletas.db'), backupPath)
+    await db.backup(backupPath)
     console.log(`Backup creado: ${backupPath}`)
+    prunearBackups(backupDir)
     return true
   } catch (e) {
     console.error('Error durante el backup:', e.message)
@@ -119,17 +163,17 @@ function crearBackup() {
   }
 }
 
-function startServer() {
+async function startServer() {
   initDatabase()
-  crearBackup()
+  await crearBackup()
 
   const server = app.listen(PORT, () =>
     console.log(`Servidor Backend corriendo en http://localhost:${PORT}`),
   )
 
-  const shutdown = (signal) => {
+  const shutdown = async (signal) => {
     console.log(`\n${signal} recibido. Cerrando servidor...`)
-    crearBackup()
+    await crearBackup()
     try { getDB().close() } catch {}
     server.close(() => process.exit(0))
     setTimeout(() => process.exit(0), 3000)

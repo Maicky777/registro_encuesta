@@ -7,7 +7,8 @@ const router = express.Router()
 router.get('/', authMiddleware, (req, res) => {
   try {
     const db = getDB()
-    const { departamento } = req.query
+    const departamento =
+      req.user.rol !== 'administrador' ? req.user.departamento : req.query.departamento
 
     let encuestadores
     if (departamento) {
@@ -124,22 +125,35 @@ router.put('/:id', authMiddleware, requireRole('administrador'), (req, res) => {
 
   try {
     const db = getDB()
-    const existing = db.prepare('SELECT id FROM encuestadores WHERE id = ?').get(id)
+    const existing = db.prepare('SELECT id, nombre, rol, codigo, telefono FROM encuestadores WHERE id = ?').get(id)
     if (!existing) {
       return res.status(404).json({ error: 'Encuestador no encontrado' })
     }
 
-    if (codigo) {
-      const codeConflict = db.prepare('SELECT id FROM encuestadores WHERE codigo = ? AND id != ?').get(codigo.trim(), id)
+    const finalNombre = nombre !== undefined && nombre !== null ? String(nombre).trim() : existing.nombre
+    const finalRol = rol || existing.rol
+    const finalCodigo = codigo !== undefined && codigo !== null ? String(codigo).trim() : existing.codigo
+    const finalTelefono = telefono !== undefined && telefono !== null ? String(telefono).trim() : existing.telefono
+
+    if (!finalNombre) {
+      return res.status(400).json({ error: 'El nombre es requerido' })
+    }
+
+    if (!finalCodigo) {
+      return res.status(400).json({ error: 'El codigo es requerido' })
+    }
+
+    if (finalCodigo !== existing.codigo) {
+      const codeConflict = db.prepare('SELECT id FROM encuestadores WHERE codigo = ? AND id != ?').get(finalCodigo, id)
       if (codeConflict) {
-        return res.status(409).json({ error: `El codigo "${codigo}" ya esta en uso` })
+        return res.status(409).json({ error: `El codigo "${finalCodigo}" ya esta en uso` })
       }
     }
 
     db.prepare('UPDATE encuestadores SET nombre = ?, rol = ?, codigo = ?, telefono = ? WHERE id = ?').run(
-      nombre.trim(), rol, codigo.trim(), (telefono || '').trim(), id
+      finalNombre, finalRol, finalCodigo, finalTelefono, id
     )
-    res.json({ message: 'Encuestador actualizado correctamente' })
+    res.json({ message: 'Encuestador actualizado correctamente', encuestador: { id: Number(id), nombre: finalNombre, rol: finalRol, codigo: finalCodigo, telefono: finalTelefono } })
   } catch (err) {
     console.error('Error al actualizar encuestador:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })

@@ -1,4 +1,5 @@
 import React from 'react'
+import { SEMANA_MIN, SEMANA_MAX } from '../../utils/constants'
 
 const ModalSemanaExcel = ({ show, semanaExcel, onChange, onConfirm, onCancel }) => {
   if (!show) return null
@@ -16,7 +17,8 @@ const ModalSemanaExcel = ({ show, semanaExcel, onChange, onConfirm, onCancel }) 
         </p>
         <input
           type="number"
-          min="1"
+          min={SEMANA_MIN}
+          max={SEMANA_MAX}
           step="1"
           className="w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15 my-3 text-center"
           placeholder="Ej: 3"

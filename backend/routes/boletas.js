@@ -1,9 +1,9 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
-const { parseBrigadas } = require('../utils/parseBrigadas')
 const { computeObservacionFields } = require('../utils/observaciones')
 const { broadcast } = require('../utils/events')
+const { userCanAccessBoleta, boletaScopeConditions } = require('../utils/scope')
 
 const router = express.Router()
 
@@ -52,8 +52,8 @@ function validateBoleta(data, { isUpdate = false } = {}) {
 
   if (data.semana !== undefined && data.semana !== null && data.semana !== '') {
     const semanaNum = Number(data.semana)
-    if (!Number.isInteger(semanaNum) || semanaNum < 1 || semanaNum > 53) {
-      errors.push('La semana debe ser un número entero entre 1 y 53.')
+    if (!Number.isInteger(semanaNum) || semanaNum < 1 || semanaNum > 13) {
+      errors.push('La semana debe ser un número entero entre 1 y 13.')
     }
   }
 
@@ -109,31 +109,15 @@ router.get('/', authMiddleware, (req, res) => {
   try {
     const db = getDB()
     const page = Math.max(1, parseInt(req.query.page, 10) || 1)
-    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 100))
+    const limit = Math.min(100000, Math.max(1, parseInt(req.query.limit, 10) || 100000))
     const offset = (page - 1) * limit
 
     let whereClause = ''
     const params = []
 
     if (req.user.rol !== 'administrador') {
-      try {
-        const conditions = []
-        if (req.user.departamento) {
-          conditions.push('departamento = ?')
-          params.push(req.user.departamento)
-        }
-        const userBrigadas = parseBrigadas(req.user.brigadas)
-        if (userBrigadas.length > 0) {
-          const placeholders = userBrigadas.map(() => '?').join(',')
-          conditions.push(`brigada IN (${placeholders})`)
-          params.push(...userBrigadas)
-        }
-        if (conditions.length > 0) {
-          whereClause = `WHERE ${conditions.join(' AND ')}`
-        }
-      } catch (e) {
-        console.error('Error al parsear brigadas del usuario:', e.message)
-      }
+      const { conditions } = boletaScopeConditions(req.user, params)
+      whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : 'WHERE 1=0'
     }
 
     const countQuery = `SELECT COUNT(*) as count FROM boletas ${whereClause}`
@@ -167,6 +151,10 @@ router.post('/', authMiddleware, (req, res) => {
   const validationErrors = validateBoleta(data)
   if (validationErrors.length > 0) {
     return res.status(400).json({ error: validationErrors.join(' ') })
+  }
+
+  if (!userCanAccessBoleta(req.user, data.departamento, data.brigada)) {
+    return res.status(403).json({ error: 'No tienes permisos para registrar boletas en este departamento o brigada.' })
   }
 
   try {
@@ -222,6 +210,14 @@ router.put('/upm-reemplazo', authMiddleware, (req, res) => {
     const db = getDB()
     let sql = 'UPDATE boletas SET upmReemplazo = ? WHERE upm = ?'
     const params = [upmReemplazo || '', upm]
+    if (req.user.rol !== 'administrador') {
+      const { conditions } = boletaScopeConditions(req.user, params)
+      if (conditions.length > 0) {
+        sql += ` AND ${conditions.join(' AND ')}`
+      } else {
+        sql += ' AND 1=0'
+      }
+    }
     if (excludeId) {
       sql += ' AND id != ?'
       params.push(excludeId)
@@ -254,19 +250,30 @@ router.put('/:id', authMiddleware, (req, res) => {
 
   try {
     const db = getDB()
-    const existente = db.prepare('SELECT id FROM boletas WHERE id = ?').get(id)
+    const existente = db.prepare('SELECT * FROM boletas WHERE id = ?').get(id)
     if (!existente) {
       return res.status(404).json({ error: `No se encontró registro con id ${id}.` })
     }
 
-    if (data.folio) {
-      const existenteFolio = db.prepare('SELECT id FROM boletas WHERE folio = ? AND id != ?').get(data.folio, id)
+    if (!userCanAccessBoleta(req.user, existente.departamento, existente.brigada)) {
+      return res.status(403).json({ error: 'No tienes permisos para modificar este registro.' })
+    }
+
+    const patch = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined))
+    const merged = { ...existente, ...patch }
+
+    if (!userCanAccessBoleta(req.user, merged.departamento, merged.brigada)) {
+      return res.status(403).json({ error: 'No tienes permisos para mover el registro a ese departamento o brigada.' })
+    }
+
+    if (merged.folio) {
+      const existenteFolio = db.prepare('SELECT id FROM boletas WHERE folio = ? AND id != ?').get(merged.folio, id)
       if (existenteFolio) {
-        return res.status(409).json({ error: `El folio "${data.folio}" ya existe en otro registro.` })
+        return res.status(409).json({ error: `El folio "${merged.folio}" ya existe en otro registro.` })
       }
     }
 
-    const obsFields = computeObservacionFields(data.detalleObservaciones)
+    const obsFields = computeObservacionFields(merged.detalleObservaciones)
 
     const finalEstado = data.estadoBoleta || obsFields.estadoBoleta
     const finalBoletaObs = data.boletaObservada !== undefined ? data.boletaObservada : obsFields.boletaObservada
@@ -284,13 +291,13 @@ router.put('/:id', authMiddleware, (req, res) => {
     `
 
     db.prepare(sql).run(
-      data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
-      data.upmAdicional, toInteger(data.semana), data.visita, data.panel, data.numeroCorrelativo,
-      data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
-      data.detalleObservaciones, finalTotal, finalBoletaObs,
-      finalEstado, finalObservacion, data.observacionPersonal,
-      data.consolidada, data.fechaFinalConsolidacion,
-      data.encuestador_id || null, nowISO(), id,
+      merged.departamento, merged.brigada, merged.folio, merged.upm, merged.upmReemplazo,
+      merged.upmAdicional, toInteger(merged.semana), merged.visita, merged.panel, merged.numeroCorrelativo,
+      merged.voe, merged.usuarioEncuestador, merged.nombreEncuestador, merged.incidencia,
+      merged.detalleObservaciones, finalTotal, finalBoletaObs,
+      finalEstado, finalObservacion, merged.observacionPersonal,
+      merged.consolidada, merged.fechaFinalConsolidacion,
+      merged.encuestador_id || null, nowISO(), id,
     )
     res.json({ message: 'Registro actualizado correctamente' })
     broadcast('boletas:changed', { type: 'update', id: Number(id) })
@@ -349,6 +356,16 @@ router.post('/batch', authMiddleware, (req, res) => {
     })
   }
 
+  if (req.user.rol !== 'administrador') {
+    for (const registro of registros) {
+      if (!userCanAccessBoleta(req.user, registro.departamento, registro.brigada)) {
+        return res.status(403).json({
+          error: `No tienes permisos para registrar boletas de ${registro.brigada || 'N/A'} en ${registro.departamento || 'N/A'}.`,
+        })
+      }
+    }
+  }
+
   const sql = `
     INSERT INTO boletas (
       departamento, brigada, folio, upm, upmReemplazo, upmAdicional, semana, visita, panel,
@@ -366,34 +383,34 @@ router.post('/batch', authMiddleware, (req, res) => {
     let insertados = 0
     let omitidos = 0
 
-  const fechaBatch = new Date().toISOString().split('T')[0]
-  const fechaRegistro = nowISO()
+    const fechaRegistro = nowISO()
+    const fechaDefaultConsolidacion = new Date().toISOString().split('T')[0]
 
-  const insertMany = db.transaction((dataArray) => {
-    for (const data of dataArray) {
-      if (data.folio && checkStmt.get(data.folio)) {
-        omitidos++
-        continue
+    const insertMany = db.transaction((dataArray) => {
+      for (const data of dataArray) {
+        if (data.folio && checkStmt.get(data.folio)) {
+          omitidos++
+          continue
+        }
+        const obsFields = computeObservacionFields(data.detalleObservaciones)
+        const finalEstado = data.estadoBoleta || obsFields.estadoBoleta
+        const finalBoletaObs = data.boletaObservada !== undefined ? data.boletaObservada : obsFields.boletaObservada
+        const finalObservacion = data.observacionBoleta !== undefined ? data.observacionBoleta : obsFields.observacionBoleta
+        const finalTotal = data.totalObservaciones !== undefined ? Number(data.totalObservaciones) : obsFields.totalObservaciones
+
+        stmt.run(
+          data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
+          data.upmAdicional, toInteger(data.semana), data.visita, data.panel, data.numeroCorrelativo,
+          data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
+          data.detalleObservaciones, finalTotal, finalBoletaObs,
+          finalEstado, finalObservacion, data.observacionPersonal,
+          data.consolidada,
+          data.fechaFinalConsolidacion || fechaDefaultConsolidacion,
+          data.encuestador_id || null,
+          fechaRegistro, fechaRegistro,
+        )
+        insertados++
       }
-      const obsFields = computeObservacionFields(data.detalleObservaciones)
-      const finalEstado = data.estadoBoleta || obsFields.estadoBoleta
-      const finalBoletaObs = data.boletaObservada !== undefined ? data.boletaObservada : obsFields.boletaObservada
-      const finalObservacion = data.observacionBoleta !== undefined ? data.observacionBoleta : obsFields.observacionBoleta
-      const finalTotal = data.totalObservaciones !== undefined ? Number(data.totalObservaciones) : obsFields.totalObservaciones
-
-      stmt.run(
-        data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
-        data.upmAdicional, toInteger(data.semana), data.visita, data.panel, data.numeroCorrelativo,
-        data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
-        data.detalleObservaciones, finalTotal, finalBoletaObs,
-        finalEstado, finalObservacion, data.observacionPersonal,
-        data.consolidada,
-        data.fechaFinalConsolidacion || fechaBatch,
-        data.encuestador_id || null,
-        fechaRegistro, fechaRegistro,
-      )
-      insertados++
-    }
     })
 
     insertMany(registros)

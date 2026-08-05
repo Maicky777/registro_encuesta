@@ -7,7 +7,14 @@ import {
 } from '../../services/asistenciaService'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
-import { DEPARTAMENTOS } from '../../utils/constants'
+import { getSemanaActual } from '../../utils/helpers'
+import {
+  DEPARTAMENTOS,
+  SEMANA_MIN,
+  SEMANA_MAX,
+  SEMANA_ANCLA,
+  ANCLA_FECHA,
+} from '../../utils/constants'
 import ExcelJS from 'exceljs/dist/exceljs.min.js'
 
 const METODOS_VERIFICACION = [
@@ -29,8 +36,7 @@ const DIAS = [
   'DOMINGO',
 ]
 
-const SEMANA_ANCLA = 5
-const FECHA_ANCLA = new Date(new Date().getFullYear(), 7, 3)
+const FECHA_ANCLA = new Date(ANCLA_FECHA)
 
 function getFechaSemana(semana, diaIndex) {
   const target = new Date(FECHA_ANCLA)
@@ -43,15 +49,6 @@ function getDiaFechaShort(diaIndex, semana) {
   const dd = String(target.getDate()).padStart(2, '0')
   const mm = String(target.getMonth() + 1).padStart(2, '0')
   return `${dd}/${mm}`
-}
-
-function getSemanaActual() {
-  const hoy = new Date()
-  hoy.setHours(0, 0, 0, 0)
-  const ancla = new Date(FECHA_ANCLA)
-  ancla.setHours(0, 0, 0, 0)
-  const diffDias = Math.round((hoy - ancla) / 86400000)
-  return SEMANA_ANCLA + Math.floor(diffDias / 7)
 }
 
 export default function ReporteAsistencia({ sessionUser }) {
@@ -708,8 +705,8 @@ export default function ReporteAsistencia({ sessionUser }) {
               className="border border-slate-300 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
               value={semana}
               onChange={(e) => setSemana(parseInt(e.target.value) || 0)}
-              min={1}
-              max={53}
+              min={SEMANA_MIN}
+              max={SEMANA_MAX}
             />
           </div>
           <div className="flex-1 hidden md:block"></div>
