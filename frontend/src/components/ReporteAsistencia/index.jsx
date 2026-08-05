@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useModal } from '../../hooks/useModal'
-import { getPersonalAsistencia, getAsistencia, saveAsistencia } from '../../services/asistenciaService'
+import {
+  getPersonalAsistencia,
+  getAsistencia,
+  saveAsistencia,
+} from '../../services/asistenciaService'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
 import { DEPARTAMENTOS } from '../../utils/constants'
@@ -15,7 +19,15 @@ const METODOS_VERIFICACION = [
   'S/R',
 ]
 
-const DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
+const DIAS = [
+  'LUNES',
+  'MARTES',
+  'MIERCOLES',
+  'JUEVES',
+  'VIERNES',
+  'SABADO',
+  'DOMINGO',
+]
 
 const SEMANA_ANCLA = 5
 const FECHA_ANCLA = new Date(new Date().getFullYear(), 7, 3)
@@ -43,7 +55,8 @@ function getSemanaActual() {
 }
 
 export default function ReporteAsistencia({ sessionUser }) {
-  const { alertModal, confirmModal, showAlert, closeAlert, confirmAction } = useModal()
+  const { alertModal, confirmModal, showAlert, closeAlert, confirmAction } =
+    useModal()
 
   const isAdmin = sessionUser?.rol === 'administrador'
   const userDept = sessionUser?.departamento || ''
@@ -97,7 +110,10 @@ export default function ReporteAsistencia({ sessionUser }) {
       }
       setAttendanceMap(map)
     } catch (err) {
-      showAlert('Error al cargar datos: ' + (err.response?.data?.error || err.message), 'error')
+      showAlert(
+        'Error al cargar datos: ' + (err.response?.data?.error || err.message),
+        'error',
+      )
     } finally {
       setLoading(false)
     }
@@ -178,9 +194,15 @@ export default function ReporteAsistencia({ sessionUser }) {
         semana: parseInt(semana, 10),
         departamento,
       })
-      showAlert(`Asistencia guardada correctamente (${records.length} registros).`, 'success')
+      showAlert(
+        `Asistencia guardada correctamente (${records.length} registros).`,
+        'success',
+      )
     } catch (err) {
-      showAlert('Error al guardar: ' + (err.response?.data?.error || err.message), 'error')
+      showAlert(
+        'Error al guardar: ' + (err.response?.data?.error || err.message),
+        'error',
+      )
     } finally {
       setSaving(false)
     }
@@ -204,7 +226,13 @@ export default function ReporteAsistencia({ sessionUser }) {
   }
 
   const aplicarLote = () => {
-    if (!loteIngreso && !loteSalida && !loteFIngreso && !loteFSalida && !loteObs) {
+    if (
+      !loteIngreso &&
+      !loteSalida &&
+      !loteFIngreso &&
+      !loteFSalida &&
+      !loteObs
+    ) {
       showAlert('Ingrese al menos un valor para aplicar.', 'warning')
       return
     }
@@ -216,7 +244,10 @@ export default function ReporteAsistencia({ sessionUser }) {
     const aplicables = personal.filter((p) => selectedIds.has(p.encuestador_id))
 
     if (aplicables.length === 0) {
-      showAlert('Seleccione al menos una persona (checkbox de la tabla) para aplicar.', 'warning')
+      showAlert(
+        'Seleccione al menos una persona (checkbox de la tabla) para aplicar.',
+        'warning',
+      )
       return
     }
 
@@ -257,7 +288,10 @@ export default function ReporteAsistencia({ sessionUser }) {
       'success',
     )
 
-    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    if (
+      document.activeElement &&
+      typeof document.activeElement.blur === 'function'
+    ) {
       document.activeElement.blur()
     }
 
@@ -294,50 +328,57 @@ export default function ReporteAsistencia({ sessionUser }) {
       const sheet = workbook.addWorksheet(`ASISTENCIA SEM ${semana}`)
       sheet.views = [{ state: 'normal', zoomScale: 80 }]
 
-      const headers = [
-        'ID DEP',
-        'DEPARTAMENTO',
-        'CÓDIGO BRIGADA',
-        'SEMANA',
-        'ID ENC',
-        'CARGO',
-        'NOMBRE',
-        'USUARIO',
-        'INGRESO (FORMATO DE 24 HORAS)',
-        'DETALLE INGRESO T1',
-        'SALIDA (Formato de 24 horas)',
-        'DETALLE SALIDA T1',
-        'OBSERVACIÓN',
-        'INGRESO (FORMATO DE 24 HORAS)',
-        'DETALLE INGRESO T2',
-        'SALIDA (Formato de 24 horas)',
-        'DETALLE SALIDA T2',
-        'OBSERVACIÓN',
-      ]
+      const INFO_COLS = 8
+      const COLS_PER_DAY = 10
+      const TOTAL_COLS = INFO_COLS + DIAS.length * COLS_PER_DAY
+      const dayStart = (i) => INFO_COLS + 1 + i * COLS_PER_DAY
 
-      sheet.columns = headers.map(() => ({ width: 18 }))
+      const WIDTH_PADDING = 5 / 7
+      const INFO_WIDTHS = [11, 15.71, 10.86, 8.43, 8.14, 22, 39, 9.29]
+      const DAY_WIDTHS = [12.43, 17.14, 12.43, 17.14, 14]
+
+      const widths = [...INFO_WIDTHS]
+      for (let i = 0; i < DIAS.length; i++) {
+        widths.push(...DAY_WIDTHS, ...DAY_WIDTHS)
+      }
+
+      sheet.columns = widths.map((width) => ({
+        width: Math.round((width + WIDTH_PADDING) * 100) / 100,
+      }))
 
       const titleRow = sheet.getRow(1)
-      titleRow.getCell(1).value = 'REPORTE DE ASISTENCIA DE LAS BRIGADAS POR SEMANA'
+      titleRow.getCell(1).value =
+        'REPORTE DE ASISTENCIA DE LAS BRIGADAS POR SEMANA'
       titleRow.getCell(1).font = { name: 'Calibri', size: 20, bold: true }
       titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' }
       titleRow.height = 28
-      sheet.mergeCells(1, 1, 1, 8)
+      sheet.mergeCells(1, 1, 1, INFO_COLS)
 
-      const trimestre = Math.floor(FECHA_ANCLA.getMonth() / 3) + 1
+      const semanaTrimestre = getFechaSemana(semana, 0)
+      const trimestre = Math.floor(semanaTrimestre.getMonth() / 3) + 1
       const infoRow2 = sheet.getRow(2)
       infoRow2.getCell(1).value = 'TRIMESTRE'
-      infoRow2.getCell(1).font = { name: 'Calibri', size: 20, bold: true }
+      infoRow2.getCell(1).font = { name: 'Calibri', size: 20, bold: true, color: { argb: 'FF808080' } }
       infoRow2.getCell(3).value = trimestre
-      infoRow2.getCell(3).font = { name: 'Calibri', size: 20, color: {argb: 'FF0000'}, bold: true }
-      infoRow2.getCell(3).alignment={horizontal: 'left'} 
-      
+      infoRow2.getCell(3).font = {
+        name: 'Calibri',
+        size: 20,
+        color: { argb: 'FFFF0000' },
+        bold: true,
+      }
+      infoRow2.getCell(3).alignment = { horizontal: 'left' }
+
       const infoRow3 = sheet.getRow(3)
       infoRow3.getCell(1).value = 'SEMANA'
-      infoRow3.getCell(1).font = { name: 'Calibri', size: 20, bold: true }
+      infoRow3.getCell(1).font = { name: 'Calibri', size: 20, bold: true, color: { argb: 'FF808080' } }
       infoRow3.getCell(3).value = semana
-      infoRow3.getCell(3).font = { name: 'Calibri', size: 20, color: {argb: 'FF0000'}, bold: true }
-      infoRow3.getCell(3).alignment={horizontal: 'left'} 
+      infoRow3.getCell(3).font = {
+        name: 'Calibri',
+        size: 20,
+        color: { argb: 'FFFF0000' },
+        bold: true,
+      }
+      infoRow3.getCell(3).alignment = { horizontal: 'left' }
 
       const borderThin = {
         top: { style: 'thin' },
@@ -346,47 +387,71 @@ export default function ReporteAsistencia({ sessionUser }) {
         right: { style: 'thin' },
       }
 
-      const fechaRegistro = getFechaSemana(semana, diaActivo)
-      const ddFecha = String(fechaRegistro.getDate()).padStart(2, '0')
-      const mmFecha = String(fechaRegistro.getMonth() + 1).padStart(2, '0')
-      const fechaRegistroStr = `${ddFecha}/${mmFecha}/${fechaRegistro.getFullYear()}`
+      DIAS.forEach((dia, i) => {
+        const start = dayStart(i)
+        const end = start + COLS_PER_DAY - 1
 
-      sheet.mergeCells(1, 9, 1, 18)
-      const diaCell = sheet.getCell(1, 9)
-      diaCell.value = DIAS[diaActivo]
-      diaCell.font = { name: 'Calibri', size: 11, bold: true }
-      diaCell.alignment = { horizontal: 'center', vertical: 'middle' }
-      diaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F2F2F2' } }
+        const fecha = getFechaSemana(semana, i)
+        const fechaStr = `${String(fecha.getDate()).padStart(2, '0')}/${String(
+          fecha.getMonth() + 1,
+        ).padStart(2, '0')}/${fecha.getFullYear()}`
 
-      sheet.mergeCells(2, 9, 2, 18)
-      const fechaCell = sheet.getCell(2, 9)
-      fechaCell.value = fechaRegistroStr
-      fechaCell.font = { name: 'Calibri', size: 11, bold: true }
-      fechaCell.alignment = { horizontal: 'center', vertical: 'middle' }
-      fechaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F1F5F9' } }
+        sheet.mergeCells(1, start, 1, end)
+        const diaCell = sheet.getCell(1, start)
+        diaCell.value = dia
+        diaCell.font = { name: 'Calibri', size: 11, bold: true }
+        diaCell.alignment = { horizontal: 'center', vertical: 'middle' }
+        diaCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'F2F2F2' },
+        }
 
-      sheet.mergeCells(3, 9, 3, 13)
-      const turno1Cell = sheet.getCell(3, 9)
-      turno1Cell.value = 'TURNO 1'
-      turno1Cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: '000000' } }
-      turno1Cell.alignment = { horizontal: 'center', vertical: 'middle' }
-      turno1Cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F2F2F2' } }
+        sheet.mergeCells(2, start, 2, end)
+        const fechaCell = sheet.getCell(2, start)
+        fechaCell.value = fechaStr
+        fechaCell.font = { name: 'Calibri', size: 11, bold: true }
+        fechaCell.alignment = { horizontal: 'center', vertical: 'middle' }
+        fechaCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'F1F5F9' },
+        }
 
-      sheet.mergeCells(3, 14, 3, 18)
-      const turno2Cell = sheet.getCell(3, 14)
-      turno2Cell.value = 'TURNO 2'
-      turno2Cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: '000000' } }
-      turno2Cell.alignment = { horizontal: 'center', vertical: 'middle' }
-      turno2Cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F2F2F2' } }
+        sheet.mergeCells(3, start, 3, start + 4)
+        const turno1Cell = sheet.getCell(3, start)
+        turno1Cell.value = 'TURNO 1'
+        turno1Cell.font = {
+          name: 'Calibri',
+          size: 11,
+          bold: true,
+          color: { argb: '000000' },
+        }
+        turno1Cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        turno1Cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'F2F2F2' },
+        }
 
-      ;[
-        [1, 9, 1, 18],
-        [2, 9, 2, 18],
-        [3, 9, 3, 13],
-        [3, 14, 3, 18],
-      ].forEach(([r1, c1, r2, c2]) => {
-        for (let r = r1; r <= r2; r++) {
-          for (let c = c1; c <= c2; c++) {
+        sheet.mergeCells(3, start + 5, 3, end)
+        const turno2Cell = sheet.getCell(3, start + 5)
+        turno2Cell.value = 'TURNO 2'
+        turno2Cell.font = {
+          name: 'Calibri',
+          size: 11,
+          bold: true,
+          color: { argb: '000000' },
+        }
+        turno2Cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        turno2Cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'F2F2F2' },
+        }
+
+        for (let r = 1; r <= 3; r++) {
+          for (let c = start; c <= end; c++) {
             sheet.getCell(r, c).border = borderThin
           }
         }
@@ -394,71 +459,140 @@ export default function ReporteAsistencia({ sessionUser }) {
 
       const headerRow = sheet.getRow(4)
       headerRow.height = 39
-      headers.forEach((h, i) => {
-        const col = i + 1
-        const cell = headerRow.getCell(col)
-        cell.border = {
-          top: { style: 'thin' },
-          bottom: { style: 'thin' },
-          left: { style: 'thin' },
-          right: { style: 'thin' },
-        }
-        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
 
-        if (col === 9 || col === 14) {
-          cell.value = {
-            richText: [
-              { text: 'INGRESO', font: { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } } },
-              { text: ' (FORMATO DE 24 HORAS)', font: { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFF0000' } } },
-            ],
-          }
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E293B' } }
-        } else if (col === 11 || col === 16) {
-          cell.value = {
-            richText: [
-              { text: 'SALIDA', font: { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } } },
-              { text: ' (Formato de 24 horas)', font: { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFF0000' } } },
-            ],
-          }
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E293B' } }
-        } else if (col === 13 || col === 18) {
-          cell.value = 'OBSERVACIÓN'
-          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF000000' } }
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2CC' } }
-        } else {
-          cell.value = h
-          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFF' } }
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E293B' } }
+      const infoHeaders = [
+        'ID DEP',
+        'DEPARTAMENTO',
+        'CÓDIGO BRIGADA',
+        'SEMANA',
+        'ID ENC',
+        'CARGO',
+        'NOMBRE',
+        'USUARIO',
+      ]
+
+      infoHeaders.forEach((h, i) => {
+        const cell = headerRow.getCell(i + 1)
+        cell.value = h
+        cell.font = {
+          name: 'Calibri',
+          size: 11,
+          bold: true,
+          color: { argb: 'FFFFFF' },
+        }
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: '1E293B' },
+        }
+        cell.border = borderThin
+        cell.alignment = {
+          horizontal: 'center',
+          vertical: 'middle',
+          wrapText: true,
         }
       })
 
+      for (let i = 0; i < DIAS.length; i++) {
+        const start = dayStart(i)
+        for (let k = 0; k < COLS_PER_DAY; k++) {
+          const col = start + k
+          const cell = headerRow.getCell(col)
+          cell.border = borderThin
+          cell.alignment = {
+            horizontal: 'center',
+            vertical: 'middle',
+            wrapText: true,
+          }
+
+          const pos = k % 5
+          if (pos === 0 || pos === 2) {
+            cell.value = {
+              richText: [
+                {
+                  text: pos === 0 ? 'INGRESO' : 'SALIDA',
+                  font: {
+                    name: 'Calibri',
+                    size: 11,
+                    bold: true,
+                    color: { argb: 'FFFFFFFF' },
+                  },
+                },
+                {
+                  text:
+                    pos === 0
+                      ? ' (FORMATO DE 24 HORAS)'
+                      : ' (Formato de 24 horas)',
+                  font: {
+                    name: 'Calibri',
+                    size: 11,
+                    bold: true,
+                    color: { argb: 'FFFF0000' },
+                  },
+                },
+              ],
+            }
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: '1E293B' },
+            }
+          } else if (pos === 4) {
+            cell.value = 'OBSERVACIÓN'
+            cell.font = {
+              name: 'Calibri',
+              size: 11,
+              bold: true,
+              color: { argb: 'FF000000' },
+            }
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF2CC' },
+            }
+          } else {
+            cell.value = pos === 1 ? 'DETALLE INGRESO' : 'DETALLE SALIDA'
+            cell.font = {
+              name: 'Calibri',
+              size: 11,
+              bold: true,
+              color: { argb: 'FFFFFF' },
+            }
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: '1E293B' },
+            }
+          }
+        }
+      }
+
       sheet.autoFilter = {
         from: { row: 4, column: 1 },
-        to: { row: 4, column: headers.length },
+        to: { row: 4, column: TOTAL_COLS },
       }
 
       let rowIdx = 5
       let hasData = false
 
       for (const p of personal) {
+        const infoValues = [
+          p.idDep || '',
+          p.departamento || '',
+          p.codBrigada || '',
+          semana,
+          '',
+          p.cargo || '',
+          p.nombre || '',
+          p.usuario || '',
+        ]
+
+        const values = []
         for (let d = 0; d < DIAS.length; d++) {
           const dia = DIAS[d]
           const t1 = attendanceMap[`${p.encuestador_id}_${dia}_T1`] || {}
           const t2 = attendanceMap[`${p.encuestador_id}_${dia}_T2`] || {}
-
-          if (!t1.ingreso && !t1.salida && !t2.ingreso && !t2.salida) continue
-          hasData = true
-
-          const row = sheet.getRow(rowIdx)
-          const values = [
-            p.idDep || '',
-            p.departamento || '',
-            p.codBrigada || '',
-            semana,
-            '',
-            p.cargo || '',
-            p.nombre || '',
-            p.usuario || '',
+          values.push(
             t1.ingreso || '',
             t1.fIngreso || '',
             t1.salida || '',
@@ -469,26 +603,39 @@ export default function ReporteAsistencia({ sessionUser }) {
             t2.salida || '',
             t2.fSalida || '',
             t2.observacion || '',
-          ]
-
-          values.forEach((v, i) => {
-            const cell = row.getCell(i + 1)
-            cell.value = v
-            cell.font = { name: 'Calibri', size: 11 }
-            cell.border = {
-              top: { style: 'thin' },
-              bottom: { style: 'thin' },
-              left: { style: 'thin' },
-              right: { style: 'thin' },
-            }
-            cell.alignment = {
-              horizontal: i >= 8 ? 'center' : 'left',
-              vertical: 'middle',
-            }
-          })
-
-          rowIdx++
+          )
         }
+
+        if (!values.some((v) => v)) continue
+        hasData = true
+
+        const row = sheet.getRow(rowIdx)
+        infoValues.forEach((v, i) => {
+          const cell = row.getCell(i + 1)
+          cell.value = v
+          cell.font = { name: 'Calibri', size: 11 }
+          cell.border = borderThin
+          const centered = i === 0 || i === 3
+          cell.alignment = {
+            horizontal: centered ? 'center' : 'left',
+            vertical: 'middle',
+          }
+        })
+
+        values.forEach((v, i) => {
+          const cell = row.getCell(INFO_COLS + 1 + i)
+          cell.value = v
+          cell.font = { name: 'Calibri', size: 11 }
+          cell.border = borderThin
+          const pos = i % 5
+          const alignLeft = pos === 1 || pos === 3 || pos === 4
+          cell.alignment = {
+            horizontal: alignLeft ? 'left' : 'center',
+            vertical: 'middle',
+          }
+        })
+
+        rowIdx++
       }
 
       if (!hasData) {
@@ -633,136 +780,140 @@ export default function ReporteAsistencia({ sessionUser }) {
           </div>
         </div>
         {personal.length > 0 && (
-        <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 uppercase">
-              <svg
-                className="w-3.5 h-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-              </svg>
-              Registro en lote
-            </span>
-            <span className="text-[10px] text-slate-400">
-              Aplica al {DIAS[diaActivo]} ({getDiaFechaShort(diaActivo, semana)}) a los seleccionados
-              ({selectedIds.size} de {personal.length} persona(s))
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-3 items-end" onKeyDown={handleLoteKeyDown}>
-            <div className="flex flex-col">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
-                Turno
-              </label>
-              <select
-                className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white"
-                value={loteTurno}
-                onChange={(e) => setLoteTurno(e.target.value)}
-              >
-                <option value="AMBOS">Ambos turnos</option>
-                <option value="T1">Turno 1 (Mañana)</option>
-                <option value="T2">Turno 2 (Tarde/Noche)</option>
-              </select>
+          <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3">
+            <div className="flex items-center justify-between mb-3">
+              <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 uppercase">
+                <svg
+                  className="w-3.5 h-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                Registro en lote
+              </span>
+              <span className="text-[10px] text-slate-400">
+                Aplica al {DIAS[diaActivo]} (
+                {getDiaFechaShort(diaActivo, semana)}) a los seleccionados (
+                {selectedIds.size} de {personal.length} persona(s))
+              </span>
             </div>
-            <div className="flex flex-col">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
-                Hora ingreso
-              </label>
-              <input
-                type="time"
-                className="border border-slate-300 rounded px-3 py-1.5 text-sm"
-                value={loteIngreso}
-                onChange={(e) => setLoteIngreso(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
-                Detalle ingreso
-              </label>
-              <select
-                className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white"
-                value={loteFIngreso}
-                onChange={(e) => setLoteFIngreso(e.target.value)}
-              >
-                <option value=""></option>
-                {METODOS_VERIFICACION.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
-                Hora salida
-              </label>
-              <input
-                type="time"
-                className="border border-slate-300 rounded px-3 py-1.5 text-sm"
-                value={loteSalida}
-                onChange={(e) => setLoteSalida(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
-                Detalle salida
-              </label>
-              <select
-                className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white"
-                value={loteFSalida}
-                onChange={(e) => setLoteFSalida(e.target.value)}
-              >
-                <option value=""></option>
-                {METODOS_VERIFICACION.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col min-w-[160px]">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
-                Observación
-              </label>
-              <input
-                type="text"
-                className="border border-slate-300 rounded px-3 py-1.5 text-sm"
-                value={loteObs}
-                onChange={(e) => setLoteObs(e.target.value)}
-                placeholder="..."
-              />
-            </div>
-            <button
-              type="button"
-              className="bg-indigo-600 text-white border-none px-4 py-1.5 rounded text-xs font-semibold cursor-pointer hover:bg-indigo-700 transition-colors"
-              onClick={aplicarLote}
+            <div
+              className="flex flex-wrap gap-3 items-end"
+              onKeyDown={handleLoteKeyDown}
             >
-              {selectedIds.size > 0
-                ? `Aplicar a ${selectedIds.size} seleccionado(s)`
-                : 'Aplicar seleccionados'}
-            </button>
-            <button
-              type="button"
-              className="bg-slate-500 text-white border-none px-4 py-1.5 rounded text-xs font-semibold cursor-pointer hover:bg-slate-600 transition-colors"
-              onClick={() => {
-                setLoteTurno('AMBOS')
-                setLoteIngreso('')
-                setLoteFIngreso('')
-                setLoteSalida('')
-                setLoteFSalida('')
-                setLoteObs('')
-              }}
-            >
-              Limpiar
-            </button>
+              <div className="flex flex-col">
+                <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                  Turno
+                </label>
+                <select
+                  className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white"
+                  value={loteTurno}
+                  onChange={(e) => setLoteTurno(e.target.value)}
+                >
+                  <option value="AMBOS">Ambos turnos</option>
+                  <option value="T1">Turno 1 (Mañana)</option>
+                  <option value="T2">Turno 2 (Tarde/Noche)</option>
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                  Hora ingreso
+                </label>
+                <input
+                  type="time"
+                  className="border border-slate-300 rounded px-3 py-1.5 text-sm"
+                  value={loteIngreso}
+                  onChange={(e) => setLoteIngreso(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                  Detalle ingreso
+                </label>
+                <select
+                  className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white"
+                  value={loteFIngreso}
+                  onChange={(e) => setLoteFIngreso(e.target.value)}
+                >
+                  <option value=""></option>
+                  {METODOS_VERIFICACION.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                  Hora salida
+                </label>
+                <input
+                  type="time"
+                  className="border border-slate-300 rounded px-3 py-1.5 text-sm"
+                  value={loteSalida}
+                  onChange={(e) => setLoteSalida(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                  Detalle salida
+                </label>
+                <select
+                  className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white"
+                  value={loteFSalida}
+                  onChange={(e) => setLoteFSalida(e.target.value)}
+                >
+                  <option value=""></option>
+                  {METODOS_VERIFICACION.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col min-w-[160px]">
+                <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+                  Observación
+                </label>
+                <input
+                  type="text"
+                  className="border border-slate-300 rounded px-3 py-1.5 text-sm"
+                  value={loteObs}
+                  onChange={(e) => setLoteObs(e.target.value)}
+                  placeholder="..."
+                />
+              </div>
+              <button
+                type="button"
+                className="bg-indigo-600 text-white border-none px-4 py-1.5 rounded text-xs font-semibold cursor-pointer hover:bg-indigo-700 transition-colors"
+                onClick={aplicarLote}
+              >
+                {selectedIds.size > 0
+                  ? `Aplicar a ${selectedIds.size} seleccionado(s)`
+                  : 'Aplicar seleccionados'}
+              </button>
+              <button
+                type="button"
+                className="bg-slate-500 text-white border-none px-4 py-1.5 rounded text-xs font-semibold cursor-pointer hover:bg-slate-600 transition-colors"
+                onClick={() => {
+                  setLoteTurno('AMBOS')
+                  setLoteIngreso('')
+                  setLoteFIngreso('')
+                  setLoteSalida('')
+                  setLoteFSalida('')
+                  setLoteObs('')
+                }}
+              >
+                Limpiar
+              </button>
+            </div>
           </div>
-        </div>
         )}
       </div>
 
@@ -791,28 +942,49 @@ export default function ReporteAsistencia({ sessionUser }) {
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-800 text-white">
-                  <th rowSpan={2} className="border border-slate-700 px-1.5 py-1 text-xs align-middle w-8">
+                  <th
+                    rowSpan={2}
+                    className="border border-slate-700 px-1.5 py-1 text-xs align-middle w-8"
+                  >
                     <input
                       type="checkbox"
                       title="Seleccionar todos"
                       className="accent-blue-500 cursor-pointer"
-                      checked={personal.length > 0 && personal.every((p) => selectedIds.has(p.encuestador_id))}
+                      checked={
+                        personal.length > 0 &&
+                        personal.every((p) => selectedIds.has(p.encuestador_id))
+                      }
                       onChange={toggleSelectAll}
                     />
                   </th>
-                  <th rowSpan={2} className="border border-slate-700 px-1.5 py-1 text-xs align-middle w-8">
+                  <th
+                    rowSpan={2}
+                    className="border border-slate-700 px-1.5 py-1 text-xs align-middle w-8"
+                  >
                     N°
                   </th>
-                  <th rowSpan={2} className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[160px]">
+                  <th
+                    rowSpan={2}
+                    className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[160px]"
+                  >
                     NOMBRE
                   </th>
-                  <th rowSpan={2} className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[80px]">
+                  <th
+                    rowSpan={2}
+                    className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[80px]"
+                  >
                     CARGO
                   </th>
-                  <th rowSpan={2} className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[80px]">
+                  <th
+                    rowSpan={2}
+                    className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[80px]"
+                  >
                     BRIGADA
                   </th>
-                  <th rowSpan={2} className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[90px]">
+                  <th
+                    rowSpan={2}
+                    className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-left min-w-[90px]"
+                  >
                     USUARIO
                   </th>
                   <th
@@ -877,22 +1049,73 @@ export default function ReporteAsistencia({ sessionUser }) {
                       colSpan={16}
                       className="text-center py-10 text-slate-400 text-sm"
                     >
-                      Seleccione un departamento y semana para cargar el personal.
+                      Seleccione un departamento y semana para cargar el
+                      personal.
                     </td>
                   </tr>
                 ) : (
                   personal.map((p, idx) => {
                     const dia = DIAS[diaActivo]
-                    const t1Ingreso = getValue(p.encuestador_id, dia, 'T1', 'ingreso')
-                    const t1fIngreso = getValue(p.encuestador_id, dia, 'T1', 'fIngreso')
-                    const t1Salida = getValue(p.encuestador_id, dia, 'T1', 'salida')
-                    const t1fSalida = getValue(p.encuestador_id, dia, 'T1', 'fSalida')
-                    const t1Obs = getValue(p.encuestador_id, dia, 'T1', 'observacion')
-                    const t2Ingreso = getValue(p.encuestador_id, dia, 'T2', 'ingreso')
-                    const t2fIngreso = getValue(p.encuestador_id, dia, 'T2', 'fIngreso')
-                    const t2Salida = getValue(p.encuestador_id, dia, 'T2', 'salida')
-                    const t2fSalida = getValue(p.encuestador_id, dia, 'T2', 'fSalida')
-                    const t2Obs = getValue(p.encuestador_id, dia, 'T2', 'observacion')
+                    const t1Ingreso = getValue(
+                      p.encuestador_id,
+                      dia,
+                      'T1',
+                      'ingreso',
+                    )
+                    const t1fIngreso = getValue(
+                      p.encuestador_id,
+                      dia,
+                      'T1',
+                      'fIngreso',
+                    )
+                    const t1Salida = getValue(
+                      p.encuestador_id,
+                      dia,
+                      'T1',
+                      'salida',
+                    )
+                    const t1fSalida = getValue(
+                      p.encuestador_id,
+                      dia,
+                      'T1',
+                      'fSalida',
+                    )
+                    const t1Obs = getValue(
+                      p.encuestador_id,
+                      dia,
+                      'T1',
+                      'observacion',
+                    )
+                    const t2Ingreso = getValue(
+                      p.encuestador_id,
+                      dia,
+                      'T2',
+                      'ingreso',
+                    )
+                    const t2fIngreso = getValue(
+                      p.encuestador_id,
+                      dia,
+                      'T2',
+                      'fIngreso',
+                    )
+                    const t2Salida = getValue(
+                      p.encuestador_id,
+                      dia,
+                      'T2',
+                      'salida',
+                    )
+                    const t2fSalida = getValue(
+                      p.encuestador_id,
+                      dia,
+                      'T2',
+                      'fSalida',
+                    )
+                    const t2Obs = getValue(
+                      p.encuestador_id,
+                      dia,
+                      'T2',
+                      'observacion',
+                    )
 
                     return (
                       <tr
@@ -937,7 +1160,13 @@ export default function ReporteAsistencia({ sessionUser }) {
                             className={`w-full border border-slate-300 rounded px-1 py-1 text-xs ${getCellStyle(t1Ingreso, t1fIngreso)}`}
                             value={t1Ingreso}
                             onChange={(e) =>
-                              updateField(p.encuestador_id, dia, 'T1', 'ingreso', e.target.value)
+                              updateField(
+                                p.encuestador_id,
+                                dia,
+                                'T1',
+                                'ingreso',
+                                e.target.value,
+                              )
                             }
                           />
                         </td>
@@ -946,7 +1175,13 @@ export default function ReporteAsistencia({ sessionUser }) {
                             className={`w-full border border-slate-300 rounded px-1 py-1 text-xs ${getCellStyle(t1Ingreso, t1fIngreso)}`}
                             value={t1fIngreso}
                             onChange={(e) =>
-                              updateField(p.encuestador_id, dia, 'T1', 'fIngreso', e.target.value)
+                              updateField(
+                                p.encuestador_id,
+                                dia,
+                                'T1',
+                                'fIngreso',
+                                e.target.value,
+                              )
                             }
                           >
                             <option value=""></option>
@@ -963,7 +1198,13 @@ export default function ReporteAsistencia({ sessionUser }) {
                             className={`w-full border border-slate-300 rounded px-1 py-1 text-xs ${getCellStyle(t1Salida, t1fSalida)}`}
                             value={t1Salida}
                             onChange={(e) =>
-                              updateField(p.encuestador_id, dia, 'T1', 'salida', e.target.value)
+                              updateField(
+                                p.encuestador_id,
+                                dia,
+                                'T1',
+                                'salida',
+                                e.target.value,
+                              )
                             }
                           />
                         </td>
@@ -972,7 +1213,13 @@ export default function ReporteAsistencia({ sessionUser }) {
                             className={`w-full border border-slate-300 rounded px-1 py-1 text-xs ${getCellStyle(t1Salida, t1fSalida)}`}
                             value={t1fSalida}
                             onChange={(e) =>
-                              updateField(p.encuestador_id, dia, 'T1', 'fSalida', e.target.value)
+                              updateField(
+                                p.encuestador_id,
+                                dia,
+                                'T1',
+                                'fSalida',
+                                e.target.value,
+                              )
                             }
                           >
                             <option value=""></option>
@@ -1007,7 +1254,13 @@ export default function ReporteAsistencia({ sessionUser }) {
                             className={`w-full border border-slate-300 rounded px-1 py-1 text-xs ${getCellStyle(t2Ingreso, t2fIngreso)}`}
                             value={t2Ingreso}
                             onChange={(e) =>
-                              updateField(p.encuestador_id, dia, 'T2', 'ingreso', e.target.value)
+                              updateField(
+                                p.encuestador_id,
+                                dia,
+                                'T2',
+                                'ingreso',
+                                e.target.value,
+                              )
                             }
                           />
                         </td>
@@ -1016,7 +1269,13 @@ export default function ReporteAsistencia({ sessionUser }) {
                             className={`w-full border border-slate-300 rounded px-1 py-1 text-xs ${getCellStyle(t2Ingreso, t2fIngreso)}`}
                             value={t2fIngreso}
                             onChange={(e) =>
-                              updateField(p.encuestador_id, dia, 'T2', 'fIngreso', e.target.value)
+                              updateField(
+                                p.encuestador_id,
+                                dia,
+                                'T2',
+                                'fIngreso',
+                                e.target.value,
+                              )
                             }
                           >
                             <option value=""></option>
@@ -1033,7 +1292,13 @@ export default function ReporteAsistencia({ sessionUser }) {
                             className={`w-full border border-slate-300 rounded px-1 py-1 text-xs ${getCellStyle(t2Salida, t2fSalida)}`}
                             value={t2Salida}
                             onChange={(e) =>
-                              updateField(p.encuestador_id, dia, 'T2', 'salida', e.target.value)
+                              updateField(
+                                p.encuestador_id,
+                                dia,
+                                'T2',
+                                'salida',
+                                e.target.value,
+                              )
                             }
                           />
                         </td>
@@ -1042,7 +1307,13 @@ export default function ReporteAsistencia({ sessionUser }) {
                             className={`w-full border border-slate-300 rounded px-1 py-1 text-xs ${getCellStyle(t2Salida, t2fSalida)}`}
                             value={t2fSalida}
                             onChange={(e) =>
-                              updateField(p.encuestador_id, dia, 'T2', 'fSalida', e.target.value)
+                              updateField(
+                                p.encuestador_id,
+                                dia,
+                                'T2',
+                                'fSalida',
+                                e.target.value,
+                              )
                             }
                           >
                             <option value=""></option>
