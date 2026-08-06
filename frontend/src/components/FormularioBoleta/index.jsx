@@ -1,9 +1,12 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { INCIDENCIAS } from '../../utils/constants'
+import { INCIDENCIAS, SEMANA_MIN, SEMANA_MAX } from '../../utils/constants'
 import {
   calcularPanel,
-  calcularUPM,
+  calcularUPMEfectivo,
+  calcularVOE,
   computeObservacionFields,
+  validarFolio,
+  getSemanaActual,
 } from '../../utils/helpers'
 import { useBoletas } from '../../hooks/useBoletas'
 import { useFiltros } from '../../hooks/useFiltros'
@@ -17,15 +20,7 @@ import ModalReporte from './ModalReporte'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
 
-const getDefaultSemana = () => {
-  const now = new Date()
-  const start = new Date(now.getFullYear(), 6, 29)
-  const diffDays = Math.floor((now - start) / (1000 * 60 * 60 * 24))
-  if (diffDays < 0) return 1
-  if (diffDays <= 4) return 4
-  const week = 5 + Math.floor((diffDays - 5) / 7)
-  return week <= 13 ? week : 1
-}
+const getDefaultSemana = getSemanaActual
 
 const INITIAL_FORM_STATE = {
   departamento: '',
@@ -56,6 +51,8 @@ export default function FormularioBoleta({ sessionUser }) {
   const [folioDuplicado, setFolioDuplicado] = useState(false)
   const [modalData, setModalData] = useState(null)
   const brigadaRef = useRef(null)
+  const folioCheckRef = useRef(null)
+  const folioCheckSeq = useRef(0)
 
   const {
     brigadas,
@@ -118,9 +115,18 @@ export default function FormularioBoleta({ sessionUser }) {
 
   const dataReady = brigadas.length > 0 && encuestadores.length > 0
 
-  if (dataReady && !formData.brigada) {
-    setFormData(getFormState())
-  }
+  useEffect(() => {
+    if (dataReady && !formData.brigada) {
+      setFormData(getFormState())
+    }
+  }, [dataReady, formData.brigada, getFormState])
+
+  useEffect(() => {
+    return () => {
+      folioCheckSeq.current++
+      clearTimeout(folioCheckRef.current)
+    }
+  }, [])
 
   const registrosSemana = useMemo(
     () =>
@@ -134,6 +140,8 @@ export default function FormularioBoleta({ sessionUser }) {
     useFiltros(registrosSemana)
 
   const limpiarFormulario = useCallback(() => {
+    folioCheckSeq.current++
+    clearTimeout(folioCheckRef.current)
     setFormData(getFormState())
     setEditandoId(null)
     setFolioDuplicado(false)
@@ -147,10 +155,15 @@ export default function FormularioBoleta({ sessionUser }) {
   }, [formData.visita, formData.numeroCorrelativo, formData.upm])
 
   const handleFolioChange = useCallback(
-    async (val) => {
-      const upmCalculada = calcularUPM(val)
+    (val) => {
+      const voeCalculado = calcularVOE(val)
+      const upmEfectiva = calcularUPMEfectivo(
+        val,
+        formData.upmAdicional,
+        formData.upm,
+      )
       const registrosMismaUpm = registros.filter(
-        (r) => r.upm === upmCalculada && r.id !== editandoId,
+        (r) => r.upm === upmEfectiva && r.id !== editandoId,
       )
 
       const conteoUpmPrevias = registrosMismaUpm.length
@@ -167,13 +180,21 @@ export default function FormularioBoleta({ sessionUser }) {
           ? primerRegistro.brigada
           : prev.brigada
         const brigadaCambio = brigadaAuto !== prev.brigada
+        const upmFinal = calcularUPMEfectivo(
+          val,
+          prev.upmAdicional,
+          prev.upm,
+        )
         return {
           ...prev,
+          folio: val,
+          upm: upmFinal,
+          voe: voeCalculado,
+          panel: calcularPanel(visitaAuto, upmFinal),
           visita: visitaAuto,
           brigada: brigadaAuto,
           numeroCorrelativo: conteoUpmPrevias + 1,
           upmReemplazo: primerRegistroUpm ? primerRegistroUpm.upmReemplazo : '',
-          panel: calcularPanel(visitaAuto, upmCalculada),
           ...(brigadaCambio && {
             usuarioEncuestador: '',
             nombreEncuestador: '',
@@ -182,15 +203,22 @@ export default function FormularioBoleta({ sessionUser }) {
         }
       })
 
+      const seq = ++folioCheckSeq.current
+      clearTimeout(folioCheckRef.current)
+
       if (val.trim() === '') {
         setFolioDuplicado(false)
         return
       }
 
-      const existe = await verificarFolio(val, editandoId)
-      setFolioDuplicado(existe)
+      folioCheckRef.current = setTimeout(async () => {
+        const existe = await verificarFolio(val, editandoId)
+        if (seq === folioCheckSeq.current) {
+          setFolioDuplicado(existe)
+        }
+      }, 400)
     },
-    [registros, editandoId, verificarFolio],
+    [registros, editandoId, verificarFolio, formData.upmAdicional, formData.upm],
   )
 
   const handleVisitaChange = useCallback((val) => {
@@ -262,6 +290,13 @@ export default function FormularioBoleta({ sessionUser }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (submitting) return
+    if (!validarFolio(formData.folio)) {
+      showAlert(
+        'El folio debe tener el formato 721-05388196879-A-0291 (3 dígitos, 11 dígitos, letra A/D y 4 dígitos).',
+        'error',
+      )
+      return
+    }
     if (folioDuplicado) {
       showAlert(
         `El folio "${formData.folio}" ya existe. No se puede guardar un folio duplicado.`,
@@ -276,10 +311,13 @@ export default function FormularioBoleta({ sessionUser }) {
       formData.semana === null ||
       formData.semana === undefined ||
       !Number.isInteger(semanaNum) ||
-      semanaNum < 1 ||
-      semanaNum > 53
+      semanaNum < SEMANA_MIN ||
+      semanaNum > SEMANA_MAX
     ) {
-      showAlert('La semana debe ser un número entero entre 1 y 53.', 'error')
+      showAlert(
+        `La semana debe ser un número entero entre ${SEMANA_MIN} y ${SEMANA_MAX}.`,
+        'error',
+      )
       return
     }
 
@@ -349,6 +387,8 @@ export default function FormularioBoleta({ sessionUser }) {
   }
 
   const handleEditar = useCallback((reg) => {
+    folioCheckSeq.current++
+    clearTimeout(folioCheckRef.current)
     setEditandoId(reg.id)
     setFormData({ ...reg, semana: parseInt(reg.semana, 10) || 0 })
     window.scrollTo({ top: 0, behavior: 'smooth' })

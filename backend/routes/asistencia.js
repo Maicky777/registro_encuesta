@@ -101,6 +101,12 @@ router.get('/', authMiddleware, (req, res) => {
     if (req.user.rol !== 'administrador') {
       query += ' AND departamento = ?'
       params.push(req.user.departamento)
+      const userBrigadas = parseBrigadas(req.user.brigadas)
+      if (userBrigadas.length > 0) {
+        const placeholders = userBrigadas.map(() => '?').join(',')
+        query += ` AND brigada IN (${placeholders})`
+        params.push(...userBrigadas)
+      }
     }
 
     const records = db.prepare(query).all(...params)
@@ -118,6 +124,57 @@ router.post('/batch', authMiddleware, (req, res) => {
 
     if (!Array.isArray(records)) {
       return res.status(400).json({ error: 'records debe ser un array' })
+    }
+
+    if (records.length === 0) {
+      return res.status(400).json({ error: 'records no puede estar vacío' })
+    }
+
+    for (let i = 0; i < records.length; i++) {
+      const r = records[i]
+      if (!r || typeof r !== 'object') {
+        return res.status(400).json({ error: `El registro ${i + 1} debe ser un objeto válido.` })
+      }
+      if (!r.encuestador_id || !Number.isInteger(Number(r.encuestador_id))) {
+        return res.status(400).json({ error: `El registro ${i + 1} debe incluir un encuestador_id válido.` })
+      }
+      if (r.dia === undefined || r.dia === null || String(r.dia).trim() === '') {
+        return res.status(400).json({ error: `El registro ${i + 1} debe incluir el campo "dia".` })
+      }
+      if (r.turno === undefined || r.turno === null || String(r.turno).trim() === '') {
+        return res.status(400).json({ error: `El registro ${i + 1} debe incluir el campo "turno".` })
+      }
+    }
+
+    if (req.user.rol !== 'administrador') {
+      const userBrigadas = parseBrigadas(req.user.brigadas)
+      if (userBrigadas.length === 0) {
+        return res.status(403).json({ error: 'No tienes brigadas asignadas para guardar asistencia.' })
+      }
+      for (const r of records) {
+        const dept = departamento || r.departamento || ''
+        const brig = brigada || r.brigada || ''
+        if (dept !== req.user.departamento) {
+          return res.status(403).json({ error: 'No tienes permisos para guardar asistencia de otro departamento.' })
+        }
+        if (brig && !userBrigadas.includes(brig)) {
+          return res.status(403).json({ error: `No tienes permisos para guardar asistencia de la brigada ${brig}.` })
+        }
+      }
+
+      const placeholders = userBrigadas.map(() => '?').join(',')
+      const idsInScope = db.prepare(`
+        SELECT DISTINCT e.id FROM encuestadores e
+        JOIN brigada_encuestadores be ON e.id = be.encuestador_id
+        JOIN brigadas b ON be.brigada_id = b.id
+        WHERE b.departamento = ? AND b.nombre IN (${placeholders})
+      `).all(req.user.departamento, ...userBrigadas).map((row) => row.id)
+      const allowedIds = new Set(idsInScope)
+      for (const r of records) {
+        if (!allowedIds.has(Number(r.encuestador_id))) {
+          return res.status(403).json({ error: `No tienes permisos para guardar asistencia del encuestador ${r.encuestador_id}.` })
+        }
+      }
     }
 
     const upsert = db.prepare(`

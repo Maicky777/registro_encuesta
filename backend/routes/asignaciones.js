@@ -1,6 +1,7 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
+const { parseBrigadas } = require('../utils/parseBrigadas')
 
 const router = express.Router()
 
@@ -8,6 +9,43 @@ router.get('/', authMiddleware, (req, res) => {
   try {
     const db = getDB()
     const { brigada_id, departamento } = req.query
+    const isAdmin = req.user.rol === 'administrador'
+
+    if (!isAdmin) {
+      const userBrigadas = parseBrigadas(req.user.brigadas)
+
+      if (brigada_id) {
+        const brigada = db.prepare('SELECT id, departamento, nombre FROM brigadas WHERE id = ?').get(brigada_id)
+        if (!brigada) {
+          return res.status(404).json({ error: 'Brigada no encontrada' })
+        }
+        if (brigada.departamento !== req.user.departamento || !userBrigadas.includes(brigada.nombre)) {
+          return res.status(403).json({ error: 'No tienes permisos para ver esta brigada' })
+        }
+        const encuestadores = db.prepare(`
+          SELECT e.* FROM encuestadores e
+          JOIN brigada_encuestadores be ON e.id = be.encuestador_id
+          WHERE be.brigada_id = ?
+          ORDER BY e.nombre
+        `).all(brigada_id)
+        return res.json(encuestadores)
+      }
+
+      if (departamento && departamento !== req.user.departamento) {
+        return res.status(403).json({ error: 'No tienes permisos para ver este departamento' })
+      }
+
+      const asignaciones = db.prepare(`
+        SELECT b.id as brigada_id, b.nombre as brigada_nombre, b.departamento,
+          e.id as encuestador_id, e.nombre as encuestador_nombre, e.codigo, e.rol
+        FROM brigadas b
+        JOIN brigada_encuestadores be ON b.id = be.brigada_id
+        JOIN encuestadores e ON be.encuestador_id = e.id
+        WHERE b.departamento = ?
+        ORDER BY b.nombre, e.nombre
+      `).all(req.user.departamento)
+      return res.json(asignaciones)
+    }
 
     if (brigada_id) {
       const encuestadores = db.prepare(`

@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react'
 import ExcelJS from 'exceljs/dist/exceljs.min.js'
 import ModalSemanaExcel from './ModalSemanaExcel'
-import { TRIMESTRE_ACTUAL } from '../../utils/constants'
+import { TRIMESTRE_ACTUAL, SEMANA_MIN, SEMANA_MAX } from '../../utils/constants'
 
 const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
   const fileInputRef = useRef(null)
@@ -192,8 +192,11 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
 
   const handleConfirmarSemana = () => {
     const semanaNum = parseInt(semanaInput, 10)
-    if (!semanaNum || semanaNum < 1) {
-      showAlert('Ingrese un número de semana válido.', 'warning')
+    if (!semanaNum || semanaNum < SEMANA_MIN || semanaNum > SEMANA_MAX) {
+      showAlert(
+        `Ingrese un número de semana válido (${SEMANA_MIN} a ${SEMANA_MAX}).`,
+        'warning',
+      )
       return
     }
     exportarExcel(semanaNum)

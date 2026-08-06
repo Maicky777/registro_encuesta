@@ -208,7 +208,7 @@ const TablaRegistros = ({
               ))
             ) : (
               <tr>
-                <td colSpan="15">
+                <td colSpan="16">
                   <EmptyState />
                 </td>
               </tr>

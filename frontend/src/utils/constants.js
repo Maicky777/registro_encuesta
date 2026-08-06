@@ -16,6 +16,11 @@ export const INCIDENCIA_COMPLETA = '1: ENTREVISTA COMPLETA'
 
 export const TRIMESTRE_ACTUAL = 'III/2026'
 
+export const SEMANA_MIN = 1
+export const SEMANA_MAX = 13
+export const SEMANA_ANCLA = 5
+export const ANCLA_FECHA = new Date(2026, 7, 3)
+
 export const DEPARTAMENTOS = [
   'BENI', 'CHUQUISACA', 'COCHABAMBA', 'LA PAZ', 'ORURO', 'PANDO', 'POTOSÍ', 'SANTA CRUZ', 'TARIJA',
 ]

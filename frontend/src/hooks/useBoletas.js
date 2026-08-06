@@ -3,6 +3,8 @@ import api from '../services/api'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
+const LIMITE_TOTAL = 100000
+
 function getErrorMessage(err) {
   if (err.response?.data?.error) return err.response.data.error
   if (err.response?.data?.details) return err.response.data.details.join('\n')
@@ -15,9 +17,9 @@ export const useBoletas = () => {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
-  const [pagination, setPagination] = useState({ page: 1, limit: 500, total: 0, totalPages: 1 })
+  const [pagination, setPagination] = useState({ page: 1, limit: LIMITE_TOTAL, total: 0, totalPages: 1 })
 
-  const fetchRegistros = useCallback(async (page = 1, limit = 500) => {
+  const fetchRegistros = useCallback(async (page = 1, limit = LIMITE_TOTAL) => {
     try {
       const res = await api.get(`/boletas?page=${page}&limit=${limit}`)
       setRegistros(res.data.data)

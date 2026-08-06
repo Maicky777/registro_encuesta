@@ -1,7 +1,7 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
-const { authMiddleware, requireRole, JWT_SECRET } = require('../middleware/auth')
+const { authMiddleware, requireRole, getJwtSecret } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
 const { parseBrigadas } = require('../utils/parseBrigadas')
 
@@ -29,7 +29,7 @@ router.post('/login', async (req, res) => {
     const brigadas = parseBrigadas(user.brigadas)
     const token = jwt.sign(
       { id: user.id, username: user.username, departamento: user.departamento, brigadas, rol: user.rol },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '8h' }
     )
 
@@ -41,7 +41,6 @@ router.post('/login', async (req, res) => {
     })
 
     res.json({
-      token,
       user: {
         id: user.id,
         username: user.username,
