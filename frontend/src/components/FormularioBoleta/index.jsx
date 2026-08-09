@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { INCIDENCIAS, SEMANA_MIN, SEMANA_MAX } from '../../utils/constants'
 import {
   calcularPanel,
+  calcularUPM,
   calcularUPMEfectivo,
   calcularVOE,
   computeObservacionFields,
@@ -157,20 +158,26 @@ export default function FormularioBoleta({ sessionUser }) {
   const handleFolioChange = useCallback(
     (val) => {
       const voeCalculado = calcularVOE(val)
-      const upmEfectiva = calcularUPMEfectivo(
-        val,
-        formData.upmAdicional,
-        formData.upm,
+      const upmDesdeFolio = calcularUPM(val)
+      const grupoRegistros = registros.filter(
+        (r) =>
+          r.id !== editandoId &&
+          (calcularUPM(r.folio) === upmDesdeFolio ||
+            (r.upmAdicional &&
+              r.upmAdicional.trim() !== '' &&
+              r.upmAdicional.trim() === upmDesdeFolio)),
       )
-      const registrosMismaUpm = registros.filter(
-        (r) => r.upm === upmEfectiva && r.id !== editandoId,
-      )
-
-      const conteoUpmPrevias = registrosMismaUpm.length
-      const primerRegistroUpm = registrosMismaUpm
+      const primerRegistroUpm = grupoRegistros
         .filter((r) => r.upmReemplazo && r.upmReemplazo.trim() !== '')
         .sort((a, b) => a.id - b.id)[0]
-      const primerRegistro = [...registrosMismaUpm].sort((a, b) => a.id - b.id)[0]
+      const primerRegistro = [...grupoRegistros].sort((a, b) => a.id - b.id)[0]
+      const esGrupoAdicional = !!(
+        primerRegistro &&
+        primerRegistro.upmAdicional &&
+        primerRegistro.upmAdicional.trim() !== ''
+      )
+
+      const conteoUpmPrevias = grupoRegistros.length
 
       setFormData((prev) => {
         const visitaAuto = primerRegistro
@@ -185,12 +192,16 @@ export default function FormularioBoleta({ sessionUser }) {
           prev.upmAdicional,
           prev.upm,
         )
+        const upmAuto = esGrupoAdicional ? primerRegistro.upm : upmFinal
         return {
           ...prev,
           folio: val,
-          upm: upmFinal,
+          upm: upmAuto,
+          upmAdicional: esGrupoAdicional
+            ? primerRegistro.upmAdicional
+            : prev.upmAdicional,
           voe: voeCalculado,
-          panel: calcularPanel(visitaAuto, upmFinal),
+          panel: calcularPanel(visitaAuto, upmAuto),
           visita: visitaAuto,
           brigada: brigadaAuto,
           numeroCorrelativo: conteoUpmPrevias + 1,
@@ -218,7 +229,7 @@ export default function FormularioBoleta({ sessionUser }) {
         }
       }, 400)
     },
-    [registros, editandoId, verificarFolio, formData.upmAdicional, formData.upm],
+    [registros, editandoId, verificarFolio],
   )
 
   const handleVisitaChange = useCallback((val) => {

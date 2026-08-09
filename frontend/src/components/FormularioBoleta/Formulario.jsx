@@ -113,9 +113,9 @@ const Formulario = ({
 
   const canEditUpmAdicional =
     Number(formData.visita) === 1 && formData.numeroCorrelativo === 1
-  const canEditUpmManual = !!(
-    formData.upmAdicional && formData.upmAdicional.trim() !== ''
-  )
+  const canEditUpmManual =
+    Number(formData.numeroCorrelativo) === 1 &&
+    !!(formData.upmAdicional && formData.upmAdicional.trim() !== '')
 
   const avanceBrigadas = useMemo(
     () => calcularAvanceBrigadas(registros, formData.semana, { contarSoloEstado: true }).brigadas,
@@ -203,6 +203,7 @@ const Formulario = ({
               className={`${inputClass} ${folioDuplicado || folioError ? 'border-red-500 bg-red-50' : ''}`}
               type="text"
               id="cod-folio"
+              autoComplete="off"
               required
               maxLength={22}
               pattern="\d{3}-\d{11}-[AD]-\d{4}"
