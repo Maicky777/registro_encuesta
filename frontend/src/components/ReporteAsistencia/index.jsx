@@ -4,6 +4,7 @@ import {
   getPersonalAsistencia,
   getAsistencia,
   saveAsistencia,
+  deleteAsistencia,
 } from '../../services/asistenciaService'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
@@ -36,6 +37,81 @@ const DIAS = [
   'DOMINGO',
 ]
 
+const TEMAS_DIA = [
+  {
+    id: 'azul',
+    nombre: 'Azul',
+    swatch: 'bg-blue-500',
+    tabActivo: 'bg-blue-600 text-white shadow-md',
+    tabFecha: 'text-blue-100',
+    tabBadge: 'bg-white text-blue-700',
+    banner: 'from-blue-600 to-indigo-600',
+    bannerIcono: 'text-blue-100',
+    bannerSemana: 'text-blue-100',
+    loteBadge: 'bg-blue-100 text-blue-700 border-blue-200',
+  },
+  {
+    id: 'esmeralda',
+    nombre: 'Esmeralda',
+    swatch: 'bg-emerald-500',
+    tabActivo: 'bg-emerald-600 text-white shadow-md',
+    tabFecha: 'text-emerald-100',
+    tabBadge: 'bg-white text-emerald-700',
+    banner: 'from-emerald-600 to-teal-600',
+    bannerIcono: 'text-emerald-100',
+    bannerSemana: 'text-emerald-100',
+    loteBadge: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  },
+  {
+    id: 'naranja',
+    nombre: 'Naranja',
+    swatch: 'bg-amber-500',
+    tabActivo: 'bg-amber-600 text-white shadow-md',
+    tabFecha: 'text-amber-100',
+    tabBadge: 'bg-white text-amber-700',
+    banner: 'from-amber-500 to-orange-600',
+    bannerIcono: 'text-amber-100',
+    bannerSemana: 'text-amber-100',
+    loteBadge: 'bg-amber-100 text-amber-700 border-amber-200',
+  },
+  {
+    id: 'rosa',
+    nombre: 'Rosa',
+    swatch: 'bg-rose-500',
+    tabActivo: 'bg-rose-600 text-white shadow-md',
+    tabFecha: 'text-rose-100',
+    tabBadge: 'bg-white text-rose-700',
+    banner: 'from-rose-600 to-pink-600',
+    bannerIcono: 'text-rose-100',
+    bannerSemana: 'text-rose-100',
+    loteBadge: 'bg-rose-100 text-rose-700 border-rose-200',
+  },
+  {
+    id: 'violeta',
+    nombre: 'Violeta',
+    swatch: 'bg-violet-500',
+    tabActivo: 'bg-violet-600 text-white shadow-md',
+    tabFecha: 'text-violet-100',
+    tabBadge: 'bg-white text-violet-700',
+    banner: 'from-violet-600 to-purple-600',
+    bannerIcono: 'text-violet-100',
+    bannerSemana: 'text-violet-100',
+    loteBadge: 'bg-violet-100 text-violet-700 border-violet-200',
+  },
+  {
+    id: 'cian',
+    nombre: 'Cian',
+    swatch: 'bg-cyan-500',
+    tabActivo: 'bg-cyan-600 text-white shadow-md',
+    tabFecha: 'text-cyan-100',
+    tabBadge: 'bg-white text-cyan-700',
+    banner: 'from-cyan-600 to-sky-600',
+    bannerIcono: 'text-cyan-100',
+    bannerSemana: 'text-cyan-100',
+    loteBadge: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+  },
+]
+
 const FECHA_ANCLA = new Date(ANCLA_FECHA)
 
 function getFechaSemana(semana, diaIndex) {
@@ -51,9 +127,22 @@ function getDiaFechaShort(diaIndex, semana) {
   return `${dd}/${mm}`
 }
 
+function getDiaFechaFull(diaIndex, semana) {
+  const target = getFechaSemana(semana, diaIndex)
+  const dd = String(target.getDate()).padStart(2, '0')
+  const mm = String(target.getMonth() + 1).padStart(2, '0')
+  return `${dd}/${mm}/${target.getFullYear()}`
+}
+
 export default function ReporteAsistencia({ sessionUser }) {
-  const { alertModal, confirmModal, showAlert, closeAlert, confirmAction } =
-    useModal()
+  const {
+    alertModal,
+    confirmModal,
+    showAlert,
+    closeAlert,
+    showConfirm,
+    confirmAction,
+  } = useModal()
 
   const isAdmin = sessionUser?.rol === 'administrador'
   const userDept = sessionUser?.departamento || ''
@@ -67,6 +156,9 @@ export default function ReporteAsistencia({ sessionUser }) {
   const [saving, setSaving] = useState(false)
 
   const [diaActivo, setDiaActivo] = useState(0)
+  const [temaDia, setTemaDia] = useState('azul')
+
+  const tema = TEMAS_DIA.find((t) => t.id === temaDia) || TEMAS_DIA[0]
 
   const [loteTurno, setLoteTurno] = useState('AMBOS')
   const [loteIngreso, setLoteIngreso] = useState('')
@@ -202,6 +294,36 @@ export default function ReporteAsistencia({ sessionUser }) {
       )
     } finally {
       setSaving(false)
+    }
+  }
+
+  const tieneRegistrosDia = (diaIndex) => {
+    const dia = DIAS[diaIndex]
+    return personal.some((p) => {
+      const t1 = attendanceMap[`${p.encuestador_id}_${dia}_T1`]
+      const t2 = attendanceMap[`${p.encuestador_id}_${dia}_T2`]
+      const tieneDatos = (r) =>
+        !!(r && (r.ingreso || r.salida || r.fIngreso || r.fSalida || r.observacion))
+      return tieneDatos(t1) || tieneDatos(t2)
+    })
+  }
+
+  const handleEliminarDia = async () => {
+    const dia = DIAS[diaActivo]
+    const confirmado = await showConfirm(
+      `¿Está seguro de eliminar todos los registros de asistencia de ${dia} (${getDiaFechaShort(diaActivo, semana)}) de la semana ${semana}?`,
+    )
+    if (!confirmado) return
+
+    try {
+      const res = await deleteAsistencia({ semana, departamento, dia })
+      showAlert(`Registros de ${dia} eliminados (${res.count}).`, 'success')
+      await cargarDatos()
+    } catch (err) {
+      showAlert(
+        'Error al eliminar: ' + (err.response?.data?.error || err.message),
+        'error',
+      )
     }
   }
 
@@ -709,6 +831,40 @@ export default function ReporteAsistencia({ sessionUser }) {
               max={SEMANA_MAX}
             />
           </div>
+          <div className="flex flex-col">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+              Color día
+            </label>
+            <div className="flex items-center gap-1.5 h-[38px]">
+              {TEMAS_DIA.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  title={t.nombre}
+                  className={`w-6 h-6 rounded-full cursor-pointer transition-all hover:scale-110 border-2 border-white shadow-sm ${t.swatch} ${
+                    temaDia === t.id
+                      ? 'ring-2 ring-slate-800 ring-offset-1 scale-110'
+                      : ''
+                  }`}
+                  onClick={() => setTemaDia(t.id)}
+                >
+                  {temaDia === t.id && (
+                    <svg
+                      className="w-3 h-3 mx-auto text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex-1 hidden md:block"></div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -794,9 +950,17 @@ export default function ReporteAsistencia({ sessionUser }) {
                 </svg>
                 Registro en lote
               </span>
-              <span className="text-[10px] text-slate-400">
-                Aplica al {DIAS[diaActivo]} (
-                {getDiaFechaShort(diaActivo, semana)}) a los seleccionados (
+              <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                Aplica al
+                <span
+                  className={`inline-flex items-center gap-1 border font-bold uppercase rounded-full px-2 py-0.5 ${tema.loteBadge}`}
+                >
+                  {DIAS[diaActivo]}
+                  <span className="font-normal normal-case">
+                    {getDiaFechaShort(diaActivo, semana)}
+                  </span>
+                </span>
+                a los seleccionados (
                 {selectedIds.size} de {personal.length} persona(s))
               </span>
             </div>
@@ -917,23 +1081,96 @@ export default function ReporteAsistencia({ sessionUser }) {
       {personal.length > 0 && (
         <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mb-4">
           <div className="flex border-b border-slate-200 bg-slate-50">
-            {DIAS.map((dia, i) => (
-              <button
-                key={dia}
-                className={`flex-1 py-2.5 text-xs font-semibold cursor-pointer transition-colors border-none ${
-                  diaActivo === i
-                    ? 'bg-white text-blue-700 border-b-2 border-blue-600 shadow-sm'
-                    : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                }`}
-                onClick={() => setDiaActivo(i)}
-              >
-                <span className="block">{dia}</span>
-                <span className="block text-[10px] font-normal text-slate-400">
-                  {getDiaFechaShort(i, semana)}
-                </span>
-              </button>
-            ))}
+            {DIAS.map((dia, i) => {
+              const activo = diaActivo === i
+              return (
+                <button
+                  key={dia}
+                  className={`relative flex-1 py-2.5 text-xs font-semibold cursor-pointer transition-colors border-none ${
+                    activo
+                      ? tema.tabActivo
+                      : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                  }`}
+                  onClick={() => setDiaActivo(i)}
+                >
+                  <span className="block">{dia}</span>
+                  <span
+                    className={`block text-[10px] font-normal ${
+                      activo ? tema.tabFecha : 'text-slate-400'
+                    }`}
+                  >
+                    {getDiaFechaShort(i, semana)}
+                  </span>
+                  {activo && (
+                    <span
+                      className={`absolute top-1 right-1.5 text-[8px] font-bold rounded-full px-1.5 py-0.5 uppercase ${tema.tabBadge}`}
+                    >
+                      Activo
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
+
+          {!loading && personal.length > 0 && (
+            <div
+              className={`flex items-center justify-between px-4 py-2.5 bg-gradient-to-r text-white ${tema.banner}`}
+            >
+              <div className="flex items-center gap-3">
+                <svg
+                  className={`w-5 h-5 ${tema.bannerIcono}`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <span className="text-sm font-bold uppercase tracking-wide">
+                  Editando: {DIAS[diaActivo]}
+                </span>
+                <span className="text-xs font-medium bg-white/20 rounded-full px-3 py-1">
+                  {getDiaFechaFull(diaActivo, semana)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-xs font-semibold ${tema.bannerSemana}`}
+                >
+                  Semana N° {semana}
+                </span>
+                {tieneRegistrosDia(diaActivo) && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 bg-red-600 text-white border-none px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer hover:bg-red-700 transition-colors"
+                    onClick={handleEliminarDia}
+                  >
+                    <svg
+                      className="w-3.5 h-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      <line x1="10" y1="11" x2="10" y2="17" />
+                      <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>
+                    Eliminar día
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-xs">
@@ -986,46 +1223,46 @@ export default function ReporteAsistencia({ sessionUser }) {
                   </th>
                   <th
                     colSpan={5}
-                    className="border border-slate-700 px-1.5 py-1 text-xs align-middle bg-blue-800 text-center"
+                    className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-center"
                   >
                     TURNO 1 (Mañana)
                   </th>
                   <th
                     colSpan={5}
-                    className="border border-slate-700 px-1.5 py-1 text-xs align-middle bg-indigo-800 text-center"
+                    className="border border-slate-700 px-1.5 py-1 text-xs align-middle text-center"
                   >
                     TURNO 2 (Tarde/Noche)
                   </th>
                 </tr>
-                <tr className="bg-slate-700 text-white">
-                  <th className="border border-slate-600 px-1 py-0.5 text-[10px] align-middle min-w-[60px]">
+                <tr className="bg-slate-800 text-white">
+                  <th className="border border-slate-700 px-1 py-0.5 text-[10px] align-middle min-w-[60px]">
                     Ingreso
                   </th>
-                  <th className="border border-slate-600 px-1 py-0.5 text-[10px] align-middle min-w-[120px]">
+                  <th className="border border-slate-700 px-1 py-0.5 text-[10px] align-middle min-w-[120px]">
                     Detalle Ingreso
                   </th>
-                  <th className="border border-slate-600 px-1 py-0.5 text-[10px] align-middle min-w-[60px]">
+                  <th className="border border-slate-700 px-1 py-0.5 text-[10px] align-middle min-w-[60px]">
                     Salida
                   </th>
-                  <th className="border border-slate-600 px-1 py-0.5 text-[10px] align-middle min-w-[120px]">
+                  <th className="border border-slate-700 px-1 py-0.5 text-[10px] align-middle min-w-[120px]">
                     Detalle Salida
                   </th>
-                  <th className="border border-slate-600 px-1 py-0.5 text-[10px] align-middle min-w-[100px]">
+                  <th className="border border-slate-700 px-1 py-0.5 text-[10px] align-middle min-w-[100px]">
                     Observación
                   </th>
-                  <th className="border border-slate-600 px-1 py-0.5 text-[10px] align-middle min-w-[60px]">
+                  <th className="border border-slate-700 px-1 py-0.5 text-[10px] align-middle min-w-[60px]">
                     Ingreso
                   </th>
-                  <th className="border border-slate-600 px-1 py-0.5 text-[10px] align-middle min-w-[120px]">
+                  <th className="border border-slate-700 px-1 py-0.5 text-[10px] align-middle min-w-[120px]">
                     Detalle Ingreso
                   </th>
-                  <th className="border border-slate-600 px-1 py-0.5 text-[10px] align-middle min-w-[60px]">
+                  <th className="border border-slate-700 px-1 py-0.5 text-[10px] align-middle min-w-[60px]">
                     Salida
                   </th>
-                  <th className="border border-slate-600 px-1 py-0.5 text-[10px] align-middle min-w-[120px]">
+                  <th className="border border-slate-700 px-1 py-0.5 text-[10px] align-middle min-w-[120px]">
                     Detalle Salida
                   </th>
-                  <th className="border border-slate-600 px-1 py-0.5 text-[10px] align-middle min-w-[100px]">
+                  <th className="border border-slate-700 px-1 py-0.5 text-[10px] align-middle min-w-[100px]">
                     Observación
                   </th>
                 </tr>

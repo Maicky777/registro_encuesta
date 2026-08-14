@@ -49,15 +49,19 @@ export const useModal = () => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         if (alertModal.show) {
+          e.preventDefault()
           closeAlert()
         } else if (confirmModal.show) {
+          e.preventDefault()
           confirmAction(false)
         }
       }
       if (e.key === 'Enter') {
         if (alertModal.show) {
+          e.preventDefault()
           closeAlert()
         } else if (confirmModal.show) {
+          e.preventDefault()
           confirmAction(true)
         }
       }

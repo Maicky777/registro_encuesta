@@ -1,5 +1,7 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
 import Login from './Login'
+import CambiarPasswordModal from './components/CambiarPasswordModal'
+import UserMenu from './components/UserMenu'
 import { logout as apiLogout, getMe } from './services/authService'
 
 const FormularioBoleta = lazy(() => import('./components/FormularioBoleta'))
@@ -9,11 +11,14 @@ const GestionEncuestadores = lazy(() => import('./components/GestionEncuestadore
 const AsignacionBrigadas = lazy(() => import('./components/AsignacionBrigadas'))
 const ReporteAsistencia = lazy(() => import('./components/ReporteAsistencia'))
 const DiagramaIncidencias = lazy(() => import('./components/DiagramaIncidencias'))
+const GestionContraseñas = lazy(() => import('./components/GestionContraseñas'))
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null)
   const [activeTab, setActiveTab] = useState('boletas')
   const [loading, setLoading] = useState(true)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [loginNotice, setLoginNotice] = useState(null)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -45,6 +50,12 @@ export default function App() {
     setCurrentUser(null)
   }
 
+  const handlePasswordChanged = () => {
+    setShowPasswordModal(false)
+    setLoginNotice('Contraseña actualizada correctamente. Por favor inicie sesión nuevamente.')
+    handleLogout()
+  }
+
   const adminTabs = [
     { key: 'boletas', label: 'Boletas' },
     { key: 'usuarios', label: 'Gestion de Usuarios' },
@@ -53,6 +64,7 @@ export default function App() {
     { key: 'asignacion', label: 'Asignacion Brigadas' },
     { key: 'asistencia', label: 'Reporte de Asistencia' },
     { key: 'incidencias', label: 'Diagrama de Incidencias' },
+    { key: 'contraseñas', label: 'Reset de Contraseñas' },
   ]
 
   const userTabs = [
@@ -72,7 +84,10 @@ export default function App() {
   return (
     <div>
       {!currentUser ? (
-        <Login onLogin={(user) => { setCurrentUser(user); setActiveTab('boletas') }} />
+        <Login
+          notice={loginNotice}
+          onLogin={(user) => { setCurrentUser(user); setActiveTab('boletas'); setLoginNotice(null) }}
+        />
       ) : (
         <div>
           <header className="bg-slate-900 text-white py-3 px-6 shadow-md">
@@ -82,12 +97,12 @@ export default function App() {
                 <strong className="text-sky-400">{currentUser.rol === 'administrador' ? 'Administrador' : 'Usuario'}</strong> | Asignación:{' '}
                 <strong className="text-sky-400">{currentUser.departamento}</strong>
               </span>
-              <button
-                className="bg-slate-800 text-white border border-slate-700 px-3 py-1 rounded text-xs font-semibold cursor-pointer hover:bg-slate-700 transition-colors"
-                onClick={handleLogout}
-              >
-                Cerrar Sesión
-              </button>
+              <UserMenu
+                username={currentUser.user}
+                rol={currentUser.rol}
+                onChangePassword={() => setShowPasswordModal(true)}
+                onLogout={handleLogout}
+              />
             </div>
 
             {currentUser.rol === 'administrador' && (
@@ -136,9 +151,17 @@ export default function App() {
             {activeTab === 'incidencias' && currentUser.rol === 'administrador' && (
               <DiagramaIncidencias sessionUser={currentUser} />
             )}
+            {activeTab === 'contraseñas' && currentUser.rol === 'administrador' && (
+              <GestionContraseñas currentUserId={currentUser.id} />
+            )}
           </Suspense>
         </div>
       )}
+      <CambiarPasswordModal
+        show={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        onPasswordChanged={handlePasswordChanged}
+      />
     </div>
   )
 }

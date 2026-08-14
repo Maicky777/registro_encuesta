@@ -33,3 +33,13 @@ export const updateUser = async (id, userData) => {
   const response = await api.put(`/auth/users/${id}`, userData)
   return response.data
 }
+
+export const changePassword = async (currentPassword, newPassword, confirmPassword) => {
+  const response = await api.post('/auth/change-password', { currentPassword, newPassword, confirmPassword })
+  return response.data
+}
+
+export const resetPassword = async (id, password) => {
+  const response = await api.post(`/auth/users/${id}/reset-password`, { password })
+  return response.data
+}

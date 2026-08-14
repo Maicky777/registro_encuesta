@@ -50,6 +50,15 @@ const registerLimiter = rateLimit({
   legacyHeaders: false,
 })
 
+// Rate limiting para cambio de contraseña (evita fuerza bruta)
+const changePasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Demasiados intentos de cambio de contraseña. Intenta de nuevo en 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 // Rate limiting general
 const generalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
@@ -70,6 +79,7 @@ app.use(cors({
 // Rutas
 app.use('/api/auth/login', loginLimiter)
 app.use('/api/auth/register', registerLimiter)
+app.use('/api/auth/change-password', changePasswordLimiter)
 app.use('/api/auth', authRoutes)
 app.use('/api/boletas', boletasRoutes)
 app.use('/api/brigadas', brigadasRoutes)

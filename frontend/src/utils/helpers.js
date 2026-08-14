@@ -131,7 +131,7 @@ export const calcularAvanceBrigadas = (registros, semana, opciones = {}) => {
       validas += det.validas
       traslados += det.traslados
       observadas += det.observadas
-      max += det.total > MAX_POR_UPM ? det.total : MAX_POR_UPM
+      max += det.validas > MAX_POR_UPM ? det.validas : MAX_POR_UPM
     }
     const pct = max > 0 ? Math.round((validas / max) * 100) : 0
     return {

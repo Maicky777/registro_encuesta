@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { login } from './services/authService'
 import ModalAlert from './components/ui/ModalAlert'
 import { useModal } from './hooks/useModal'
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, notice }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const { alertModal, showAlert, closeAlert } = useModal()
+
+  useEffect(() => {
+    if (notice) showAlert(notice, 'success')
+  }, [notice, showAlert])
 
   const handleSubmit = async (e) => {
     e.preventDefault()

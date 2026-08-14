@@ -1,4 +1,5 @@
 const express = require('express')
+const crypto = require('crypto')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const { authMiddleware, requireRole, getJwtSecret } = require('../middleware/auth')
@@ -6,6 +7,16 @@ const { getDB } = require('../db/connection')
 const { parseBrigadas } = require('../utils/parseBrigadas')
 
 const router = express.Router()
+
+function generarPasswordAleatoria(longitud = 12) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*'
+  const bytes = crypto.randomBytes(longitud)
+  let password = ''
+  for (let i = 0; i < longitud; i++) {
+    password += chars[bytes[i] % chars.length]
+  }
+  return password
+}
 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body
@@ -107,6 +118,80 @@ router.post('/register', authMiddleware, requireRole('administrador'), async (re
     res.json({ id: result.lastInsertRowid, username, departamento: departamento || '', brigadas: JSON.parse(brigadasJson), rol: userRol })
   } catch (err) {
     console.error('Error en register:', err.message)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
+})
+
+router.post('/change-password', authMiddleware, async (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return res.status(400).json({ error: 'La contraseña actual, la nueva y su confirmación son requeridas' })
+  }
+
+  if (typeof newPassword !== 'string' || newPassword.length < 6) {
+    return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' })
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ error: 'Las contraseñas nuevas no coinciden' })
+  }
+
+  try {
+    const db = getDB()
+    const user = db.prepare('SELECT id, username, password_hash FROM usuarios WHERE id = ?').get(req.user.id)
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' })
+    }
+
+    const validPassword = await bcrypt.compare(currentPassword, user.password_hash)
+    if (!validPassword) {
+      return res.status(401).json({ error: 'La contraseña actual es incorrecta' })
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
+    db.prepare('UPDATE usuarios SET password_hash = ? WHERE id = ?').run(hashedPassword, user.id)
+    res.json({ message: 'Contraseña actualizada correctamente' })
+  } catch (err) {
+    console.error('Error en change-password:', err.message)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
+})
+
+router.post('/users/:id/reset-password', authMiddleware, requireRole('administrador'), async (req, res) => {
+  const { id } = req.params
+  const { password } = req.body
+
+  try {
+    const db = getDB()
+    const user = db.prepare('SELECT id, username FROM usuarios WHERE id = ?').get(id)
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' })
+    }
+
+    let nuevaPassword = password
+    let generada = false
+
+    if (nuevaPassword === undefined || nuevaPassword === null || nuevaPassword === '') {
+      nuevaPassword = generarPasswordAleatoria()
+      generada = true
+    }
+
+    if (typeof nuevaPassword !== 'string' || nuevaPassword.length < 6) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' })
+    }
+
+    const hashedPassword = await bcrypt.hash(nuevaPassword, 10)
+    db.prepare('UPDATE usuarios SET password_hash = ? WHERE id = ?').run(hashedPassword, user.id)
+
+    res.json({
+      message: `Contraseña de "${user.username}" restablecida correctamente`,
+      username: user.username,
+      password: generada ? nuevaPassword : undefined,
+      generada,
+    })
+  } catch (err) {
+    console.error('Error en reset-password:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
   }
 })

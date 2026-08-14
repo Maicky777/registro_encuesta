@@ -219,4 +219,47 @@ router.post('/batch', authMiddleware, (req, res) => {
   }
 })
 
+router.delete('/', authMiddleware, (req, res) => {
+  try {
+    const db = getDB()
+    const { semana, dia, departamento, brigada } = req.query
+
+    if (semana === undefined || semana === null || semana === '') {
+      return res.status(400).json({ error: 'semana es requerida' })
+    }
+    if (dia === undefined || dia === null || String(dia).trim() === '') {
+      return res.status(400).json({ error: 'dia es requerido' })
+    }
+
+    let query = 'DELETE FROM asistencia WHERE semana = ? AND dia = ?'
+    const params = [parseInt(semana, 10), String(dia).trim().toUpperCase()]
+
+    if (departamento) {
+      query += ' AND departamento = ?'
+      params.push(departamento)
+    }
+    if (brigada) {
+      query += ' AND brigada = ?'
+      params.push(brigada)
+    }
+
+    if (req.user.rol !== 'administrador') {
+      query += ' AND departamento = ?'
+      params.push(req.user.departamento)
+      const userBrigadas = parseBrigadas(req.user.brigadas)
+      if (userBrigadas.length > 0) {
+        const placeholders = userBrigadas.map(() => '?').join(',')
+        query += ` AND brigada IN (${placeholders})`
+        params.push(...userBrigadas)
+      }
+    }
+
+    const result = db.prepare(query).run(...params)
+    res.json({ message: 'Asistencia eliminada correctamente', count: result.changes })
+  } catch (err) {
+    console.error('Error al eliminar asistencia:', err.message)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
+})
+
 module.exports = router
