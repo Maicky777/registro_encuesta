@@ -25,7 +25,7 @@ export default function GestionBrigadas({ sessionUser }) {
   const cargarBrigadas = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getBrigadas(isAdmin ? undefined : sessionUser?.departamento)
+      const data = await getBrigadas(isAdmin ? undefined : undefined)
       setBrigadas(data)
     } catch (err) {
       const msg = err.response?.data?.error || 'Error al cargar brigadas'

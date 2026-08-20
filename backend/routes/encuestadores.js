@@ -7,11 +7,24 @@ const router = express.Router()
 router.get('/', authMiddleware, (req, res) => {
   try {
     const db = getDB()
-    const departamento =
-      req.user.rol !== 'administrador' ? req.user.departamento : req.query.departamento
+    const userDepartamentos = req.user.rol !== 'administrador' ? (req.user.departamento || []) : []
+    const departamento = req.user.rol !== 'administrador' ? null : req.query.departamento
 
     let encuestadores
-    if (departamento) {
+    if (userDepartamentos.length > 0) {
+      const deptPlaceholders = userDepartamentos.map(() => '?').join(',')
+      encuestadores = db.prepare(`
+        SELECT e.*,
+          GROUP_CONCAT(DISTINCT b.nombre || ' (' || b.departamento || ')') as brigadas_asignadas
+        FROM encuestadores e
+        LEFT JOIN brigada_encuestadores be ON e.id = be.encuestador_id
+        LEFT JOIN brigadas b ON be.brigada_id = b.id
+        WHERE b.departamento IN (${deptPlaceholders})
+           OR (SELECT COUNT(*) FROM brigada_encuestadores WHERE encuestador_id = e.id) = 0
+        GROUP BY e.id
+        ORDER BY e.nombre
+      `).all(...userDepartamentos)
+    } else if (departamento) {
       encuestadores = db.prepare(`
         SELECT e.*,
           GROUP_CONCAT(DISTINCT b.nombre || ' (' || b.departamento || ')') as brigadas_asignadas

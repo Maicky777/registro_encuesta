@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const { authMiddleware, requireRole, getJwtSecret } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
-const { parseBrigadas } = require('../utils/parseBrigadas')
+const { parseBrigadas, parseBrigadasArray, getBrigadasForDepartamento, parseDepartamentos } = require('../utils/parseBrigadas')
 
 const router = express.Router()
 
@@ -38,8 +38,9 @@ router.post('/login', async (req, res) => {
     }
 
     const brigadas = parseBrigadas(user.brigadas)
+    const departamentos = parseDepartamentos(user.departamento)
     const token = jwt.sign(
-      { id: user.id, username: user.username, departamento: user.departamento, brigadas, rol: user.rol },
+      { id: user.id, username: user.username, departamento: departamentos, brigadas, rol: user.rol },
       getJwtSecret(),
       { expiresIn: '8h' }
     )
@@ -55,7 +56,7 @@ router.post('/login', async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
-        departamento: user.departamento,
+        departamento: departamentos,
         brigadas,
         rol: user.rol,
       },
@@ -84,11 +85,15 @@ router.post('/register', authMiddleware, requireRole('administrador'), async (re
   }
 
   if (userRol !== 'administrador') {
-    if (!departamento || !brigadas) {
-      return res.status(400).json({ error: 'Departamento y brigadas son requeridos para usuarios' })
+    if (!departamento || !Array.isArray(departamento) || departamento.length === 0) {
+      return res.status(400).json({ error: 'Debe seleccionar al menos un departamento para usuarios' })
     }
-    if (!Array.isArray(brigadas) || brigadas.length === 0) {
-      return res.status(400).json({ error: 'Las brigadas deben ser un array con al menos un elemento' })
+    if (!brigadas) {
+      return res.status(400).json({ error: 'Las brigadas son requeridas para usuarios' })
+    }
+    const brigadasObj = typeof brigadas === 'object' && !Array.isArray(brigadas) ? brigadas : null
+    if (!brigadasObj || Object.keys(brigadasObj).length === 0) {
+      return res.status(400).json({ error: 'Las brigadas deben ser un objeto por departamento' })
     }
   }
 
@@ -96,10 +101,15 @@ router.post('/register', authMiddleware, requireRole('administrador'), async (re
     const db = getDB()
 
     if (userRol !== 'administrador') {
-      const brigadasPermitidas = db.prepare('SELECT nombre FROM brigadas WHERE departamento = ?').all(departamento).map((r) => r.nombre)
-      const brigadasInvalidas = brigadas.filter(b => !brigadasPermitidas.includes(b))
-      if (brigadasInvalidas.length > 0) {
-        return res.status(400).json({ error: `Brigadas no válidas para ${departamento}: ${brigadasInvalidas.join(', ')}. Disponibles: ${brigadasPermitidas.join(', ')}` })
+      const brigadasObj = typeof brigadas === 'object' && !Array.isArray(brigadas) ? brigadas : {}
+      for (const [dept, deptBrigadas] of Object.entries(brigadasObj)) {
+        if (!departamento.includes(dept)) continue
+        const rows = db.prepare('SELECT nombre FROM brigadas WHERE departamento = ?').all(dept)
+        const validNames = rows.map((r) => r.nombre)
+        const invalid = (Array.isArray(deptBrigadas) ? deptBrigadas : []).filter(b => !validNames.includes(b))
+        if (invalid.length > 0) {
+          return res.status(400).json({ error: `Brigadas no válidas para ${dept}: ${invalid.join(', ')}. Disponibles: ${validNames.join(', ')}` })
+        }
       }
     }
 
@@ -109,13 +119,16 @@ router.post('/register', authMiddleware, requireRole('administrador'), async (re
     }
 
     const hashedPassword = await bcrypt.hash(password, 10)
-    const brigadasJson = Array.isArray(brigadas) ? JSON.stringify(brigadas) : brigadas || '[]'
+    const brigadasJson = (typeof brigadas === 'object' && !Array.isArray(brigadas))
+      ? JSON.stringify(brigadas)
+      : Array.isArray(brigadas) ? JSON.stringify(brigadas) : brigadas || '{}'
+    const departamentosJson = Array.isArray(departamento) ? JSON.stringify(departamento) : departamento || '[]'
 
     const result = db.prepare(
       'INSERT INTO usuarios (username, password_hash, departamento, brigadas, rol) VALUES (?, ?, ?, ?, ?)'
-    ).run(username, hashedPassword, departamento || '', brigadasJson, userRol)
+    ).run(username, hashedPassword, departamentosJson, brigadasJson, userRol)
 
-    res.json({ id: result.lastInsertRowid, username, departamento: departamento || '', brigadas: JSON.parse(brigadasJson), rol: userRol })
+    res.json({ id: result.lastInsertRowid, username, departamento: Array.isArray(departamento) ? departamento : [], brigadas: JSON.parse(brigadasJson), rol: userRol })
   } catch (err) {
     console.error('Error en register:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -207,6 +220,7 @@ router.get('/users', authMiddleware, requireRole('administrador'), (req, res) =>
     const users = db.prepare('SELECT id, username, departamento, brigadas, rol FROM usuarios ORDER BY id').all()
     const parsed = users.map((u) => ({
       ...u,
+      departamento: parseDepartamentos(u.departamento),
       brigadas: parseBrigadas(u.brigadas),
     }))
     res.json(parsed)
@@ -257,11 +271,15 @@ router.put('/users/:id', authMiddleware, requireRole('administrador'), async (re
   const userRol = rol === 'administrador' ? 'administrador' : 'usuarios'
 
   if (userRol !== 'administrador') {
-    if (!departamento) {
-      return res.status(400).json({ error: 'El departamento es requerido para usuarios' })
+    if (!departamento || !Array.isArray(departamento) || departamento.length === 0) {
+      return res.status(400).json({ error: 'Debe seleccionar al menos un departamento para usuarios' })
     }
-    if (!brigadas || !Array.isArray(brigadas) || brigadas.length === 0) {
-      return res.status(400).json({ error: 'Debe seleccionar al menos una brigada' })
+    if (!brigadas) {
+      return res.status(400).json({ error: 'Las brigadas son requeridas para usuarios' })
+    }
+    const brigadasObjVal = typeof brigadas === 'object' && !Array.isArray(brigadas) ? brigadas : null
+    if (!brigadasObjVal || Object.keys(brigadasObjVal).length === 0) {
+      return res.status(400).json({ error: 'Las brigadas deben ser un objeto por departamento' })
     }
   }
 
@@ -278,25 +296,33 @@ router.put('/users/:id', authMiddleware, requireRole('administrador'), async (re
     }
 
     if (userRol !== 'administrador') {
-      const brigadasPermitidas = db.prepare('SELECT nombre FROM brigadas WHERE departamento = ?').all(departamento).map((r) => r.nombre)
-      const brigadasInvalidas = brigadas.filter(b => !brigadasPermitidas.includes(b))
-      if (brigadasInvalidas.length > 0) {
-        return res.status(400).json({ error: `Brigadas no válidas para ${departamento}: ${brigadasInvalidas.join(', ')}. Disponibles: ${brigadasPermitidas.join(', ')}` })
+      const brigadasObj = typeof brigadas === 'object' && !Array.isArray(brigadas) ? brigadas : {}
+      for (const [dept, deptBrigadas] of Object.entries(brigadasObj)) {
+        if (!departamento.includes(dept)) continue
+        const rows = db.prepare('SELECT nombre FROM brigadas WHERE departamento = ?').all(dept)
+        const validNames = rows.map((r) => r.nombre)
+        const invalid = (Array.isArray(deptBrigadas) ? deptBrigadas : []).filter(b => !validNames.includes(b))
+        if (invalid.length > 0) {
+          return res.status(400).json({ error: `Brigadas no válidas para ${dept}: ${invalid.join(', ')}. Disponibles: ${validNames.join(', ')}` })
+        }
       }
     }
 
-    const brigadasJson = Array.isArray(brigadas) ? JSON.stringify(brigadas) : brigadas || '[]'
+    const brigadasJson = (typeof brigadas === 'object' && !Array.isArray(brigadas))
+      ? JSON.stringify(brigadas)
+      : Array.isArray(brigadas) ? JSON.stringify(brigadas) : brigadas || '{}'
+    const departamentosJson = Array.isArray(departamento) ? JSON.stringify(departamento) : departamento || '[]'
 
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10)
       db.prepare('UPDATE usuarios SET username = ?, password_hash = ?, departamento = ?, brigadas = ?, rol = ? WHERE id = ?')
-        .run(username, hashedPassword, departamento || '', brigadasJson, userRol, id)
+        .run(username, hashedPassword, departamentosJson, brigadasJson, userRol, id)
     } else {
       db.prepare('UPDATE usuarios SET username = ?, departamento = ?, brigadas = ?, rol = ? WHERE id = ?')
-        .run(username, departamento || '', brigadasJson, userRol, id)
+        .run(username, departamentosJson, brigadasJson, userRol, id)
     }
 
-    res.json({ id: Number(id), username, departamento: departamento || '', brigadas: JSON.parse(brigadasJson), rol: userRol })
+    res.json({ id: Number(id), username, departamento: Array.isArray(departamento) ? departamento : [], brigadas: JSON.parse(brigadasJson), rol: userRol })
   } catch (err) {
     console.error('Error al actualizar usuario:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -313,7 +339,7 @@ router.get('/me', authMiddleware, (req, res) => {
     res.json({
       id: user.id,
       username: user.username,
-      departamento: user.departamento,
+      departamento: parseDepartamentos(user.departamento),
       brigadas: parseBrigadas(user.brigadas),
       rol: user.rol,
     })

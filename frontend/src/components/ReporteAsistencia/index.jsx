@@ -145,9 +145,11 @@ export default function ReporteAsistencia({ sessionUser }) {
   } = useModal()
 
   const isAdmin = sessionUser?.rol === 'administrador'
-  const userDept = sessionUser?.departamento || ''
+  const userDept = sessionUser?.departamento
+  const userDeptArray = Array.isArray(userDept) ? userDept : (userDept ? [userDept] : [])
+  const defaultDept = userDeptArray[0] || ''
 
-  const [departamento, setDepartamento] = useState(isAdmin ? '' : userDept)
+  const [departamento, setDepartamento] = useState(isAdmin ? '' : defaultDept)
   const [semana, setSemana] = useState(getSemanaActual())
 
   const [personal, setPersonal] = useState([])

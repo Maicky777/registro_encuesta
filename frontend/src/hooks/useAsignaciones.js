@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { getBrigadas, getDepartamentos } from '../services/brigadaService'
 import { getEncuestadoresByBrigada } from '../services/encuestadorService'
 
-export const useAsignaciones = (departamento, brigadasPermitidas, rol) => {
+export const useAsignaciones = (departamento, brigadasPorDepto, rol) => {
   const [brigadas, setBrigadas] = useState([])
   const [encuestadores, setEncuestadores] = useState([])
   const [encuestadoresBrigada, setEncuestadoresBrigada] = useState('')
@@ -12,8 +12,20 @@ export const useAsignaciones = (departamento, brigadasPermitidas, rol) => {
   const [departments, setDepartments] = useState([])
   const [selectedDepartamento, setSelectedDepartamento] = useState('')
 
+  const userDepartamentos = Array.isArray(departamento) ? departamento : (departamento ? [departamento] : [])
+
+  const getBrigadasPermitidas = useCallback((dept) => {
+    if (!brigadasPorDepto || typeof brigadasPorDepto !== 'object' || Array.isArray(brigadasPorDepto)) return []
+    return brigadasPorDepto[dept] || []
+  }, [brigadasPorDepto])
+
   useEffect(() => {
-    if (rol !== 'administrador') return
+    if (rol !== 'administrador') {
+      if (userDepartamentos.length > 0 && !selectedDepartamento) {
+        setSelectedDepartamento(userDepartamentos[0])
+      }
+      return
+    }
     let cancelled = false
     getDepartamentos()
       .then((data) => {
@@ -27,7 +39,13 @@ export const useAsignaciones = (departamento, brigadasPermitidas, rol) => {
     return () => { cancelled = true }
   }, [rol])
 
-  const dept = rol === 'administrador' ? selectedDepartamento : departamento
+  useEffect(() => {
+    if (rol !== 'administrador' && userDepartamentos.length > 0 && !selectedDepartamento) {
+      setSelectedDepartamento(userDepartamentos[0])
+    }
+  }, [userDepartamentos, rol, selectedDepartamento])
+
+  const dept = rol === 'administrador' ? selectedDepartamento : selectedDepartamento
 
   useEffect(() => {
     if (!dept) {
@@ -41,8 +59,9 @@ export const useAsignaciones = (departamento, brigadasPermitidas, rol) => {
     getBrigadas(dept)
       .then(async (data) => {
         if (cancelled) return
-        const filtradas = brigadasPermitidas && brigadasPermitidas.length > 0
-          ? data.filter((b) => brigadasPermitidas.includes(b.nombre))
+        const permitidas = getBrigadasPermitidas(dept)
+        const filtradas = permitidas.length > 0
+          ? data.filter((b) => permitidas.includes(b.nombre))
           : data
         setBrigadas(filtradas)
         const map = {}
@@ -70,7 +89,7 @@ export const useAsignaciones = (departamento, brigadasPermitidas, rol) => {
         if (!cancelled) setLoadingBrigadas(false)
       })
     return () => { cancelled = true }
-  }, [dept, brigadasPermitidas, rol])
+  }, [dept, getBrigadasPermitidas, rol])
 
   const fetchEncuestadores = useCallback(async (brigadaNombre) => {
     const brigadaId = brigadaMap[brigadaNombre]
@@ -98,7 +117,7 @@ export const useAsignaciones = (departamento, brigadasPermitidas, rol) => {
     loadingBrigadas,
     loadingEncuestadores,
     fetchEncuestadores,
-    departments,
+    departments: rol === 'administrador' ? departments : userDepartamentos,
     selectedDepartamento,
     setSelectedDepartamento,
   }

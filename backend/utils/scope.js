@@ -1,25 +1,29 @@
-const { parseBrigadas } = require('./parseBrigadas')
+const { parseBrigadas, parseBrigadasArray, getBrigadasForDepartamento, parseDepartamentos } = require('./parseBrigadas')
 
 function userCanAccessBoleta(user, departamento, brigada) {
   if (!user || !user.rol) return false
   if (user.rol === 'administrador') return true
-  if (typeof departamento !== 'string' || departamento !== user.departamento) return false
+  const userDepartamentos = Array.isArray(user.departamento) ? user.departamento : parseDepartamentos(user.departamento)
+  if (typeof departamento !== 'string' || !userDepartamentos.includes(departamento)) return false
   if (!brigada) return true
-  return parseBrigadas(user.brigadas).includes(brigada)
+  const deptBrigadas = getBrigadasForDepartamento(user.brigadas, departamento)
+  return deptBrigadas.includes(brigada)
 }
 
 function boletaScopeConditions(user, params = []) {
   const conditions = []
   if (!user || user.rol === 'administrador') return { conditions, params }
-  if (typeof user.departamento === 'string' && user.departamento) {
-    conditions.push('departamento = ?')
-    params.push(user.departamento)
+  const userDepartamentos = Array.isArray(user.departamento) ? user.departamento : parseDepartamentos(user.departamento)
+  if (userDepartamentos.length > 0) {
+    const placeholders = userDepartamentos.map(() => '?').join(',')
+    conditions.push(`departamento IN (${placeholders})`)
+    params.push(...userDepartamentos)
   }
-  const userBrigadas = parseBrigadas(user.brigadas)
-  if (userBrigadas.length > 0) {
-    const placeholders = userBrigadas.map(() => '?').join(',')
+  const allBrigadas = parseBrigadasArray(user.brigadas)
+  if (allBrigadas.length > 0) {
+    const placeholders = allBrigadas.map(() => '?').join(',')
     conditions.push(`brigada IN (${placeholders})`)
-    params.push(...userBrigadas)
+    params.push(...allBrigadas)
   }
   return { conditions, params }
 }

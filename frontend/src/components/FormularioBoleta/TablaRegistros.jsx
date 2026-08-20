@@ -4,20 +4,20 @@ import { getEstadoClass, formatearFecha } from '../../utils/helpers'
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100]
 
 const SearchIcon = () => (
-  <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+  <svg className="w-4.5 h-4.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
   </svg>
 )
 
 const EmptyState = () => (
-  <div className="flex flex-col items-center justify-center py-12 px-4">
-    <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-      <svg className="w-7 h-7 text-slate-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+  <div className="flex flex-col items-center justify-center py-16 px-4">
+    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200 flex items-center justify-center mb-4 shadow-sm">
+      <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m6 4.125l2.25 2.25m0 0l2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
       </svg>
     </div>
-    <p className="text-[0.85rem] font-medium text-slate-400">No hay registros en la base de datos.</p>
-    <p className="text-[0.72rem] text-slate-300 mt-1">Comienza agregando un nuevo registro</p>
+    <p className="text-[0.9rem] font-semibold text-slate-500">No hay registros en la base de datos.</p>
+    <p className="text-[0.75rem] text-slate-400 mt-1.5">Comienza agregando un nuevo registro</p>
   </div>
 )
 
@@ -85,13 +85,13 @@ const TablaRegistros = ({
   return (
     <div>
       <div className="relative mb-4">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
           <SearchIcon />
         </div>
         <input
           id="cod-busqueda"
           type="text"
-          className="w-full max-w-md pl-10 pr-4 py-2 text-[0.82rem] bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all placeholder:text-slate-400"
+          className="w-full max-w-md pl-11 pr-4 py-2.5 text-[0.85rem] font-medium bg-gradient-to-r from-slate-50 to-white border-2 border-slate-200 rounded-xl focus:outline-none focus:ring-3 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all duration-200 placeholder:text-slate-400 shadow-sm"
           placeholder="Buscar por folio, UPM, encuestador..."
           value={filtroGeneral}
           onChange={(e) => {
@@ -101,26 +101,28 @@ const TablaRegistros = ({
         />
       </div>
 
-      <div className="overflow-x-auto border border-slate-200 rounded-lg">
-        <table className="w-full text-[0.78rem] text-left whitespace-nowrap">
+      <div className="overflow-x-auto border border-slate-200/80 rounded-xl shadow-sm shadow-slate-200/50">
+        <table className="w-full text-[0.8rem] text-left whitespace-nowrap">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Acciones</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">UPM</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Folio</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">VOE</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Brigada</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Semana</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Visita</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Panel</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Encuestador</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Estado</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Obs. Total</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Estado Boleta</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">Incidencia</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">F. Registro</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">F. Modificación</th>
-              <th className="px-3 py-2.5 text-[0.7rem] font-semibold text-slate-500 uppercase tracking-wider">F. Consolidación</th>
+            <tr className="bg-gradient-to-r from-slate-50 to-slate-100/80 border-b-2 border-slate-200">
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Acciones</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">UPM</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Folio</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">VOE</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Brigada</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Semana</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Visita</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Panel</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Encuestador</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Estado</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Obs. Total</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Estado Boleta</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Incidencia</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">F. Registro</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">F. Modificación</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">F. Consolidación</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Creado por</th>
+              <th className="px-3 py-3 text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">Editado por</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -134,16 +136,16 @@ const TablaRegistros = ({
                       ? 'Doble click para marcar como CORREGIDO'
                       : ''
                   }
-                  className={`transition-colors ${
+                  className={`transition-all duration-150 ${
                     reg.estadoBoleta === 'OBSERVADO'
-                      ? 'bg-red-50/40 hover:bg-red-50/80 cursor-pointer'
-                      : 'hover:bg-slate-50'
+                      ? 'bg-gradient-to-r from-rose-50/60 to-rose-50/30 hover:from-rose-50 hover:to-rose-100/50 cursor-pointer border-l-3 border-l-rose-400'
+                      : 'hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-indigo-50/30'
                   }`}
                 >
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     <div className="flex items-center gap-0.5">
                       <button
-                        className="p-1 rounded hover:bg-amber-100 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg hover:bg-amber-100 transition-all duration-150 cursor-pointer active:scale-95"
                         onClick={() => onEditar(reg)}
                         title="Editar"
                       >
@@ -153,18 +155,18 @@ const TablaRegistros = ({
                       </button>
                       {rol === 'administrador' && (
                         <button
-                          className="p-1 rounded hover:bg-red-100 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-rose-100 transition-all duration-150 active:scale-95"
                           onClick={() => onEliminar(reg.id)}
                           title="Eliminar"
                         >
-                          <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                          <svg className="w-4 h-4 text-rose-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                           </svg>
                         </button>
                       )}
                       {reg.estadoBoleta === 'OBSERVADO' && (
                         <button
-                          className="p-1 rounded hover:bg-emerald-100 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg hover:bg-emerald-100 transition-all duration-150 cursor-pointer active:scale-95"
                           onClick={() => onReporte(reg)}
                           title="Reportar"
                         >
@@ -175,40 +177,42 @@ const TablaRegistros = ({
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-slate-600">{reg.upm}</td>
-                  <td className="px-3 py-2">
-                    <span className="font-semibold text-slate-900">{reg.folio}</span>
+                  <td className="px-3 py-2.5 text-slate-600">{reg.upm}</td>
+                  <td className="px-3 py-2.5">
+                    <span className="font-bold text-slate-900 bg-slate-100/80 px-2 py-0.5 rounded-md text-[0.75rem]">{reg.folio}</span>
                   </td>
-                  <td className="px-3 py-2 text-slate-500">{reg.voe}</td>
-                  <td className="px-3 py-2 text-slate-500">{reg.brigada}</td>
-                  <td className="px-3 py-2 text-slate-600 text-center">{parseInt(reg.semana, 10)}</td>
-                  <td className="px-3 py-2 text-slate-600 text-center">{reg.visita}</td>
-                  <td className="px-3 py-2 text-slate-500">{reg.panel}</td>
-                  <td className="px-3 py-2 text-slate-600">{reg.nombreEncuestador}</td>
-                  <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 inline-block rounded-full text-[0.72rem] ${getEstadoClass(reg.estadoBoleta)}`}>
+                  <td className="px-3 py-2.5 text-slate-500">{reg.voe}</td>
+                  <td className="px-3 py-2.5 text-slate-600 font-medium">{reg.brigada}</td>
+                  <td className="px-3 py-2.5 text-slate-600 text-center font-medium">{parseInt(reg.semana, 10)}</td>
+                  <td className="px-3 py-2.5 text-slate-600 text-center font-medium">{reg.visita}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{reg.panel}</td>
+                  <td className="px-3 py-2.5 text-slate-600">{reg.nombreEncuestador}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={`px-2.5 py-1 inline-flex items-center rounded-full text-[0.7rem] font-semibold ${getEstadoClass(reg.estadoBoleta)}`}>
                       {reg.estadoBoleta}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-3 py-2.5 text-center">
                     {reg.totalObservaciones > 0 ? (
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-700 text-[0.72rem] font-bold">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-rose-100 to-rose-50 text-rose-700 text-[0.72rem] font-bold border border-rose-200/50 shadow-sm shadow-rose-100">
                         {reg.totalObservaciones}
                       </span>
                     ) : (
                       <span className="text-slate-300"></span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-slate-500">{reg.observacionBoleta}</td>
-                  <td className="px-3 py-2 text-slate-500">{reg.incidencia}</td>
-                  <td className="px-3 py-2 text-slate-400 text-[0.72rem]">{formatearFecha(reg.fecha_registro)}</td>
-                  <td className="px-3 py-2 text-slate-400 text-[0.72rem]">{formatearFecha(reg.fecha_modificacion)}</td>
-                  <td className="px-3 py-2 text-slate-400 text-[0.72rem]">{reg.fechaFinalConsolidacion}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{reg.observacionBoleta}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{reg.incidencia}</td>
+                  <td className="px-3 py-2.5 text-slate-400 text-[0.72rem]">{formatearFecha(reg.fecha_registro)}</td>
+                  <td className="px-3 py-2.5 text-slate-400 text-[0.72rem]">{formatearFecha(reg.fecha_modificacion)}</td>
+                  <td className="px-3 py-2.5 text-slate-400 text-[0.72rem]">{reg.fechaFinalConsolidacion}</td>
+                  <td className="px-3 py-2.5 text-slate-500 text-[0.72rem]">{reg.creado_por || ''}</td>
+                  <td className="px-3 py-2.5 text-slate-500 text-[0.72rem]">{reg.editado_por || ''}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="16">
+                <td colSpan="18">
                   <EmptyState />
                 </td>
               </tr>
@@ -224,7 +228,7 @@ const TablaRegistros = ({
             <select
               value={rowsPerPage}
               onChange={handleRowsPerPageChange}
-              className="border border-slate-200 rounded-md px-2 py-1 text-[0.75rem] text-slate-700 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+              className="border-2 border-slate-200 rounded-lg px-2.5 py-1 text-[0.75rem] text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all"
             >
               {ROWS_PER_PAGE_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
@@ -232,14 +236,14 @@ const TablaRegistros = ({
             </select>
             <span>por página</span>
             <span className="mx-2 text-slate-300">|</span>
-            <span>Mostrando <span className="font-semibold text-slate-700">{startRow}</span> a <span className="font-semibold text-slate-700">{endRow}</span> de <span className="font-semibold text-slate-700">{totalRows}</span> registros</span>
+            <span>Mostrando <span className="font-bold text-slate-700">{startRow}</span> a <span className="font-bold text-slate-700">{endRow}</span> de <span className="font-bold text-slate-700">{totalRows}</span> registros</span>
           </div>
 
           <div className="flex items-center gap-1">
             <button
               onClick={() => handlePageChange(safeCurrentPage - 1)}
               disabled={safeCurrentPage === 1}
-              className="p-1.5 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded-lg border-2 border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
             >
               <ChevronLeft />
             </button>
@@ -248,7 +252,7 @@ const TablaRegistros = ({
               <>
                 <button
                   onClick={() => handlePageChange(1)}
-                  className="w-8 h-8 rounded-md text-[0.75rem] font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+                  className="w-8 h-8 rounded-lg text-[0.75rem] font-medium text-slate-500 hover:bg-slate-50 transition-colors"
                 >
                   1
                 </button>
@@ -262,10 +266,10 @@ const TablaRegistros = ({
               <button
                 key={num}
                 onClick={() => handlePageChange(num)}
-                className={`w-8 h-8 rounded-md text-[0.75rem] font-medium transition-colors ${
+                className={`w-8 h-8 rounded-lg text-[0.75rem] font-semibold transition-all duration-200 ${
                   num === safeCurrentPage
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-50'
+                    ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-200 border border-indigo-400/50'
+                    : 'text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200'
                 }`}
               >
                 {num}
@@ -279,7 +283,7 @@ const TablaRegistros = ({
                 )}
                 <button
                   onClick={() => handlePageChange(totalPages)}
-                  className="w-8 h-8 rounded-md text-[0.75rem] font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+                  className="w-8 h-8 rounded-lg text-[0.75rem] font-medium text-slate-500 hover:bg-slate-50 transition-colors"
                 >
                   {totalPages}
                 </button>
@@ -289,7 +293,7 @@ const TablaRegistros = ({
             <button
               onClick={() => handlePageChange(safeCurrentPage + 1)}
               disabled={safeCurrentPage === totalPages}
-              className="p-1.5 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded-lg border-2 border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
             >
               <ChevronRight />
             </button>

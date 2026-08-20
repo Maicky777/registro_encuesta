@@ -75,8 +75,11 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
-        Cargando...
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-slate-300 font-medium">Cargando...</span>
+        </div>
       </div>
     )
   }
@@ -90,13 +93,18 @@ export default function App() {
         />
       ) : (
         <div>
-          <header className="bg-slate-900 text-white py-3 px-6 shadow-md">
+          <header className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white py-3 px-6 shadow-lg shadow-slate-900/30 border-b border-slate-700/50">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-200">
-                Usuario: <strong className="text-sky-400">{currentUser.user}</strong> | Rol:{' '}
-                <strong className="text-sky-400">{currentUser.rol === 'administrador' ? 'Administrador' : 'Usuario'}</strong> | Asignación:{' '}
-                <strong className="text-sky-400">{currentUser.departamento}</strong>
-              </span>
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 rounded-xl px-4 py-2">
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                  </svg>
+                  <span className="text-[0.8rem] text-slate-300">
+                    <strong className="text-emerald-300">{Array.isArray(currentUser.departamento) ? currentUser.departamento.join(', ') : currentUser.departamento}</strong>
+                  </span>
+                </div>
+              </div>
               <UserMenu
                 username={currentUser.user}
                 rol={currentUser.rol}
@@ -106,14 +114,14 @@ export default function App() {
             </div>
 
             {currentUser.rol === 'administrador' && (
-              <div className="flex flex-wrap gap-2 mt-3">
+              <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-700/50">
                 {adminTabs.map((tab) => (
                   <button
                     key={tab.key}
-                    className={`px-4 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors border-none ${
+                    className={`px-4 py-1.5 rounded-lg text-[0.75rem] font-semibold cursor-pointer transition-all duration-200 border ${
                       activeTab === tab.key
-                        ? 'bg-sky-500 text-white'
-                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white border-indigo-400/50 shadow-md shadow-indigo-500/25'
+                        : 'bg-slate-800/60 text-slate-400 border-slate-700/50 hover:bg-slate-700/60 hover:text-slate-200'
                     }`}
                     onClick={() => setActiveTab(tab.key)}
                   >
@@ -123,14 +131,14 @@ export default function App() {
               </div>
             )}
             {currentUser.rol !== 'administrador' && (
-              <div className="flex flex-wrap gap-2 mt-3">
+              <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-700/50">
                 {userTabs.map((tab) => (
                   <button
                     key={tab.key}
-                    className={`px-4 py-1.5 rounded text-xs font-semibold cursor-pointer transition-colors border-none ${
+                    className={`px-4 py-1.5 rounded-lg text-[0.75rem] font-semibold cursor-pointer transition-all duration-200 border ${
                       activeTab === tab.key
-                        ? 'bg-sky-500 text-white'
-                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white border-indigo-400/50 shadow-md shadow-indigo-500/25'
+                        : 'bg-slate-800/60 text-slate-400 border-slate-700/50 hover:bg-slate-700/60 hover:text-slate-200'
                     }`}
                     onClick={() => setActiveTab(tab.key)}
                   >
@@ -141,7 +149,7 @@ export default function App() {
             )}
           </header>
 
-          <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400">Cargando...</div>}>
+          <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400"><div className="flex items-center gap-3"><div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" /><span className="text-sm font-medium">Cargando...</span></div></div>}>
             {activeTab === 'boletas' && <FormularioBoleta sessionUser={currentUser} />}
             {activeTab === 'usuarios' && currentUser.rol === 'administrador' && <GestionUsuarios currentUserId={currentUser.id} />}
             {activeTab === 'brigadas' && <GestionBrigadas sessionUser={currentUser} />}

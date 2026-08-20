@@ -205,6 +205,60 @@ const MIGRATIONS = [
       `)
     },
   },
+  {
+    name: '012_add_usuario_campos_boletas',
+    up(database) {
+      const columns = database.prepare('PRAGMA table_info(boletas)').all()
+      if (!columns.some((c) => c.name === 'creado_por')) {
+        database.exec("ALTER TABLE boletas ADD COLUMN creado_por TEXT DEFAULT ''")
+      }
+      if (!columns.some((c) => c.name === 'editado_por')) {
+        database.exec("ALTER TABLE boletas ADD COLUMN editado_por TEXT DEFAULT ''")
+      }
+    },
+  },
+  {
+    name: '013_departamentos_to_json_array',
+    up(database) {
+      const users = database.prepare('SELECT id, departamento FROM usuarios').all()
+      const update = database.prepare('UPDATE usuarios SET departamento = ? WHERE id = ?')
+      for (const user of users) {
+        try {
+          const parsed = JSON.parse(user.departamento)
+          if (Array.isArray(parsed)) continue
+        } catch {
+          // not JSON yet, convert
+        }
+        if (typeof user.departamento === 'string' && user.departamento.trim() && !user.departamento.startsWith('[')) {
+          update.run(JSON.stringify([user.departamento.trim()]), user.id)
+        }
+      }
+    },
+  },
+  {
+    name: '014_brigadas_per_departamento',
+    up(database) {
+      const users = database.prepare('SELECT id, brigadas, departamento FROM usuarios').all()
+      const update = database.prepare('UPDATE usuarios SET brigadas = ? WHERE id = ?')
+      for (const user of users) {
+        try {
+          const parsed = JSON.parse(user.brigadas)
+          if (typeof parsed === 'object' && !Array.isArray(parsed)) continue
+          const deptos = JSON.parse(user.departamento)
+          if (!Array.isArray(deptos) || deptos.length === 0) continue
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const perDepto = {}
+            for (const dept of deptos) {
+              perDepto[dept] = [...parsed]
+            }
+            update.run(JSON.stringify(perDepto), user.id)
+          }
+        } catch {
+          // skip
+        }
+      }
+    },
+  },
 ]
 
 function runMigrations(database) {

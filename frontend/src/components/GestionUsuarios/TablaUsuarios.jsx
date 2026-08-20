@@ -2,6 +2,18 @@ import React, { useState, useMemo } from 'react'
 
 const inputClass = 'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15'
 
+function getBrigadasArray(brigadas) {
+  if (Array.isArray(brigadas)) return brigadas
+  if (typeof brigadas === 'object' && brigadas !== null) {
+    const all = []
+    for (const arr of Object.values(brigadas)) {
+      if (Array.isArray(arr)) all.push(...arr)
+    }
+    return [...new Set(all)]
+  }
+  return []
+}
+
 export default function TablaUsuarios({ usuarios, loading, currentUserId, onEliminar, onEditar }) {
   const [filtro, setFiltro] = useState('')
   const [pagina, setPagina] = useState(0)
@@ -13,9 +25,9 @@ export default function TablaUsuarios({ usuarios, loading, currentUserId, onElim
     return usuarios.filter(
       (u) =>
         u.username.toLowerCase().includes(term) ||
-        u.departamento.toLowerCase().includes(term) ||
+        (Array.isArray(u.departamento) ? u.departamento.some((d) => d.toLowerCase().includes(term)) : u.departamento?.toLowerCase().includes(term)) ||
         u.rol.toLowerCase().includes(term) ||
-        u.brigadas.some((b) => b.toLowerCase().includes(term)),
+        getBrigadasArray(u.brigadas).some((b) => b.toLowerCase().includes(term)),
     )
   }, [usuarios, filtro])
 
@@ -89,14 +101,31 @@ export default function TablaUsuarios({ usuarios, loading, currentUserId, onElim
                 <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                   <td className="px-3 py-2 text-slate-500">{u.id}</td>
                   <td className="px-3 py-2 font-medium text-slate-900">{u.username}</td>
-                  <td className="px-3 py-2 text-slate-700">{u.departamento}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
-                      {u.brigadas.map((b) => (
-                        <span key={b} className="bg-slate-100 text-slate-600 text-[0.7rem] px-1.5 py-0.5 rounded font-medium">
-                          {b}
+                      {(Array.isArray(u.departamento) ? u.departamento : [u.departamento].filter(Boolean)).map((d) => (
+                        <span key={d} className="bg-blue-50 text-blue-700 text-[0.7rem] px-1.5 py-0.5 rounded font-medium">
+                          {d}
                         </span>
                       ))}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {typeof u.brigadas === 'object' && !Array.isArray(u.brigadas)
+                        ? Object.entries(u.brigadas).map(([dept, brigadas]) =>
+                            (Array.isArray(brigadas) ? brigadas : []).map((b) => (
+                              <span key={`${dept}-${b}`} className="bg-slate-100 text-slate-600 text-[0.7rem] px-1.5 py-0.5 rounded font-medium">
+                                {b}
+                              </span>
+                            ))
+                          )
+                        : getBrigadasArray(u.brigadas).map((b) => (
+                            <span key={b} className="bg-slate-100 text-slate-600 text-[0.7rem] px-1.5 py-0.5 rounded font-medium">
+                              {b}
+                            </span>
+                          ))
+                      }
                     </div>
                   </td>
                   <td className="px-3 py-2">

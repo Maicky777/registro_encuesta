@@ -8,58 +8,60 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
   const [showSemanaModal, setShowSemanaModal] = useState(false)
   const [semanaInput, setSemanaInput] = useState('')
 
-  const exportarExcel = async (semanaNum) => {
-    if (registros.length === 0) {
-      showAlert('No hay datos para exportar.', 'warning')
-      return
-    }
+  const columnas = [
+    { key: 'departamento', label: 'DEPARTAMENTO' },
+    { key: 'brigada', label: 'BRIGADA' },
+    { key: 'upm', label: 'UPM' },
+    { key: 'upmReemplazo', label: 'UPM DE REEMPLAZO' },
+    { key: 'upmAdicional', label: 'UPM ADICIONAL' },
+    { key: 'semana', label: 'SEMANA', center: true },
+    { key: 'visita', label: 'VISITA', center: true },
+    { key: 'panel', label: 'PANEL' },
+    { key: 'numeroCorrelativo', label: 'N°', center: true },
+    { key: 'folio', label: 'FOLIO' },
+    { key: 'usuarioEncuestador', label: 'USUARIO' },
+    { key: 'incidencia', label: 'INCIDENCIA' },
+    { key: 'boletaObservada', label: 'BOLETA OBSERVADA', center: true },
+    { key: 'totalObservaciones', label: 'TOTAL OBSERVACIONES', center: true },
+    { key: 'detalleObservaciones', label: 'DETALLE OBSERVACIONES' },
+    { key: 'consolidada', label: 'CONSOLIDADA', center: true },
+    {
+      key: 'fechaFinalConsolidacion',
+      label: 'FECHA FINAL DE REVISION / CONSOLIDACION',
+    },
+    {
+      key: 'cuestionarioDevuelto',
+      label: 'CUESTIONARIO DEVUELTO POR EQUIPO TECNICO',
+    },
+  ]
 
-    const filtrados = registros.filter(
-      (r) => parseInt(r.semana, 10) === semanaNum,
-    )
+  const headers = columnas.map((c) => c.label)
 
-    if (filtrados.length === 0) {
-      showAlert(`No hay registros para la semana ${semanaNum}.`, 'warning')
-      return
-    }
+  const sanitizarNombre = (str) =>
+    str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9\s_-]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
 
-    const ordenados = [...filtrados].sort((a, b) => {
-      if (a.upm < b.upm) return -1
-      if (a.upm > b.upm) return 1
-      return a.numeroCorrelativo - b.numeroCorrelativo
+  const descargarArchivo = (buffer, nombreArchivo) => {
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nombreArchivo
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
-    const columnas = [
-      { key: 'departamento', label: 'DEPARTAMENTO' },
-      { key: 'brigada', label: 'BRIGADA' },
-      { key: 'upm', label: 'UPM' },
-      { key: 'upmReemplazo', label: 'UPM DE REEMPLAZO' },
-      { key: 'upmAdicional', label: 'UPM ADICIONAL' },
-      { key: 'semana', label: 'SEMANA', center: true },
-      { key: 'visita', label: 'VISITA', center: true },
-      { key: 'panel', label: 'PANEL' },
-      { key: 'numeroCorrelativo', label: 'N°', center: true },
-      { key: 'folio', label: 'FOLIO' },
-      { key: 'usuarioEncuestador', label: 'USUARIO' },
-      { key: 'incidencia', label: 'INCIDENCIA' },
-      { key: 'boletaObservada', label: 'BOLETA OBSERVADA', center: true },
-      { key: 'totalObservaciones', label: 'TOTAL OBSERVACIONES', center: true },
-      { key: 'detalleObservaciones', label: 'DETALLE OBSERVACIONES' },
-      { key: 'consolidada', label: 'CONSOLIDADA', center: true },
-      {
-        key: 'fechaFinalConsolidacion',
-        label: 'FECHA FINAL DE REVISION / CONSOLIDACION',
-      },
-      {
-        key: 'cuestionarioDevuelto',
-        label: 'CUESTIONARIO DEVUELTO POR EQUIPO TECNICO',
-      },
-    ]
-
-    const headers = columnas.map((c) => c.label)
-    const departamento = ordenados[0]?.departamento || ''
+  const crearYDescargarWorkbook = async (departamento, registrosDept) => {
     const brigadas = [
-      ...new Set(ordenados.map((r) => r.brigada).filter(Boolean)),
+      ...new Set(registrosDept.map((r) => r.brigada).filter(Boolean)),
     ].sort((a, b) => {
       const numA = parseInt(a.replace(/\D/g, ''), 10) || 0
       const numB = parseInt(b.replace(/\D/g, ''), 10) || 0
@@ -70,7 +72,7 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
     workbook.creator = 'Sistema de Boletas'
 
     for (const brigada of brigadas) {
-      const porBrigada = ordenados.filter((r) => r.brigada === brigada)
+      const porBrigada = registrosDept.filter((r) => r.brigada === brigada)
       if (porBrigada.length === 0) continue
 
       const sheet = workbook.addWorksheet(brigada)
@@ -158,17 +160,55 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
     }
 
     const buffer = await workbook.xlsx.writeBuffer()
-    const blob = new Blob([buffer], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    const deptLimpio = sanitizarNombre(departamento)
+    descargarArchivo(buffer, `FORMULARIO_DE_SEGUIMIENTO_${deptLimpio}.xlsx`)
+  }
+
+  const exportarExcel = async (semanaNum) => {
+    if (registros.length === 0) {
+      showAlert('No hay datos para exportar.', 'warning')
+      return
+    }
+
+    const filtrados = registros.filter(
+      (r) => parseInt(r.semana, 10) === semanaNum,
+    )
+
+    if (filtrados.length === 0) {
+      showAlert(`No hay registros para la semana ${semanaNum}.`, 'warning')
+      return
+    }
+
+    const ordenados = [...filtrados].sort((a, b) => {
+      if (a.upm < b.upm) return -1
+      if (a.upm > b.upm) return 1
+      return a.numeroCorrelativo - b.numeroCorrelativo
     })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `Reporte_Boletas_Semana_${semanaNum}_${new Date().toISOString().split('T')[0]}.xlsx`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+
+    const porDepartamento = {}
+    ordenados.forEach((r) => {
+      const dept = r.departamento || 'SIN_DEPARTAMENTO'
+      if (!porDepartamento[dept]) porDepartamento[dept] = []
+      porDepartamento[dept].push(r)
+    })
+
+    const departamentos = Object.keys(porDepartamento)
+
+    for (const dept of departamentos) {
+      await crearYDescargarWorkbook(dept, porDepartamento[dept])
+    }
+
+    if (departamentos.length > 1) {
+      showAlert(
+        `${departamentos.length} reportes generados correctamente (uno por departamento).`,
+        'success',
+      )
+    } else {
+      showAlert(
+        `Reporte de la semana ${semanaNum} generado correctamente.`,
+        'success',
+      )
+    }
   }
 
   const exportarJSON = () => {

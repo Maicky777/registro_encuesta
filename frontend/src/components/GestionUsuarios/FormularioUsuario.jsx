@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { register, updateUser } from '../../services/authService'
 import { getDepartamentos, getBrigadas } from '../../services/brigadaService'
 
@@ -7,8 +7,8 @@ const inputClass = 'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 
 const INITIAL_STATE = {
   username: '',
   password: '',
-  departamento: '',
-  brigadas: [],
+  departamentos: [],
+  brigadasPorDepto: {},
   rol: 'usuarios',
 }
 
@@ -16,17 +16,26 @@ export default function FormularioUsuario({ onUsuarioCreado, showAlert, usuarioE
   const [formData, setFormData] = useState(INITIAL_STATE)
   const [submitting, setSubmitting] = useState(false)
   const [departamentos, setDepartamentos] = useState([])
-  const [brigadasDisponibles, setBrigadasDisponibles] = useState([])
+  const [brigadasPorDepto, setBrigadasPorDepto] = useState({})
 
   const editando = !!usuarioEditar
 
   useEffect(() => {
     if (usuarioEditar) {
+      const deptos = Array.isArray(usuarioEditar.departamento) ? usuarioEditar.departamento : []
+      let brigadasDepto = {}
+      if (typeof usuarioEditar.brigadas === 'object' && !Array.isArray(usuarioEditar.brigadas) && usuarioEditar.brigadas !== null) {
+        brigadasDepto = usuarioEditar.brigadas
+      } else {
+        for (const dept of deptos) {
+          brigadasDepto[dept] = []
+        }
+      }
       setFormData({
         username: usuarioEditar.username,
         password: '',
-        departamento: usuarioEditar.departamento || '',
-        brigadas: usuarioEditar.brigadas || [],
+        departamentos: deptos,
+        brigadasPorDepto: brigadasDepto,
         rol: usuarioEditar.rol || 'usuarios',
       })
     } else {
@@ -41,26 +50,61 @@ export default function FormularioUsuario({ onUsuarioCreado, showAlert, usuarioE
   }, [])
 
   useEffect(() => {
-    if (!formData.departamento) {
-      setBrigadasDisponibles([])
+    const deptos = formData.departamentos
+    if (!editando) {
+      setFormData((prev) => {
+        const cleaned = {}
+        for (const dept of deptos) {
+          cleaned[dept] = prev.brigadasPorDepto[dept] || []
+        }
+        return { ...prev, brigadasPorDepto: cleaned }
+      })
+    }
+    if (deptos.length === 0) {
+      setBrigadasPorDepto({})
       return
     }
-    if (!editando) {
-      setFormData((prev) => ({ ...prev, brigadas: [] }))
+    const loaded = {}
+    let pending = deptos.length
+    for (const dept of deptos) {
+      getBrigadas(dept)
+        .then((data) => {
+          loaded[dept] = data.map((b) => b.nombre)
+        })
+        .catch(() => {
+          loaded[dept] = []
+        })
+        .finally(() => {
+          pending--
+          if (pending === 0) {
+            setBrigadasPorDepto(loaded)
+          }
+        })
     }
-    getBrigadas(formData.departamento)
-      .then((data) => setBrigadasDisponibles(data.map((b) => b.nombre)))
-      .catch(() => setBrigadasDisponibles([]))
-  }, [formData.departamento])
+  }, [formData.departamentos, editando])
 
-  const toggleBrigada = (brigada) => {
+  const toggleDepartamento = (depto) => {
     setFormData((prev) => {
-      const existe = prev.brigadas.includes(brigada)
+      const existe = prev.departamentos.includes(depto)
+      const nuevosDeptos = existe
+        ? prev.departamentos.filter((d) => d !== depto)
+        : [...prev.departamentos, depto]
+      return { ...prev, departamentos: nuevosDeptos }
+    })
+  }
+
+  const toggleBrigada = (dept, brigada) => {
+    setFormData((prev) => {
+      const actuales = prev.brigadasPorDepto[dept] || []
+      const existe = actuales.includes(brigada)
       return {
         ...prev,
-        brigadas: existe
-          ? prev.brigadas.filter((b) => b !== brigada)
-          : [...prev.brigadas, brigada],
+        brigadasPorDepto: {
+          ...prev.brigadasPorDepto,
+          [dept]: existe
+            ? actuales.filter((b) => b !== brigada)
+            : [...actuales, brigada],
+        },
       }
     })
   }
@@ -69,9 +113,16 @@ export default function FormularioUsuario({ onUsuarioCreado, showAlert, usuarioE
     e.preventDefault()
     if (submitting) return
 
-    if (formData.rol !== 'administrador' && formData.brigadas.length === 0) {
-      showAlert('Debe seleccionar al menos una brigada.', 'warning')
-      return
+    if (formData.rol !== 'administrador') {
+      if (formData.departamentos.length === 0) {
+        showAlert('Debe seleccionar al menos un departamento.', 'warning')
+        return
+      }
+      const todasBrigadas = Object.values(formData.brigadasPorDepto).flat()
+      if (todasBrigadas.length === 0) {
+        showAlert('Debe seleccionar al menos una brigada.', 'warning')
+        return
+      }
     }
 
     if (!editando && formData.password.length < 6) {
@@ -91,13 +142,20 @@ export default function FormularioUsuario({ onUsuarioCreado, showAlert, usuarioE
 
     setSubmitting(true)
     try {
+      const dataToSend = {
+        username: formData.username,
+        brigadas: formData.brigadasPorDepto,
+        rol: formData.rol,
+        departamento: formData.departamentos,
+      }
+      if (formData.password) {
+        dataToSend.password = formData.password
+      }
       if (editando) {
-        const dataToSend = { ...formData }
-        if (!dataToSend.password) delete dataToSend.password
         await updateUser(usuarioEditar.id, dataToSend)
         showAlert(`Usuario "${formData.username}" actualizado correctamente.`, 'success')
       } else {
-        await register(formData)
+        await register(dataToSend)
         showAlert(`Usuario "${formData.username}" creado correctamente.`, 'success')
       }
       setFormData(INITIAL_STATE)
@@ -181,53 +239,70 @@ export default function FormularioUsuario({ onUsuarioCreado, showAlert, usuarioE
 
           {formData.rol !== 'administrador' && (
             <>
-              <div className="flex flex-col">
-                <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest" htmlFor="usr-departamento">
-                  Departamento
+              <div className="flex flex-col col-span-full">
+                <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest">
+                  Departamentos
                 </label>
-                <select
-                  id="usr-departamento"
-                  className={inputClass}
-                  required
-                  value={formData.departamento}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, departamento: e.target.value }))}
-                >
-                  <option value="">-- Seleccionar Departamento --</option>
+                <div className="flex flex-wrap gap-3 mt-1">
                   {departamentos.map((d) => (
-                    <option key={d} value={d}>{d}</option>
+                    <label
+                      key={d}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded border cursor-pointer text-[0.82rem] font-medium transition-colors ${
+                        formData.departamentos.includes(d)
+                          ? 'bg-slate-800 text-white border-slate-800'
+                          : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={formData.departamentos.includes(d)}
+                        onChange={() => toggleDepartamento(d)}
+                      />
+                      {d}
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
-
 
               <div className="flex flex-col col-span-full">
                 <label className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest">
                   Brigadas Asignadas
                 </label>
-                {!formData.departamento ? (
-                  <span className="text-[0.82rem] text-slate-400 mt-1">Seleccione un departamento primero</span>
-                ) : brigadasDisponibles.length === 0 ? (
-                  <span className="text-[0.82rem] text-slate-400 mt-1">No hay brigadas disponibles para este departamento</span>
+                {formData.departamentos.length === 0 ? (
+                  <span className="text-[0.82rem] text-slate-400 mt-1">Seleccione al menos un departamento primero</span>
+                ) : Object.keys(brigadasPorDepto).length === 0 ? (
+                  <span className="text-[0.82rem] text-slate-400 mt-1">Cargando brigadas...</span>
                 ) : (
-                  <div className="flex flex-wrap gap-3 mt-1">
-                    {brigadasDisponibles.map((brigada) => (
-                      <label
-                        key={brigada}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded border cursor-pointer text-[0.82rem] font-medium transition-colors ${
-                          formData.brigadas.includes(brigada)
-                            ? 'bg-slate-800 text-white border-slate-800'
-                            : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={formData.brigadas.includes(brigada)}
-                          onChange={() => toggleBrigada(brigada)}
-                        />
-                        {brigada}
-                      </label>
+                  <div className="flex flex-col gap-4 mt-1">
+                    {formData.departamentos.filter(d => brigadasPorDepto[d]?.length > 0).map((dept) => (
+                      <div key={dept}>
+                        <span className="text-[0.75rem] font-bold text-slate-500 uppercase tracking-wider">{dept}</span>
+                        <div className="flex flex-wrap gap-3 mt-1">
+                          {brigadasPorDepto[dept].map((brigada) => (
+                            <label
+                              key={`${dept}-${brigada}`}
+                              className={`flex items-center gap-2 px-3 py-1.5 rounded border cursor-pointer text-[0.82rem] font-medium transition-colors ${
+                                (formData.brigadasPorDepto[dept] || []).includes(brigada)
+                                  ? 'bg-slate-800 text-white border-slate-800'
+                                  : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={(formData.brigadasPorDepto[dept] || []).includes(brigada)}
+                                onChange={() => toggleBrigada(dept, brigada)}
+                              />
+                              {brigada}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     ))}
+                    {formData.departamentos.filter(d => brigadasPorDepto[d]?.length > 0).length === 0 && (
+                      <span className="text-[0.82rem] text-slate-400">No hay brigadas disponibles para los departamentos seleccionados</span>
+                    )}
                   </div>
                 )}
               </div>

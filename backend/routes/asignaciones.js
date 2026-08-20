@@ -1,7 +1,7 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
-const { parseBrigadas } = require('../utils/parseBrigadas')
+const { parseBrigadasArray, getBrigadasForDepartamento } = require('../utils/parseBrigadas')
 
 const router = express.Router()
 
@@ -12,14 +12,15 @@ router.get('/', authMiddleware, (req, res) => {
     const isAdmin = req.user.rol === 'administrador'
 
     if (!isAdmin) {
-      const userBrigadas = parseBrigadas(req.user.brigadas)
+      const userDepartamentos = req.user.departamento || []
 
       if (brigada_id) {
         const brigada = db.prepare('SELECT id, departamento, nombre FROM brigadas WHERE id = ?').get(brigada_id)
         if (!brigada) {
           return res.status(404).json({ error: 'Brigada no encontrada' })
         }
-        if (brigada.departamento !== req.user.departamento || !userBrigadas.includes(brigada.nombre)) {
+        const deptBrigadas = getBrigadasForDepartamento(req.user.brigadas, brigada.departamento)
+        if (!userDepartamentos.includes(brigada.departamento) || !deptBrigadas.includes(brigada.nombre)) {
           return res.status(403).json({ error: 'No tienes permisos para ver esta brigada' })
         }
         const encuestadores = db.prepare(`
@@ -31,20 +32,24 @@ router.get('/', authMiddleware, (req, res) => {
         return res.json(encuestadores)
       }
 
-      if (departamento && departamento !== req.user.departamento) {
+      if (departamento && !userDepartamentos.includes(departamento)) {
         return res.status(403).json({ error: 'No tienes permisos para ver este departamento' })
       }
 
-      const asignaciones = db.prepare(`
-        SELECT b.id as brigada_id, b.nombre as brigada_nombre, b.departamento,
-          e.id as encuestador_id, e.nombre as encuestador_nombre, e.codigo, e.rol
-        FROM brigadas b
-        JOIN brigada_encuestadores be ON b.id = be.brigada_id
-        JOIN encuestadores e ON be.encuestador_id = e.id
-        WHERE b.departamento = ?
-        ORDER BY b.nombre, e.nombre
-      `).all(req.user.departamento)
-      return res.json(asignaciones)
+      if (userDepartamentos.length > 0) {
+        const deptPlaceholders = userDepartamentos.map(() => '?').join(',')
+        const asignaciones = db.prepare(`
+          SELECT b.id as brigada_id, b.nombre as brigada_nombre, b.departamento,
+            e.id as encuestador_id, e.nombre as encuestador_nombre, e.codigo, e.rol
+          FROM brigadas b
+          JOIN brigada_encuestadores be ON b.id = be.brigada_id
+          JOIN encuestadores e ON be.encuestador_id = e.id
+          WHERE b.departamento IN (${deptPlaceholders})
+          ORDER BY b.departamento, b.nombre, e.nombre
+        `).all(...userDepartamentos)
+        return res.json(asignaciones)
+      }
+      return res.json([])
     }
 
     if (brigada_id) {

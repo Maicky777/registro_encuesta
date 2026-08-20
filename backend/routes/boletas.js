@@ -153,7 +153,8 @@ router.post('/', authMiddleware, (req, res) => {
     return res.status(400).json({ error: validationErrors.join(' ') })
   }
 
-  if (!userCanAccessBoleta(req.user, data.departamento, data.brigada)) {
+  const isAdmin = req.user && req.user.rol === 'administrador'
+  if (!isAdmin && !userCanAccessBoleta(req.user, data.departamento, data.brigada)) {
     return res.status(403).json({ error: 'No tienes permisos para registrar boletas en este departamento o brigada.' })
   }
 
@@ -177,11 +178,12 @@ router.post('/', authMiddleware, (req, res) => {
         numeroCorrelativo, voe, usuarioEncuestador, nombreEncuestador, incidencia,
         detalleObservaciones, totalObservaciones, boletaObservada, estadoBoleta,
         observacionBoleta, observacionPersonal, consolidada, fechaFinalConsolidacion,
-        encuestador_id, fecha_registro, fecha_modificacion
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        encuestador_id, fecha_registro, fecha_modificacion, creado_por
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `
 
     const fechaRegistro = nowISO()
+    const username = req.user?.username || ''
 
     const info = db.prepare(sql).run(
       data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
@@ -191,9 +193,9 @@ router.post('/', authMiddleware, (req, res) => {
       finalEstado, finalObservacion, data.observacionPersonal,
       data.consolidada, data.fechaFinalConsolidacion,
       data.encuestador_id || null,
-      fechaRegistro, fechaRegistro,
+      fechaRegistro, fechaRegistro, username,
     )
-    res.json({ id: info.lastInsertRowid, ...data, totalObservaciones: finalTotal, boletaObservada: finalBoletaObs, estadoBoleta: finalEstado, observacionBoleta: finalObservacion, fecha_registro: fechaRegistro, fecha_modificacion: fechaRegistro })
+    res.json({ id: info.lastInsertRowid, ...data, totalObservaciones: finalTotal, boletaObservada: finalBoletaObs, estadoBoleta: finalEstado, observacionBoleta: finalObservacion, fecha_registro: fechaRegistro, fecha_modificacion: fechaRegistro, creado_por: username })
     broadcast('boletas:changed', { type: 'create', id: Number(info.lastInsertRowid) })
   } catch (err) {
     console.error('Error al crear boleta:', err.message)
@@ -255,14 +257,18 @@ router.put('/:id', authMiddleware, (req, res) => {
       return res.status(404).json({ error: `No se encontró registro con id ${id}.` })
     }
 
-    if (!userCanAccessBoleta(req.user, existente.departamento, existente.brigada)) {
+    const isAdmin = req.user && req.user.rol === 'administrador'
+
+    if (!isAdmin && !userCanAccessBoleta(req.user, existente.departamento, existente.brigada)) {
+      console.warn(`403 PUT /${id}: user=${req.user?.username} rol=${req.user?.rol} depto=${existente.departamento} brigada=${existente.brigada}`)
       return res.status(403).json({ error: 'No tienes permisos para modificar este registro.' })
     }
 
     const patch = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined))
     const merged = { ...existente, ...patch }
 
-    if (!userCanAccessBoleta(req.user, merged.departamento, merged.brigada)) {
+    if (!isAdmin && !userCanAccessBoleta(req.user, merged.departamento, merged.brigada)) {
+      console.warn(`403 PUT /${id} (merged): user=${req.user?.username} rol=${req.user?.rol} depto=${merged.departamento} brigada=${merged.brigada}`)
       return res.status(403).json({ error: 'No tienes permisos para mover el registro a ese departamento o brigada.' })
     }
 
@@ -286,9 +292,11 @@ router.put('/:id', authMiddleware, (req, res) => {
         visita=?, panel=?, numeroCorrelativo=?, voe=?, usuarioEncuestador=?, nombreEncuestador=?,
         incidencia=?, detalleObservaciones=?, totalObservaciones=?, boletaObservada=?,
         estadoBoleta=?, observacionBoleta=?, observacionPersonal=?, consolidada=?,
-        fechaFinalConsolidacion=?, encuestador_id=?, fecha_modificacion=?
+        fechaFinalConsolidacion=?, encuestador_id=?, fecha_modificacion=?, editado_por=?
       WHERE id=?
     `
+
+    const username = req.user?.username || ''
 
     db.prepare(sql).run(
       merged.departamento, merged.brigada, merged.folio, merged.upm, merged.upmReemplazo,
@@ -297,9 +305,9 @@ router.put('/:id', authMiddleware, (req, res) => {
       merged.detalleObservaciones, finalTotal, finalBoletaObs,
       finalEstado, finalObservacion, merged.observacionPersonal,
       merged.consolidada, merged.fechaFinalConsolidacion,
-      merged.encuestador_id || null, nowISO(), id,
+      merged.encuestador_id || null, nowISO(), username, id,
     )
-    res.json({ message: 'Registro actualizado correctamente' })
+    res.json({ message: 'Registro actualizado correctamente', editado_por: username })
     broadcast('boletas:changed', { type: 'update', id: Number(id) })
   } catch (err) {
     console.error('Error al actualizar boleta:', err.message)
@@ -372,8 +380,8 @@ router.post('/batch', authMiddleware, (req, res) => {
       numeroCorrelativo, voe, usuarioEncuestador, nombreEncuestador, incidencia,
       detalleObservaciones, totalObservaciones, boletaObservada, estadoBoleta,
       observacionBoleta, observacionPersonal, consolidada, fechaFinalConsolidacion,
-      encuestador_id, fecha_registro, fecha_modificacion
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      encuestador_id, fecha_registro, fecha_modificacion, creado_por
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `
 
   try {
@@ -385,6 +393,7 @@ router.post('/batch', authMiddleware, (req, res) => {
 
     const fechaRegistro = nowISO()
     const fechaDefaultConsolidacion = new Date().toISOString().split('T')[0]
+    const username = req.user?.username || ''
 
     const insertMany = db.transaction((dataArray) => {
       for (const data of dataArray) {
@@ -407,7 +416,7 @@ router.post('/batch', authMiddleware, (req, res) => {
           data.consolidada,
           data.fechaFinalConsolidacion || fechaDefaultConsolidacion,
           data.encuestador_id || null,
-          fechaRegistro, fechaRegistro,
+          fechaRegistro, fechaRegistro, username,
         )
         insertados++
       }

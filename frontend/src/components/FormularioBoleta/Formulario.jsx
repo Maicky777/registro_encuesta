@@ -8,13 +8,13 @@ import { calcularUPM, calcularUPMEfectivo, calcularVOE, calcularPanel, validarFo
 
 const estadoSelectClass = (estado) => {
   const base =
-    'w-full px-2.5 py-1.5 text-[0.82rem] border rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed'
+    'w-full px-3 py-2 text-[0.85rem] font-medium border-2 rounded-lg bg-white text-slate-900 transition-all duration-200 outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/20 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed'
   if (estado === 'SIN OBSERVACION')
-    return `${base} text-green-700 bg-green-50 border-green-200 font-semibold`
+    return `${base} text-emerald-700 bg-emerald-50 border-emerald-300 font-semibold shadow-sm shadow-emerald-100`
   if (estado === 'OBSERVADO')
-    return `${base} text-red-700 bg-red-50 border-red-200 font-semibold`
+    return `${base} text-rose-700 bg-rose-50 border-rose-300 font-semibold shadow-sm shadow-rose-100`
   if (estado === 'CORREGIDO')
-    return `${base} text-blue-700 bg-blue-50 border-blue-200 font-semibold`
+    return `${base} text-blue-700 bg-blue-50 border-blue-300 font-semibold shadow-sm shadow-blue-100`
   return `${base} border-slate-300`
 }
 
@@ -104,7 +104,7 @@ const Formulario = ({
         : ''
 
   const inputClass =
-    'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed'
+    'w-full px-3 py-2 text-[0.85rem] font-medium border-2 border-slate-200 rounded-lg bg-white text-slate-900 transition-all duration-200 outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/20 disabled:bg-slate-50 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed placeholder:text-slate-400'
 
   const folioError =
     formData.folio !== '' && !validarFolio(formData.folio)
@@ -123,31 +123,42 @@ const Formulario = ({
   )
 
   return (
-    <div className="max-w-6xl mx-auto my-5 bg-white rounded-lg p-6 border border-slate-200 shadow-sm">
-      <h2 className="text-lg font-bold text-slate-900 mb-4 pb-2 border-b-2 border-slate-800 flex justify-between items-center">
-        <span>
+    <div className="max-w-6xl mx-auto my-5 bg-gradient-to-br from-white to-slate-50 rounded-2xl p-7 border border-slate-200/80 shadow-lg shadow-slate-200/50">
+      <h2 className="text-xl font-bold text-slate-900 mb-5 pb-3 border-b-2 border-indigo-500 flex justify-between items-center">
+        <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
           {editandoId
             ? `Editando Registro #${editandoId}`
-            : 'Formulario de Boleta'}
+            : 'Formulario de Boleta TRIM-3'}
         </span>
         {editandoId && (
-          <button
-            type="button"
-            className="bg-slate-500 text-white border-none px-4 py-2 rounded cursor-pointer text-xs hover:bg-slate-600 transition-colors"
-            onClick={onLimpiar}
-            disabled={submitting}
-          >
-            Cancelar Edición
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-[0.7rem] font-normal text-slate-400 normal-case tracking-normal">
+              {formData.creado_por && (
+                <span>Creado por: <strong className="text-indigo-600">{formData.creado_por}</strong></span>
+              )}
+              {formData.creado_por && formData.editado_por && <span className="mx-1.5">|</span>}
+              {formData.editado_por && (
+                <span>Editado por: <strong className="text-indigo-600">{formData.editado_por}</strong></span>
+              )}
+            </span>
+            <button
+              type="button"
+              className="bg-gradient-to-r from-rose-500 to-rose-600 text-white border-none px-4 py-2 rounded-lg cursor-pointer text-xs font-semibold hover:from-rose-600 hover:to-rose-700 transition-all duration-200 shadow-sm shadow-rose-200"
+              onClick={onLimpiar}
+              disabled={submitting}
+            >
+              Cancelar Edición
+            </button>
+          </div>
         )}
       </h2>
 
       <form onSubmit={onSubmit} noValidate>
-        <div className="flex flex-nowrap gap-3 mb-3">
-          {rol === 'administrador' && departments.length > 0 && (
+        <div className="flex flex-nowrap gap-4 mb-4">
+          {departments.length > 0 && (
             <div className="flex flex-col flex-1 min-w-0">
               <label
-                className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+                className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
                 htmlFor="cod-departamento-sel"
               >
                 Departamento
@@ -170,7 +181,7 @@ const Formulario = ({
 
           <div className="flex flex-col flex-1 min-w-0">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-brigada"
             >
               Brigada
@@ -194,13 +205,13 @@ const Formulario = ({
 
           <div className="flex flex-col flex-1 min-w-0">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-folio"
             >
               Codigo de Folio
             </label>
             <input
-              className={`${inputClass} ${folioDuplicado || folioError ? 'border-red-500 bg-red-50' : ''}`}
+              className={`${inputClass} ${folioDuplicado || folioError ? 'border-rose-400 bg-rose-50 shadow-sm shadow-rose-100' : ''}`}
               type="text"
               id="cod-folio"
               autoComplete="off"
@@ -213,12 +224,12 @@ const Formulario = ({
               onChange={(e) => handleFolioChangeLocal(e.target.value.trim())}
             />
             {folioDuplicado && (
-              <span className="text-red-500 text-[0.75rem] mt-0.5 block">
+              <span className="text-rose-500 text-[0.75rem] mt-0.5 block font-medium">
                 Folio duplicado
               </span>
             )}
             {folioError && (
-              <span className="text-red-500 text-[0.75rem] mt-0.5 block">
+              <span className="text-rose-500 text-[0.75rem] mt-0.5 block font-medium">
                 {folioError}
               </span>
             )}
@@ -226,7 +237,7 @@ const Formulario = ({
 
           <div className="flex flex-col flex-1 min-w-0">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-usuario"
             >
               Encuestador
@@ -251,7 +262,7 @@ const Formulario = ({
 
           <div className="flex flex-col flex-1 min-w-0">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-visita"
             >
               Visita
@@ -269,10 +280,10 @@ const Formulario = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 mb-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-4 mb-4">
           <div className="flex flex-col col-span-full">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-observaciones"
             >
               Detalle de Observaciones en la boleta
@@ -290,7 +301,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-incidencias"
             >
               Incidencia
@@ -317,7 +328,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-estado"
             >
               Estado de Boleta
@@ -341,7 +352,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-boleta-obser"
             >
               Observación Boleta
@@ -366,14 +377,14 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-semana"
             >
               Numero de Semana
             </label>
             <input
               id="cod-semana"
-              className={`${inputClass} ${semanaError ? 'border-red-500 bg-red-50' : ''}`}
+              className={`${inputClass} ${semanaError ? 'border-rose-400 bg-rose-50 shadow-sm shadow-rose-100' : ''}`}
               type="number"
               min={SEMANA_MIN}
               max={SEMANA_MAX}
@@ -383,7 +394,7 @@ const Formulario = ({
               onChange={(e) => handleSemanaChange(e.target.value)}
             />
             {semanaError && (
-              <span className="text-red-500 text-[0.75rem] mt-0.5 block">
+              <span className="text-rose-500 text-[0.75rem] mt-0.5 block font-medium">
                 {semanaError}
               </span>
             )}
@@ -391,19 +402,19 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-upm-ti"
             >
               CODIGO DE UPM
               {canEditUpmManual && (
-                <span className="ml-1 text-[0.6rem] font-normal text-amber-600 normal-case tracking-normal">
+                <span className="ml-1.5 text-[0.6rem] font-bold text-amber-700 normal-case tracking-normal bg-amber-100/80 px-1.5 py-0.5 rounded-md border border-amber-200">
                   (Ingreso manual)
                 </span>
               )}
             </label>
             <input
               id="cod-upm-ti"
-              className={`${inputClass} ${canEditUpmManual ? 'border-amber-300 bg-amber-50/50' : ''}`}
+              className={`${inputClass} ${canEditUpmManual ? 'border-amber-400 bg-amber-50/80 shadow-sm shadow-amber-100' : ''}`}
               type="text"
               disabled={!canEditUpmManual}
               readOnly={!canEditUpmManual}
@@ -414,7 +425,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-voe"
             >
               NUMERO DE VOE
@@ -431,7 +442,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-nombre"
             >
               Nombre Encuestador
@@ -448,7 +459,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-panel"
             >
               Panel
@@ -465,7 +476,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-boleta-obs"
             >
               Boleta Observada
@@ -482,7 +493,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-t-obs"
             >
               Total Obs.
@@ -499,7 +510,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-departamento"
             >
               Departamento
@@ -515,7 +526,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-correlacion"
             >
               N° Correlativo
@@ -532,19 +543,19 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-upm"
             >
               UPM Reemplazo
               {canEditUpmReemplazo && (
-                <span className="ml-1 text-[0.6rem] font-normal text-amber-600 normal-case tracking-normal">
+                <span className="ml-1.5 text-[0.6rem] font-bold text-amber-700 normal-case tracking-normal bg-amber-100/80 px-1.5 py-0.5 rounded-md border border-amber-200">
                   (Visita 1 - 1er registro)
                 </span>
               )}
             </label>
             <input
               id="cod-upm"
-              className={`${inputClass} ${canEditUpmReemplazo ? 'border-amber-300 bg-amber-50/50' : ''}`}
+              className={`${inputClass} ${canEditUpmReemplazo ? 'border-amber-400 bg-amber-50/80 shadow-sm shadow-amber-100' : ''}`}
               type="text"
               disabled={!canEditUpmReemplazo}
               readOnly={!canEditUpmReemplazo}
@@ -563,19 +574,19 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-upm-adicional"
             >
               UPM Adicional
               {canEditUpmAdicional && (
-                <span className="ml-1 text-[0.6rem] font-normal text-amber-600 normal-case tracking-normal">
+                <span className="ml-1.5 text-[0.6rem] font-bold text-amber-700 normal-case tracking-normal bg-amber-100/80 px-1.5 py-0.5 rounded-md border border-amber-200">
                   (Visita 1 - 1er registro)
                 </span>
               )}
             </label>
             <input
               id="cod-upm-adicional"
-              className={`${inputClass} ${canEditUpmAdicional ? 'border-amber-300 bg-amber-50/50' : ''}`}
+              className={`${inputClass} ${canEditUpmAdicional ? 'border-amber-400 bg-amber-50/80 shadow-sm shadow-amber-100' : ''}`}
               type="text"
               disabled={!canEditUpmAdicional}
               readOnly={!canEditUpmAdicional}
@@ -589,7 +600,7 @@ const Formulario = ({
 
           <div className="flex flex-col">
             <label
-              className="text-xs font-semibold text-slate-600 mb-0.5 uppercase tracking-widest"
+              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
               htmlFor="cod-consolidado"
             >
               Consolidada
@@ -611,10 +622,10 @@ const Formulario = ({
             </select>
           </div>
         </div>
-        <div className="flex gap-5 mx-5 mt-5 justify-center">
+        <div className="flex gap-4 mx-5 mt-6 justify-center">
           <button
             type="submit"
-            className="bg-slate-900 text-white border-none px-4 py-2 rounded font-semibold cursor-pointer text-xs w-[30%] hover:bg-slate-700 transition-colors"
+            className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white border-none px-5 py-2.5 rounded-lg font-semibold cursor-pointer text-xs w-[30%] hover:from-indigo-700 hover:to-indigo-800 transition-all duration-200 shadow-md shadow-indigo-200 active:scale-[0.98]"
             disabled={submitting}
           >
             {submitting
@@ -625,7 +636,7 @@ const Formulario = ({
           </button>
           <button
             type="button"
-            className="bg-slate-500 text-white border-none px-4 py-2 rounded cursor-pointer text-xs w-[30%] hover:bg-slate-600 transition-colors"
+            className="bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700 border border-slate-300 px-5 py-2.5 rounded-lg cursor-pointer text-xs font-semibold w-[30%] hover:from-slate-200 hover:to-slate-300 transition-all duration-200 active:scale-[0.98]"
             onClick={onLimpiar}
             disabled={submitting}
           >
@@ -634,54 +645,54 @@ const Formulario = ({
         </div>
 
         {avanceBrigadas.length > 0 && (
-          <div className="mt-4 border-t border-slate-100 pt-3">
-            <p className="text-[0.68rem] font-semibold text-slate-400 uppercase tracking-widest mb-2">
+          <div className="mt-5 border-t border-slate-200 pt-4">
+            <p className="text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em] mb-3">
               Avance UPM - Semana {formData.semana}
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {avanceBrigadas.map((b) => (
                 <div
                   key={b.brigada}
-                  className="relative group flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5 cursor-default"
+                  className="relative group flex items-center gap-2.5 bg-gradient-to-r from-slate-50 to-white border border-slate-200/80 rounded-xl px-3 py-2 cursor-default shadow-sm hover:shadow-md transition-shadow duration-200"
                 >
-                  <span className="text-[0.72rem] font-bold text-slate-700">
+                  <span className="text-[0.75rem] font-bold text-slate-700">
                     {b.brigada}
                   </span>
-                  <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-[width] duration-300 ${
                         b.pct >= 100
-                          ? 'bg-green-500'
+                          ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
                           : b.pct >= 50
-                            ? 'bg-amber-500'
-                            : 'bg-red-500'
+                            ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                            : 'bg-gradient-to-r from-rose-400 to-rose-500'
                       }`}
                       style={{ width: `${b.pct}%` }}
                     />
                   </div>
                   <span
-                    className={`text-[0.68rem] font-bold ${b.pct >= 100 ? 'text-green-600' : b.pct >= 50 ? 'text-amber-600' : 'text-red-600'}`}
+                    className={`text-[0.7rem] font-bold ${b.pct >= 100 ? 'text-emerald-600' : b.pct >= 50 ? 'text-amber-600' : 'text-rose-600'}`}
                   >
                     {b.pct}%
                   </span>
-                  <span className="text-[0.62rem] text-slate-400">
+                  <span className="text-[0.65rem] text-slate-400 font-medium">
                     {b.validas}/{b.max}
                   </span>
 
                   {/* Tooltip detallado */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
-                    <div className="bg-slate-900 text-white rounded-lg shadow-xl p-3 text-left">
-                      <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-700">
+                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-xl shadow-2xl p-3.5 text-left border border-slate-700">
+                      <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-700">
                         <span className="text-[0.75rem] font-bold">
                           {b.brigada}
                         </span>
                         <span
-                          className={`text-[0.65rem] font-bold px-1.5 py-0.5 rounded ${
+                          className={`text-[0.65rem] font-bold px-2 py-0.5 rounded-full ${
                             b.pct >= 100
-                              ? 'bg-green-800 text-green-200'
+                              ? 'bg-emerald-900/60 text-emerald-300'
                               : b.pct >= 50
-                                ? 'bg-amber-800 text-amber-200'
-                                : 'bg-red-800 text-red-200'
+                                ? 'bg-amber-900/60 text-amber-300'
+                                : 'bg-rose-900/60 text-rose-300'
                           }`}
                         >
                           {b.pct}%
@@ -695,7 +706,7 @@ const Formulario = ({
                         <span className="text-slate-400">
                           Encuestas válidas:
                         </span>
-                        <span className="font-semibold text-green-400 text-right">
+                        <span className="font-semibold text-emerald-400 text-right">
                           {b.validas}
                         </span>
                         <span className="text-slate-400">Traslados:</span>
@@ -706,7 +717,7 @@ const Formulario = ({
                           Boletas observadas:
                         </span>
                         <span
-                          className={`font-semibold text-right ${b.observadas > 0 ? 'text-red-400' : 'text-green-400'}`}
+                          className={`font-semibold text-right ${b.observadas > 0 ? 'text-rose-400' : 'text-emerald-400'}`}
                         >
                           {b.observadas}
                         </span>
@@ -716,24 +727,24 @@ const Formulario = ({
                         </span>
                       </div>
                       {b.upmResumen.length > 0 && (
-                        <div className="border-t border-slate-700 pt-1.5">
-                          <span className="text-[0.6rem] text-slate-400 uppercase tracking-wider">
+                        <div className="border-t border-slate-700 pt-1.5 mt-1.5">
+                          <span className="text-[0.6rem] text-slate-400 uppercase tracking-wider font-semibold">
                             Boletas observadas por UPM
                           </span>
-                          <div className="mt-1 max-h-32 overflow-y-auto space-y-0.5 scrollbar-thin scrollbar-thumb-slate-600">
+                          <div className="mt-1.5 max-h-32 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-slate-600">
                             {b.upmResumen.map((item, idx) => (
                               <div
                                 key={idx}
-                                className="flex items-center justify-between text-[0.6rem]"
+                                className="flex items-center justify-between text-[0.6rem] bg-slate-800/50 rounded px-1.5 py-0.5"
                               >
                                 <span className="text-slate-300 truncate max-w-45">
                                   {item.upm}
                                 </span>
                                 <span
-                                  className={`px-1.5 py-0.5 rounded font-medium ${
+                                  className={`px-2 py-0.5 rounded-full font-medium ${
                                     item.observadas > 0
-                                      ? 'bg-red-900/50 text-red-300'
-                                      : 'bg-green-900/30 text-green-400'
+                                      ? 'bg-rose-900/50 text-rose-300'
+                                      : 'bg-emerald-900/30 text-emerald-400'
                                   }`}
                                 >
                                   {item.observadas > 0
@@ -748,7 +759,7 @@ const Formulario = ({
                           </div>
                         </div>
                       )}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45 -mt-1" />
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-gradient-to-br from-slate-900 to-slate-800 rotate-45 -mt-1 border-r border-b border-slate-700" />
                     </div>
                   </div>
                 </div>

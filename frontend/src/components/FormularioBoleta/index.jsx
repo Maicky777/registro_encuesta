@@ -97,7 +97,7 @@ export default function FormularioBoleta({ sessionUser }) {
       departamento:
         sessionUser.rol === 'administrador'
           ? selectedDepartamento
-          : sessionUser.departamento,
+          : selectedDepartamento,
       brigada: brigadas[0]?.nombre || '',
       usuarioEncuestador: '',
       nombreEncuestador: '',
@@ -111,7 +111,7 @@ export default function FormularioBoleta({ sessionUser }) {
     departamento:
       sessionUser.rol === 'administrador'
         ? selectedDepartamento
-        : sessionUser.departamento,
+        : selectedDepartamento,
   }))
 
   const dataReady = brigadas.length > 0 && encuestadores.length > 0
@@ -179,7 +179,14 @@ export default function FormularioBoleta({ sessionUser }) {
 
       const conteoUpmPrevias = grupoRegistros.length
 
+      if (primerRegistro && primerRegistro.departamento) {
+        setSelectedDepartamento(primerRegistro.departamento)
+      }
+
       setFormData((prev) => {
+        const deptoAuto = primerRegistro
+          ? primerRegistro.departamento
+          : prev.departamento
         const visitaAuto = primerRegistro
           ? String(primerRegistro.visita)
           : prev.visita
@@ -187,6 +194,7 @@ export default function FormularioBoleta({ sessionUser }) {
           ? primerRegistro.brigada
           : prev.brigada
         const brigadaCambio = brigadaAuto !== prev.brigada
+        const deptoCambio = deptoAuto !== prev.departamento
         const upmFinal = calcularUPMEfectivo(
           val,
           prev.upmAdicional,
@@ -196,6 +204,7 @@ export default function FormularioBoleta({ sessionUser }) {
         return {
           ...prev,
           folio: val,
+          departamento: deptoAuto,
           upm: upmAuto,
           upmAdicional: esGrupoAdicional
             ? primerRegistro.upmAdicional
@@ -206,7 +215,7 @@ export default function FormularioBoleta({ sessionUser }) {
           brigada: brigadaAuto,
           numeroCorrelativo: conteoUpmPrevias + 1,
           upmReemplazo: primerRegistroUpm ? primerRegistroUpm.upmReemplazo : '',
-          ...(brigadaCambio && {
+          ...((brigadaCambio || deptoCambio) && {
             usuarioEncuestador: '',
             nombreEncuestador: '',
             encuestador_id: '',
@@ -229,7 +238,7 @@ export default function FormularioBoleta({ sessionUser }) {
         }
       }, 400)
     },
-    [registros, editandoId, verificarFolio],
+    [registros, editandoId, verificarFolio, setSelectedDepartamento],
   )
 
   const handleVisitaChange = useCallback((val) => {
@@ -401,9 +410,10 @@ export default function FormularioBoleta({ sessionUser }) {
     folioCheckSeq.current++
     clearTimeout(folioCheckRef.current)
     setEditandoId(reg.id)
+    setSelectedDepartamento(reg.departamento)
     setFormData({ ...reg, semana: parseInt(reg.semana, 10) || 0 })
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
+  }, [setSelectedDepartamento])
 
   const handleEliminar = useCallback(
     async (id) => {

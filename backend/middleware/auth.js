@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken')
+const { parseDepartamentos, parseBrigadas } = require('../utils/parseBrigadas')
 
 function getJwtSecret() {
   return process.env.JWT_SECRET
@@ -21,6 +22,8 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, getJwtSecret())
+    decoded.departamento = parseDepartamentos(decoded.departamento)
+    decoded.brigadas = parseBrigadas(decoded.brigadas)
     req.user = decoded
     next()
   } catch (err) {

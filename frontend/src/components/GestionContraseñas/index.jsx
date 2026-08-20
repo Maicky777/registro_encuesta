@@ -39,7 +39,7 @@ export default function GestionContraseñas({ currentUserId }) {
     return usuarios.filter(
       (u) =>
         u.username.toLowerCase().includes(term) ||
-        u.departamento.toLowerCase().includes(term) ||
+        (Array.isArray(u.departamento) ? u.departamento.some((d) => d.toLowerCase().includes(term)) : u.departamento?.toLowerCase().includes(term)) ||
         u.rol.toLowerCase().includes(term),
     )
   }, [usuarios, filtro])
@@ -118,7 +118,9 @@ export default function GestionContraseñas({ currentUserId }) {
                           <span className="ml-2 text-[0.7rem] text-slate-400 italic">(Tú)</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-slate-700">{u.departamento}</td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {(Array.isArray(u.departamento) ? u.departamento : [u.departamento].filter(Boolean)).join(', ')}
+                      </td>
                       <td className="px-3 py-2">
                         <span className={`text-[0.7rem] font-bold px-2 py-0.5 rounded ${
                           u.rol === 'administrador'

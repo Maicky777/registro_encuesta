@@ -1,7 +1,7 @@
 const express = require('express')
 const { authMiddleware } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
-const { parseBrigadas } = require('../utils/parseBrigadas')
+const { parseBrigadasArray, getBrigadasForDepartamento } = require('../utils/parseBrigadas')
 
 const router = express.Router()
 
@@ -20,10 +20,8 @@ const DEP_ID_MAP = {
 router.get('/personal', authMiddleware, (req, res) => {
   try {
     const db = getDB()
-    const userDept = req.user.departamento
-    const userBrigadas = parseBrigadas(req.user.brigadas)
-
-    const departamento = req.query.departamento || (req.user.rol !== 'administrador' ? userDept : null)
+    const userDepartamentos = req.user.departamento || []
+    const departamento = req.query.departamento || (req.user.rol !== 'administrador' ? userDepartamentos : null)
     const brigadaNombre = req.query.brigada
 
     let query = `
@@ -39,18 +37,23 @@ router.get('/personal', authMiddleware, (req, res) => {
     if (departamento && req.user.rol === 'administrador') {
       query += ' AND b.departamento = ?'
       params.push(departamento)
-    } else if (req.user.rol !== 'administrador') {
-      query += ' AND b.departamento = ?'
-      params.push(userDept)
+    } else if (req.user.rol !== 'administrador' && userDepartamentos.length > 0) {
+      const deptPlaceholders = userDepartamentos.map(() => '?').join(',')
+      query += ` AND b.departamento IN (${deptPlaceholders})`
+      params.push(...userDepartamentos)
     }
 
     if (brigadaNombre) {
       query += ' AND b.nombre = ?'
       params.push(brigadaNombre)
-    } else if (req.user.rol !== 'administrador' && userBrigadas.length > 0) {
-      const placeholders = userBrigadas.map(() => '?').join(',')
-      query += ` AND b.nombre IN (${placeholders})`
-      params.push(...userBrigadas)
+    } else if (req.user.rol !== 'administrador') {
+      const deptFilter = departamento || userDepartamentos[0] || ''
+      const userBrigadas = getBrigadasForDepartamento(req.user.brigadas, deptFilter)
+      if (userBrigadas.length > 0) {
+        const placeholders = userBrigadas.map(() => '?').join(',')
+        query += ` AND b.nombre IN (${placeholders})`
+        params.push(...userBrigadas)
+      }
     }
 
     query += ' ORDER BY e.nombre'
@@ -99,13 +102,17 @@ router.get('/', authMiddleware, (req, res) => {
     }
 
     if (req.user.rol !== 'administrador') {
-      query += ' AND departamento = ?'
-      params.push(req.user.departamento)
-      const userBrigadas = parseBrigadas(req.user.brigadas)
-      if (userBrigadas.length > 0) {
-        const placeholders = userBrigadas.map(() => '?').join(',')
+      const userDepartamentos = req.user.departamento || []
+      if (userDepartamentos.length > 0) {
+        const deptPlaceholders = userDepartamentos.map(() => '?').join(',')
+        query += ` AND departamento IN (${deptPlaceholders})`
+        params.push(...userDepartamentos)
+      }
+      const allBrigadas = parseBrigadasArray(req.user.brigadas)
+      if (allBrigadas.length > 0) {
+        const placeholders = allBrigadas.map(() => '?').join(',')
         query += ` AND brigada IN (${placeholders})`
-        params.push(...userBrigadas)
+        params.push(...allBrigadas)
       }
     }
 
@@ -147,28 +154,33 @@ router.post('/batch', authMiddleware, (req, res) => {
     }
 
     if (req.user.rol !== 'administrador') {
-      const userBrigadas = parseBrigadas(req.user.brigadas)
-      if (userBrigadas.length === 0) {
-        return res.status(403).json({ error: 'No tienes brigadas asignadas para guardar asistencia.' })
-      }
+      const userDepartamentos = req.user.departamento || []
       for (const r of records) {
         const dept = departamento || r.departamento || ''
         const brig = brigada || r.brigada || ''
-        if (dept !== req.user.departamento) {
+        if (!userDepartamentos.includes(dept)) {
           return res.status(403).json({ error: 'No tienes permisos para guardar asistencia de otro departamento.' })
         }
-        if (brig && !userBrigadas.includes(brig)) {
+        const deptBrigadas = getBrigadasForDepartamento(req.user.brigadas, dept)
+        if (brig && deptBrigadas.length > 0 && !deptBrigadas.includes(brig)) {
           return res.status(403).json({ error: `No tienes permisos para guardar asistencia de la brigada ${brig}.` })
         }
       }
 
-      const placeholders = userBrigadas.map(() => '?').join(',')
-      const idsInScope = db.prepare(`
-        SELECT DISTINCT e.id FROM encuestadores e
-        JOIN brigada_encuestadores be ON e.id = be.encuestador_id
-        JOIN brigadas b ON be.brigada_id = b.id
-        WHERE b.departamento = ? AND b.nombre IN (${placeholders})
-      `).all(req.user.departamento, ...userBrigadas).map((row) => row.id)
+      const idsInScope = []
+      for (const dept of userDepartamentos) {
+        const deptBrigadas = getBrigadasForDepartamento(req.user.brigadas, dept)
+        if (deptBrigadas.length > 0) {
+          const deptPlaceholders = deptBrigadas.map(() => '?').join(',')
+          const rows = db.prepare(`
+            SELECT DISTINCT e.id FROM encuestadores e
+            JOIN brigada_encuestadores be ON e.id = be.encuestador_id
+            JOIN brigadas b ON be.brigada_id = b.id
+            WHERE b.departamento = ? AND b.nombre IN (${deptPlaceholders})
+          `).all(dept, ...deptBrigadas)
+          idsInScope.push(...rows.map((row) => row.id))
+        }
+      }
       const allowedIds = new Set(idsInScope)
       for (const r of records) {
         if (!allowedIds.has(Number(r.encuestador_id))) {
@@ -244,13 +256,17 @@ router.delete('/', authMiddleware, (req, res) => {
     }
 
     if (req.user.rol !== 'administrador') {
-      query += ' AND departamento = ?'
-      params.push(req.user.departamento)
-      const userBrigadas = parseBrigadas(req.user.brigadas)
-      if (userBrigadas.length > 0) {
-        const placeholders = userBrigadas.map(() => '?').join(',')
+      const userDepartamentos = req.user.departamento || []
+      if (userDepartamentos.length > 0) {
+        const deptPlaceholders = userDepartamentos.map(() => '?').join(',')
+        query += ` AND departamento IN (${deptPlaceholders})`
+        params.push(...userDepartamentos)
+      }
+      const allBrigadas = parseBrigadasArray(req.user.brigadas)
+      if (allBrigadas.length > 0) {
+        const placeholders = allBrigadas.map(() => '?').join(',')
         query += ` AND brigada IN (${placeholders})`
-        params.push(...userBrigadas)
+        params.push(...allBrigadas)
       }
     }
 
