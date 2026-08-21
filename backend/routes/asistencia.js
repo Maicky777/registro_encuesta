@@ -20,8 +20,13 @@ const DEP_ID_MAP = {
 router.get('/personal', authMiddleware, (req, res) => {
   try {
     const db = getDB()
-    const userDepartamentos = req.user.departamento || []
-    const departamento = req.query.departamento || (req.user.rol !== 'administrador' ? userDepartamentos : null)
+    const userDepartamentos = req.user.rol === 'administrador' ? [] : (req.user.departamento || [])
+    const departamentoSolicitado = req.query.departamento
+    const departamentoPermitido =
+      departamentoSolicitado &&
+      (req.user.rol === 'administrador' || userDepartamentos.includes(departamentoSolicitado))
+        ? departamentoSolicitado
+        : null
     const brigadaNombre = req.query.brigada
 
     let query = `
@@ -34,9 +39,9 @@ router.get('/personal', authMiddleware, (req, res) => {
     `
     const params = []
 
-    if (departamento && req.user.rol === 'administrador') {
+    if (departamentoPermitido) {
       query += ' AND b.departamento = ?'
-      params.push(departamento)
+      params.push(departamentoPermitido)
     } else if (req.user.rol !== 'administrador' && userDepartamentos.length > 0) {
       const deptPlaceholders = userDepartamentos.map(() => '?').join(',')
       query += ` AND b.departamento IN (${deptPlaceholders})`
@@ -47,7 +52,7 @@ router.get('/personal', authMiddleware, (req, res) => {
       query += ' AND b.nombre = ?'
       params.push(brigadaNombre)
     } else if (req.user.rol !== 'administrador') {
-      const deptFilter = departamento || userDepartamentos[0] || ''
+      const deptFilter = departamentoPermitido || userDepartamentos[0] || ''
       const userBrigadas = getBrigadasForDepartamento(req.user.brigadas, deptFilter)
       if (userBrigadas.length > 0) {
         const placeholders = userBrigadas.map(() => '?').join(',')

@@ -40,6 +40,7 @@ const INITIAL_FORM_STATE = {
   encuestador_id: '',
   incidencia: INCIDENCIAS[0],
   detalleObservaciones: '',
+  observacionPersonal: '',
   totalObservaciones: 0,
   boletaObservada: 'NO',
   estadoBoleta: 'SIN OBSERVACION',

@@ -219,7 +219,7 @@ const Formulario = ({
               maxLength={22}
               pattern="\d{3}-\d{11}-[AD]-\d{4}"
               title="Formato: 721-05388196879-A-0291"
-              placeholder="721-05388196879-A-0291"
+              placeholder="Ej. 721-05388196879-A-0291"
               value={formData.folio}
               onChange={(e) => handleFolioChangeLocal(e.target.value.trim())}
             />
@@ -281,22 +281,47 @@ const Formulario = ({
         </div>
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-4 mb-4">
-          <div className="flex flex-col col-span-full">
-            <label
-              className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
-              htmlFor="cod-observaciones"
-            >
-              Detalle de Observaciones en la boleta
-            </label>
-            <textarea
-              id="cod-observaciones"
-              className={inputClass}
-              rows="2"
-              value={formData.detalleObservaciones || ''}
-              onChange={(e) => onObservacionesChange(e.target.value)}
-              maxLength={500}
-              placeholder="Separar observaciones con punto y coma (;)"
-            />
+          <div className="flex flex-col md:flex-row gap-4 col-span-full">
+            <div className="flex flex-col flex-1 min-w-0">
+              <label
+                className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
+                htmlFor="cod-observaciones"
+              >
+                Detalle de Observaciones en la boleta
+              </label>
+              <textarea
+                id="cod-observaciones"
+                className={inputClass}
+                rows="2"
+                value={formData.detalleObservaciones || ''}
+                onChange={(e) => onObservacionesChange(e.target.value)}
+                maxLength={500}
+                placeholder="Separar observaciones con punto y coma (;)"
+              />
+            </div>
+
+            <div className="flex flex-col flex-1 min-w-0">
+              <label
+                className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
+                htmlFor="cod-observacion-personal"
+              >
+                Observación Personal
+              </label>
+              <textarea
+                id="cod-observacion-personal"
+                className={inputClass}
+                rows="2"
+                value={formData.observacionPersonal || ''}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    observacionPersonal: e.target.value,
+                  }))
+                }
+                maxLength={500}
+                placeholder="Ingrese observación personal..."
+              />
+            </div>
           </div>
 
           <div className="flex flex-col">

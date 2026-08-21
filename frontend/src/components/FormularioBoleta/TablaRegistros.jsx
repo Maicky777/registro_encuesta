@@ -127,7 +127,7 @@ const TablaRegistros = ({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {paginatedData.length > 0 ? (
-              paginatedData.map((reg) => (
+              paginatedData.map((reg, idx) => (
                 <tr
                   key={reg.id}
                   onDoubleClick={() => onDoubleClickCorregir(reg)}
@@ -179,7 +179,32 @@ const TablaRegistros = ({
                   </td>
                   <td className="px-3 py-2.5 text-slate-600">{reg.upm}</td>
                   <td className="px-3 py-2.5">
-                    <span className="font-bold text-slate-900 bg-slate-100/80 px-2 py-0.5 rounded-md text-[0.75rem]">{reg.folio}</span>
+                    <span
+                      className={`relative group/folio inline-block font-bold px-2 py-0.5 rounded-md text-[0.75rem] ${
+                        reg.observacionPersonal && reg.observacionPersonal.trim() !== ''
+                          ? 'text-amber-700 bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-300 shadow-sm shadow-amber-100 ring-1 ring-amber-200 cursor-help'
+                          : 'text-slate-900 bg-slate-100/80'
+                      }`}
+                    >
+                      {reg.folio}
+                      {reg.observacionPersonal && reg.observacionPersonal.trim() !== '' && (
+                        <span
+                          className={`pointer-events-none absolute left-1/2 -translate-x-1/2 z-50 w-max max-w-xs opacity-0 group-hover/folio:opacity-100 transition-opacity duration-150 ${
+                            idx === paginatedData.length - 1 ? 'top-full mt-2' : 'bottom-full mb-2'
+                          }`}
+                        >
+                          <span className="block bg-slate-900 text-white text-[0.72rem] font-medium leading-snug rounded-lg px-3 py-2 shadow-xl shadow-slate-900/20 break-words whitespace-normal text-left">
+                            <span className="block font-bold text-amber-300 uppercase tracking-wide text-[0.62rem] mb-0.5">Obs. personal</span>
+                            {reg.observacionPersonal}
+                          </span>
+                          {idx === paginatedData.length - 1 ? (
+                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900"></span>
+                          ) : (
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></span>
+                          )}
+                        </span>
+                      )}
+                    </span>
                   </td>
                   <td className="px-3 py-2.5 text-slate-500">{reg.voe}</td>
                   <td className="px-3 py-2.5 text-slate-600 font-medium">{reg.brigada}</td>

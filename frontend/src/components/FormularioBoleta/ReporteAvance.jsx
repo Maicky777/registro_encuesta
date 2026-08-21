@@ -76,58 +76,72 @@ const StatCard = ({ label, value, color, sub }) => (
   </div>
 )
 
+const calcularUsuariosIncidencias = (registrosDept) => {
+  const porUsuario = {}
+  for (const r of registrosDept) {
+    if (r.incidencia === INCIDENCIA_COMPLETA) continue
+    const key = r.nombreEncuestador || r.usuarioEncuestador
+    if (!porUsuario[key]) porUsuario[key] = { brigada: r.brigada, incidencias: {}, folios: {} }
+    porUsuario[key].incidencias[r.incidencia] = (porUsuario[key].incidencias[r.incidencia] || 0) + 1
+    if (!porUsuario[key].folios[r.incidencia]) porUsuario[key].folios[r.incidencia] = []
+    if (r.folio) porUsuario[key].folios[r.incidencia].push(r.folio)
+  }
+
+  return Object.entries(porUsuario)
+    .map(([usuario, info]) => {
+      const total = Object.values(info.incidencias).reduce((a, b) => a + b, 0)
+      return { usuario, brigada: info.brigada, incidencias: info.incidencias, folios: info.folios, total }
+    })
+    .filter((u) => u.total > 0)
+    .sort((a, b) => b.total - a.total)
+}
+
+const calcularIncidenciasResumen = (registrosDept) => {
+  const counts = {}
+  for (const r of registrosDept) {
+    counts[r.incidencia] = (counts[r.incidencia] || 0) + 1
+  }
+  return INCIDENCIAS.map((inc) => ({
+    inc,
+    count: counts[inc] || 0,
+  }))
+}
+
 const ReporteAvance = ({ registros, semana }) => {
-  const avanceData = useMemo(
-    () => calcularAvanceBrigadas(registros, semana || 3),
-    [registros, semana],
+  const semanaVal = semana || 3
+
+  const registrosSemana = useMemo(
+    () => (registros || []).filter((r) => parseInt(r.semana, 10) === semanaVal),
+    [registros, semanaVal],
   )
 
-  const usuariosIncidencias = useMemo(() => {
-    const semanaVal = semana || 3
-    const registrosSemana = registros.filter(
-      (r) => parseInt(r.semana, 10) === semanaVal,
+  const datosPorDepartamento = useMemo(() => {
+    const set = new Set(
+      registrosSemana.map((r) => r.departamento || 'SIN DEPARTAMENTO'),
     )
-
-    const porUsuario = {}
-    for (const r of registrosSemana) {
-      if (r.incidencia === INCIDENCIA_COMPLETA) continue
-      const key = r.nombreEncuestador || r.usuarioEncuestador
-      if (!porUsuario[key]) porUsuario[key] = { brigada: r.brigada, incidencias: {}, folios: {} }
-      porUsuario[key].incidencias[r.incidencia] = (porUsuario[key].incidencias[r.incidencia] || 0) + 1
-      if (!porUsuario[key].folios[r.incidencia]) porUsuario[key].folios[r.incidencia] = []
-      if (r.folio) porUsuario[key].folios[r.incidencia].push(r.folio)
-    }
-
-    return Object.entries(porUsuario)
-      .map(([usuario, info]) => {
-        const total = Object.values(info.incidencias).reduce((a, b) => a + b, 0)
-        return { usuario, brigada: info.brigada, incidencias: info.incidencias, folios: info.folios, total }
+    return [...set]
+      .sort((a, b) => a.localeCompare(b))
+      .map((departamento) => {
+        const regsDept = registrosSemana.filter(
+          (r) => (r.departamento || 'SIN DEPARTAMENTO') === departamento,
+        )
+        return {
+          departamento,
+          avance: calcularAvanceBrigadas(regsDept, semanaVal),
+          usuarios: calcularUsuariosIncidencias(regsDept),
+          incidenciasResumen: calcularIncidenciasResumen(regsDept),
+        }
       })
-      .filter((u) => u.total > 0)
-      .sort((a, b) => b.total - a.total)
-  }, [registros, semana])
+  }, [registrosSemana, semanaVal])
 
-  const incidenciasResumen = useMemo(() => {
-    const semanaVal = semana || 3
-    const registrosSemana = registros.filter(
-      (r) => parseInt(r.semana, 10) === semanaVal,
-    )
+  const avanceTotal = useMemo(
+    () => calcularAvanceBrigadas(registrosSemana, semanaVal),
+    [registrosSemana, semanaVal],
+  )
 
-    const counts = {}
-    for (const r of registrosSemana) {
-      counts[r.incidencia] = (counts[r.incidencia] || 0) + 1
-    }
+  if (datosPorDepartamento.length === 0) return null
 
-    return INCIDENCIAS.map((inc) => ({
-      inc,
-      count: counts[inc] || 0,
-    }))
-  }, [registros, semana])
-
-  const brigadas = Object.keys(avanceData.agrupado)
-  if (brigadas.length === 0) return null
-
-  const generalColor = getColor(avanceData.pctGeneral)
+  const generalColor = getColor(avanceTotal.pctGeneral)
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
@@ -137,18 +151,20 @@ const ReporteAvance = ({ registros, semana }) => {
           <div>
             <h3 className="text-lg font-bold text-slate-900 tracking-tight">Reporte de Avance</h3>
             <p className="text-[0.75rem] text-slate-400 mt-0.5">
-              Semana <span className="font-semibold text-slate-600">{avanceData.semana}</span>
+              Semana <span className="font-semibold text-slate-600">{avanceTotal.semana}</span>
               <span className="mx-1.5 text-slate-300">|</span>
-              {brigadas.length} brigada{brigadas.length !== 1 ? 's' : ''}
+              {datosPorDepartamento.length} departamento{datosPorDepartamento.length !== 1 ? 's' : ''}
+              <span className="mx-1.5 text-slate-300">|</span>
+              {avanceTotal.brigadas.length} brigada{avanceTotal.brigadas.length !== 1 ? 's' : ''}
             </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
               <div className="text-[0.65rem] text-slate-400 uppercase tracking-wider font-medium">Progreso General</div>
-              <div className="text-[0.72rem] text-slate-500 mt-0.5">{avanceData.totales.validas} / {avanceData.totales.max} encuestas</div>
+              <div className="text-[0.72rem] text-slate-500 mt-0.5">{avanceTotal.totales.validas} / {avanceTotal.totales.max} encuestas</div>
             </div>
             <div className={`w-16 h-16 rounded-2xl ${generalColor.bg} border ${generalColor.border} flex flex-col items-center justify-center ring-1 ${generalColor.ring}`}>
-              <span className={`text-xl font-extrabold ${generalColor.text} leading-none`}>{avanceData.pctGeneral}%</span>
+              <span className={`text-xl font-extrabold ${generalColor.text} leading-none`}>{avanceTotal.pctGeneral}%</span>
             </div>
           </div>
         </div>
@@ -157,14 +173,48 @@ const ReporteAvance = ({ registros, semana }) => {
           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
             <div
               className={`h-full ${generalColor.bar} rounded-full transition-all duration-700 ease-out`}
-              style={{ width: `${avanceData.pctGeneral}%` }}
+              style={{ width: `${avanceTotal.pctGeneral}%` }}
             />
           </div>
         </div>
 
       </div>
 
-      {/* Stats row */}
+      {datosPorDepartamento.map((datos) => {
+        const departamento = datos.departamento
+        const avanceData = datos.avance
+        const usuariosIncidencias = datos.usuarios
+        const incidenciasResumen = datos.incidenciasResumen
+        const deptColor = getColor(avanceData.pctGeneral)
+        const upmsDepto = avanceData.totales.upms
+
+        return (
+          <div key={departamento} className="border-b-2 border-slate-100 last:border-b-0">
+            {/* Departamento header */}
+            <div className="px-6 py-4 bg-linear-to-r from-indigo-50/60 to-white border-b border-slate-100">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="shrink-0 w-1.5 h-8 rounded-full bg-indigo-600" />
+                  <div className="min-w-0">
+                    <h4 className="text-[0.92rem] font-bold text-slate-900 tracking-tight truncate">
+                      {departamento}
+                    </h4>
+                    <p className="text-[0.66rem] text-slate-400 mt-0.5">
+                      {avanceData.brigadas.length} brigada{avanceData.brigadas.length !== 1 ? 's' : ''}
+                      <span className="mx-1 text-slate-300">|</span>
+                      {upmsDepto} UPM{upmsDepto !== 1 ? 's' : ''} visitada{upmsDepto !== 1 ? 's' : ''}
+                      <span className="mx-1 text-slate-300">|</span>
+                      {avanceData.totales.validas} / {avanceData.totales.max} encuestas
+                    </p>
+                  </div>
+                </div>
+                <div className={`shrink-0 flex items-center px-3 py-1.5 rounded-lg ${deptColor.bg} border ${deptColor.border} ring-1 ${deptColor.ring}`}>
+                  <span className={`text-sm font-extrabold ${deptColor.text} leading-none`}>{avanceData.pctGeneral}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats row */}
       <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
           <StatCard label="UPMs" value={Object.values(avanceData.agrupado).reduce((s, b) => s + Object.keys(b).length, 0)} color={{ bar: 'bg-blue-500', bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500', border: 'border-blue-200', ring: 'ring-blue-500/20' }} sub="visitadas" />
@@ -486,6 +536,9 @@ const ReporteAvance = ({ registros, semana }) => {
           </div>
         </div>
       )}
+          </div>
+        )
+      })}
     </div>
   )
 }

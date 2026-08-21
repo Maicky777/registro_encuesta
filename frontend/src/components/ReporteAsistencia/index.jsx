@@ -801,25 +801,24 @@ export default function ReporteAsistencia({ sessionUser }) {
           )}
         </div>
         <div className="p-4 flex flex-wrap items-end gap-x-4 gap-y-3">
-          {isAdmin && (
-            <div className="flex flex-col">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
-                Departamento
-              </label>
-              <select
-                className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
-                value={departamento}
-                onChange={(e) => setDepartamento(e.target.value)}
-              >
-                <option value="">Seleccionar...</option>
-                {DEPARTAMENTOS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="flex flex-col">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+              Departamento
+            </label>
+            <select
+              className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 disabled:bg-slate-100 disabled:text-slate-500"
+              value={departamento}
+              onChange={(e) => setDepartamento(e.target.value)}
+              disabled={!isAdmin && userDeptArray.length <= 1}
+            >
+              {isAdmin && <option value="">Seleccionar...</option>}
+              {(isAdmin ? DEPARTAMENTOS : userDeptArray).map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex flex-col">
             <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
               Semana N°
