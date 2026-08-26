@@ -8,7 +8,7 @@ import {
 } from '../../services/asistenciaService'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
-import { getSemanaActual } from '../../utils/helpers'
+import { getSemanaActual, getTrimestreActual } from '../../utils/helpers'
 import {
   DEPARTAMENTOS,
   SEMANA_MIN,
@@ -475,8 +475,7 @@ export default function ReporteAsistencia({ sessionUser }) {
       titleRow.height = 28
       sheet.mergeCells(1, 1, 1, INFO_COLS)
 
-      const semanaTrimestre = getFechaSemana(semana, 0)
-      const trimestre = Math.floor(semanaTrimestre.getMonth() / 3) + 1
+      const trimestre = getTrimestreActual()
       const infoRow2 = sheet.getRow(2)
       infoRow2.getCell(1).value = 'TRIMESTRE'
       infoRow2.getCell(1).font = { name: 'Calibri', size: 20, bold: true, color: { argb: 'FF808080' } }

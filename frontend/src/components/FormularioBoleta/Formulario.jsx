@@ -4,7 +4,7 @@ import {
   SEMANA_MIN,
   SEMANA_MAX,
 } from '../../utils/constants'
-import { calcularUPM, calcularUPMEfectivo, calcularVOE, calcularPanel, validarFolio, calcularAvanceBrigadas } from '../../utils/helpers'
+import { calcularUPM, calcularUPMEfectivo, calcularVOE, calcularPanel, validarFolio, calcularAvanceBrigadas, getTrimestreActual } from '../../utils/helpers'
 
 const estadoSelectClass = (estado) => {
   const base =
@@ -128,7 +128,7 @@ const Formulario = ({
         <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
           {editandoId
             ? `Editando Registro #${editandoId}`
-            : 'Formulario de Boleta TRIM-3'}
+            : `Formulario de Boleta TRIM-${formData.trimestre ?? getTrimestreActual()}`}
         </span>
         {editandoId && (
           <div className="flex items-center gap-3">

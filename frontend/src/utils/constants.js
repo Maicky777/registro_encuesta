@@ -21,6 +21,10 @@ export const SEMANA_MAX = 13
 export const SEMANA_ANCLA = 5
 export const ANCLA_FECHA = new Date(2026, 7, 3)
 
+export const ANCLA_FECHA_TRIMESTRE = new Date(2026, 7, 3)
+export const SEMANA_ANCLA_TRIMESTRE = 5
+export const TRIMESTRES = [3, 4, 1, 2]
+
 export const DEPARTAMENTOS = [
   'BENI', 'CHUQUISACA', 'COCHABAMBA', 'LA PAZ', 'ORURO', 'PANDO', 'POTOSÍ', 'SANTA CRUZ', 'TARIJA',
 ]

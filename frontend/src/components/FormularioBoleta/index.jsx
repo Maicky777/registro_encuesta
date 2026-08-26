@@ -8,6 +8,7 @@ import {
   computeObservacionFields,
   validarFolio,
   getSemanaActual,
+  getTrimestreActual,
 } from '../../utils/helpers'
 import { useBoletas } from '../../hooks/useBoletas'
 import { useFiltros } from '../../hooks/useFiltros'
@@ -22,6 +23,7 @@ import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
 
 const getDefaultSemana = getSemanaActual
+const getDefaultTrimestre = getTrimestreActual
 
 const INITIAL_FORM_STATE = {
   departamento: '',
@@ -31,6 +33,7 @@ const INITIAL_FORM_STATE = {
   upmReemplazo: '',
   upmAdicional: '',
   semana: getDefaultSemana(),
+  trimestre: getDefaultTrimestre(),
   visita: '',
   panel: '',
   numeroCorrelativo: 1,

@@ -259,6 +259,16 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    name: '015_add_trimestre_to_boletas',
+    up(database) {
+      const columns = database.prepare('PRAGMA table_info(boletas)').all()
+      if (!columns.some((c) => c.name === 'trimestre')) {
+        database.exec("ALTER TABLE boletas ADD COLUMN trimestre INTEGER DEFAULT 3")
+      }
+      database.exec('UPDATE boletas SET trimestre = 3 WHERE trimestre IS NULL')
+    },
+  },
 ]
 
 function runMigrations(database) {

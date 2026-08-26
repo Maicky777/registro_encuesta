@@ -4,6 +4,7 @@ const { getDB } = require('../db/connection')
 const { computeObservacionFields } = require('../utils/observaciones')
 const { broadcast } = require('../utils/events')
 const { userCanAccessBoleta, boletaScopeConditions } = require('../utils/scope')
+const { getTrimestreDesdeSemana } = require('../utils/computeTrimestre')
 
 const router = express.Router()
 
@@ -172,14 +173,16 @@ router.post('/', authMiddleware, (req, res) => {
     const finalObservacion = data.observacionBoleta !== undefined ? data.observacionBoleta : obsFields.observacionBoleta
     const finalTotal = data.totalObservaciones !== undefined ? Number(data.totalObservaciones) : obsFields.totalObservaciones
 
+    const trimestre = getTrimestreDesdeSemana(data.semana)
+
     const sql = `
       INSERT INTO boletas (
         departamento, brigada, folio, upm, upmReemplazo, upmAdicional, semana, visita, panel,
         numeroCorrelativo, voe, usuarioEncuestador, nombreEncuestador, incidencia,
         detalleObservaciones, totalObservaciones, boletaObservada, estadoBoleta,
         observacionBoleta, observacionPersonal, consolidada, fechaFinalConsolidacion,
-        encuestador_id, fecha_registro, fecha_modificacion, creado_por
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        encuestador_id, fecha_registro, fecha_modificacion, creado_por, trimestre
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `
 
     const fechaRegistro = nowISO()
@@ -193,9 +196,9 @@ router.post('/', authMiddleware, (req, res) => {
       finalEstado, finalObservacion, data.observacionPersonal,
       data.consolidada, data.fechaFinalConsolidacion,
       data.encuestador_id || null,
-      fechaRegistro, fechaRegistro, username,
+      fechaRegistro, fechaRegistro, username, trimestre,
     )
-    res.json({ id: info.lastInsertRowid, ...data, totalObservaciones: finalTotal, boletaObservada: finalBoletaObs, estadoBoleta: finalEstado, observacionBoleta: finalObservacion, fecha_registro: fechaRegistro, fecha_modificacion: fechaRegistro, creado_por: username })
+    res.json({ id: info.lastInsertRowid, ...data, totalObservaciones: finalTotal, boletaObservada: finalBoletaObs, estadoBoleta: finalEstado, observacionBoleta: finalObservacion, fecha_registro: fechaRegistro, fecha_modificacion: fechaRegistro, creado_por: username, trimestre })
     broadcast('boletas:changed', { type: 'create', id: Number(info.lastInsertRowid) })
   } catch (err) {
     console.error('Error al crear boleta:', err.message)
@@ -286,13 +289,16 @@ router.put('/:id', authMiddleware, (req, res) => {
     const finalObservacion = data.observacionBoleta !== undefined ? data.observacionBoleta : obsFields.observacionBoleta
     const finalTotal = data.totalObservaciones !== undefined ? Number(data.totalObservaciones) : obsFields.totalObservaciones
 
+    const trimestre = getTrimestreDesdeSemana(merged.semana)
+
     const sql = `
       UPDATE boletas SET
         departamento=?, brigada=?, folio=?, upm=?, upmReemplazo=?, upmAdicional=?, semana=?,
         visita=?, panel=?, numeroCorrelativo=?, voe=?, usuarioEncuestador=?, nombreEncuestador=?,
         incidencia=?, detalleObservaciones=?, totalObservaciones=?, boletaObservada=?,
         estadoBoleta=?, observacionBoleta=?, observacionPersonal=?, consolidada=?,
-        fechaFinalConsolidacion=?, encuestador_id=?, fecha_modificacion=?, editado_por=?
+        fechaFinalConsolidacion=?, encuestador_id=?, fecha_modificacion=?, editado_por=?,
+        trimestre=?
       WHERE id=?
     `
 
@@ -305,7 +311,7 @@ router.put('/:id', authMiddleware, (req, res) => {
       merged.detalleObservaciones, finalTotal, finalBoletaObs,
       finalEstado, finalObservacion, merged.observacionPersonal,
       merged.consolidada, merged.fechaFinalConsolidacion,
-      merged.encuestador_id || null, nowISO(), username, id,
+      merged.encuestador_id || null, nowISO(), username, trimestre, id,
     )
     res.json({ message: 'Registro actualizado correctamente', editado_por: username })
     broadcast('boletas:changed', { type: 'update', id: Number(id) })
@@ -380,8 +386,8 @@ router.post('/batch', authMiddleware, (req, res) => {
       numeroCorrelativo, voe, usuarioEncuestador, nombreEncuestador, incidencia,
       detalleObservaciones, totalObservaciones, boletaObservada, estadoBoleta,
       observacionBoleta, observacionPersonal, consolidada, fechaFinalConsolidacion,
-      encuestador_id, fecha_registro, fecha_modificacion, creado_por
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      encuestador_id, fecha_registro, fecha_modificacion, creado_por, trimestre
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `
 
   try {
@@ -406,6 +412,7 @@ router.post('/batch', authMiddleware, (req, res) => {
         const finalBoletaObs = data.boletaObservada !== undefined ? data.boletaObservada : obsFields.boletaObservada
         const finalObservacion = data.observacionBoleta !== undefined ? data.observacionBoleta : obsFields.observacionBoleta
         const finalTotal = data.totalObservaciones !== undefined ? Number(data.totalObservaciones) : obsFields.totalObservaciones
+        const trimestre = getTrimestreDesdeSemana(data.semana)
 
         stmt.run(
           data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
@@ -416,7 +423,7 @@ router.post('/batch', authMiddleware, (req, res) => {
           data.consolidada,
           data.fechaFinalConsolidacion || fechaDefaultConsolidacion,
           data.encuestador_id || null,
-          fechaRegistro, fechaRegistro, username,
+          fechaRegistro, fechaRegistro, username, trimestre,
         )
         insertados++
       }

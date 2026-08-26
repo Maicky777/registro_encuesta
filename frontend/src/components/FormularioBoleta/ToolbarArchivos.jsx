@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react'
 import ExcelJS from 'exceljs/dist/exceljs.min.js'
 import ModalSemanaExcel from './ModalSemanaExcel'
-import { TRIMESTRE_ACTUAL, SEMANA_MIN, SEMANA_MAX } from '../../utils/constants'
+import { SEMANA_MIN, SEMANA_MAX } from '../../utils/constants'
+import { getTrimestreActual } from '../../utils/helpers'
 
 const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
   const fileInputRef = useRef(null)
@@ -96,7 +97,7 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
       row3.getCell(2).font = { name: 'Calibri', size: 14, bold: true }
       row3.getCell(3).value = 'TRIMESTRE:'
       row3.getCell(3).font = { name: 'Calibri', size: 14, bold: true }
-      row3.getCell(4).value = TRIMESTRE_ACTUAL
+      row3.getCell(4).value = getTrimestreActual()
       row3.getCell(4).font = { name: 'Calibri', size: 14, bold: true }
 
       const headerRow = sheet.getRow(4)
