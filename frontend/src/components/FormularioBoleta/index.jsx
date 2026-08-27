@@ -121,10 +121,15 @@ export default function FormularioBoleta({ sessionUser }) {
   const dataReady = brigadas.length > 0 && encuestadores.length > 0
 
   useEffect(() => {
-    if (dataReady && !formData.brigada) {
+    if (
+      dataReady &&
+      !formData.brigada &&
+      brigadas.length > 0 &&
+      brigadas[0].departamento === selectedDepartamento
+    ) {
       setFormData(getFormState())
     }
-  }, [dataReady, formData.brigada, getFormState])
+  }, [dataReady, formData.brigada, getFormState, brigadas, selectedDepartamento])
 
   useEffect(() => {
     return () => {
@@ -293,6 +298,7 @@ export default function FormularioBoleta({ sessionUser }) {
       setSelectedDepartamento(newDept)
       setFormData((prev) => ({
         ...prev,
+        departamento: newDept,
         brigada: '',
         usuarioEncuestador: '',
         nombreEncuestador: '',
