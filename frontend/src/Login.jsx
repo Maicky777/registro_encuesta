@@ -4,8 +4,9 @@ import ModalAlert from './components/ui/ModalAlert'
 import { useModal } from './hooks/useModal'
 
 export default function Login({ onLogin, notice }) {
-  const [username, setUsername] = useState('')
+  const [username, setUsername] = useState(() => localStorage.getItem('rememberUser') || '')
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(() => localStorage.getItem('rememberUser') !== null)
   const [loading, setLoading] = useState(false)
   const { alertModal, showAlert, closeAlert } = useModal()
 
@@ -19,6 +20,13 @@ export default function Login({ onLogin, notice }) {
 
     try {
       const data = await login(username, password)
+
+      if (remember) {
+        localStorage.setItem('rememberUser', username)
+      } else {
+        localStorage.removeItem('rememberUser')
+      }
+
       onLogin({
         id: data.user.id,
         user: data.user.username,
@@ -52,6 +60,7 @@ export default function Login({ onLogin, notice }) {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Ej. mcayo"
+              autoComplete="off"
               required
             />
           </div>
@@ -66,8 +75,21 @@ export default function Login({ onLogin, notice }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Ingrese su contraseña"
+              autoComplete="off"
               required
             />
+          </div>
+          <div className="flex items-center mb-4 gap-2">
+            <input
+              id="remember-password"
+              type="checkbox"
+              className="h-3.5 w-3.5 accent-slate-900 cursor-pointer"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            <label className="text-xs text-slate-600 cursor-pointer select-none" htmlFor="remember-password">
+              Recordar usuario
+            </label>
           </div>
           <button
             type="submit"

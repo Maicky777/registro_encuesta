@@ -1,5 +1,6 @@
-import { Bar } from 'react-chartjs-2'
+import { Line } from 'react-chartjs-2'
 import { useMemo } from 'react'
+import { externalTooltipHandler } from './customTooltip'
 
 export default function GraficoEvolucionUsuario({ semanas, totalesSemana, completasSemana }) {
   const data = useMemo(
@@ -7,11 +8,19 @@ export default function GraficoEvolucionUsuario({ semanas, totalesSemana, comple
       labels: semanas.map((s) => `Semana ${s}`),
       datasets: [
         {
-          type: 'bar',
+          type: 'line',
           label: 'Incidencias',
           data: semanas.map((s) => totalesSemana[s] || 0),
-          backgroundColor: '#dc2626',
-          borderRadius: 3,
+          borderColor: '#dc2626',
+          backgroundColor: '#dc262655',
+          borderWidth: 2,
+          tension: 0.35,
+          fill: true,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: '#dc2626',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
           yAxisID: 'y',
           order: 2,
         },
@@ -22,7 +31,7 @@ export default function GraficoEvolucionUsuario({ semanas, totalesSemana, comple
           borderColor: '#16a34a',
           backgroundColor: '#16a34a',
           borderWidth: 2,
-          tension: 0.3,
+          tension: 0.35,
           fill: false,
           pointBackgroundColor: '#ffffff',
           pointBorderColor: '#16a34a',
@@ -50,14 +59,8 @@ export default function GraficoEvolucionUsuario({ semanas, totalesSemana, comple
           labels: { boxWidth: 12, boxHeight: 12, color: '#334155', font: { size: 11 } },
         },
         tooltip: {
-          backgroundColor: '#0f172a',
-          padding: 10,
-          cornerRadius: 6,
-          titleFont: { size: 11, weight: '600' },
-          bodyFont: { size: 11 },
-          callbacks: {
-            title: (items) => items[0]?.label || '',
-          },
+          enabled: false,
+          external: externalTooltipHandler,
         },
       },
       scales: {
@@ -84,5 +87,5 @@ export default function GraficoEvolucionUsuario({ semanas, totalesSemana, comple
     [],
   )
 
-  return <Bar data={data} options={options} />
+  return <Line data={data} options={options} />
 }

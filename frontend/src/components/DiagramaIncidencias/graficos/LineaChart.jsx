@@ -1,14 +1,11 @@
 import { Line } from 'react-chartjs-2'
 import { useMemo } from 'react'
-import { buildTooltipCallbacks } from './tooltipCallbacks'
+import { externalTooltipHandler } from './customTooltip'
 
 const COLORS_LABEL = '#475569'
 const TOOLTIP = {
-  backgroundColor: '#0f172a',
-  padding: 10,
-  cornerRadius: 6,
-  titleFont: { size: 11, weight: '600' },
-  bodyFont: { size: 11 },
+  enabled: false,
+  external: externalTooltipHandler,
 }
 
 function pluginValores(enabled) {
@@ -41,6 +38,7 @@ export default function GraficoLineas({ semanas, series, totales, ocultos, onSel
     () =>
       series.map((serie) => ({
         label: serie.label,
+        serieSub: serie.sub,
         data: semanas.map((s) => totales[serie.key]?.[s] || 0),
         borderColor: serie.color,
         backgroundColor: serie.color,
@@ -77,7 +75,6 @@ export default function GraficoLineas({ semanas, series, totales, ocultos, onSel
         },
         tooltip: {
           ...TOOLTIP,
-          callbacks: buildTooltipCallbacks(series, folios),
         },
       },
       scales: {
@@ -92,7 +89,7 @@ export default function GraficoLineas({ semanas, series, totales, ocultos, onSel
         },
       },
     }),
-    [onSelect, series, folios],
+    [onSelect, series],
   )
 
   return (
