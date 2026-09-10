@@ -97,7 +97,19 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
       row3.getCell(2).font = { name: 'Calibri', size: 14, bold: true }
       row3.getCell(3).value = 'TRIMESTRE:'
       row3.getCell(3).font = { name: 'Calibri', size: 14, bold: true }
-      row3.getCell(4).value = getTrimestreActual()
+      // row3.getCell(4).value = getTrimestreActual()
+      //
+      // 1. Obtener el trimestre y el año actual
+      const trimestre = getTrimestreActual()
+      const anioActual = new Date().getFullYear()
+
+      // 2. Mapear los números de trimestre a números romanos
+      const romanos = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
+
+      // 3. Asignar el valor formateado a la celda (ej: "II/2026")
+      row3.getCell(4).value = `${romanos[trimestre]}/${anioActual}`
+
+      //
       row3.getCell(4).font = { name: 'Calibri', size: 14, bold: true }
 
       const headerRow = sheet.getRow(4)
