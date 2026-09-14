@@ -25,8 +25,21 @@ export default function GestionBrigadas({ sessionUser }) {
   const cargarBrigadas = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getBrigadas(isAdmin ? undefined : undefined)
-      setBrigadas(data)
+      if (isAdmin) {
+        const data = await getBrigadas()
+        setBrigadas(data)
+        return
+      }
+
+      const deptos = Array.isArray(sessionUser?.departamento)
+        ? sessionUser.departamento
+        : sessionUser?.departamento
+          ? [sessionUser.departamento]
+          : []
+      const results = await Promise.all(
+        deptos.map((dept) => getBrigadas(dept).catch(() => [])),
+      )
+      setBrigadas(results.flat())
     } catch (err) {
       const msg = err.response?.data?.error || 'Error al cargar brigadas'
       showAlert(msg, 'error')
