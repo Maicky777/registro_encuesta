@@ -3,6 +3,7 @@ import { getBrigadas, deleteBrigada } from '../../services/brigadaService'
 import { useModal } from '../../hooks/useModal'
 import FormularioBrigada from './FormularioBrigada'
 import TablaBrigadas from './TablaBrigadas'
+import RankingEncuestadores from './RankingEncuestadores'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
 
@@ -99,6 +100,8 @@ export default function GestionBrigadas({ sessionUser }) {
         onEliminar={isAdmin ? handleEliminar : undefined}
         onEditar={isAdmin ? handleEditar : undefined}
       />
+
+      <RankingEncuestadores sessionUser={sessionUser} />
 
       <ModalAlert
         show={alertModal.show}

@@ -25,3 +25,18 @@ export const deleteBrigada = async (id) => {
   const response = await api.delete(`/brigadas/${id}`)
   return response.data
 }
+
+export const getRankingObservaciones = async ({ departamento, semanaDesde, semanaHasta, brigada } = {}) => {
+  const params = {}
+  if (departamento) params.departamento = departamento
+  if (semanaDesde) params.semanaDesde = semanaDesde
+  if (semanaHasta) params.semanaHasta = semanaHasta
+  if (brigada) params.brigada = brigada
+  const response = await api.get('/brigadas/ranking-observaciones', { params })
+  return response.data
+}
+
+export const getRankingSemanas = async () => {
+  const response = await api.get('/brigadas/ranking-semanas')
+  return response.data
+}

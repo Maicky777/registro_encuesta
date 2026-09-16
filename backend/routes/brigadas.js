@@ -1,7 +1,8 @@
 const express = require('express')
 const { authMiddleware, requireRole } = require('../middleware/auth')
 const { getDB } = require('../db/connection')
-const { parseBrigadas, getBrigadasForDepartamento } = require('../utils/parseBrigadas')
+const { parseBrigadas, parseBrigadasArray, getBrigadasForDepartamento, parseDepartamentos } = require('../utils/parseBrigadas')
+const { boletaScopeConditions } = require('../utils/scope')
 
 const router = express.Router()
 
@@ -72,6 +73,142 @@ router.get('/', authMiddleware, (req, res) => {
     res.json(brigadas)
   } catch (err) {
     console.error('Error al listar brigadas:', err.message)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
+})
+
+router.get('/ranking-observaciones', authMiddleware, (req, res) => {
+  try {
+    const db = getDB()
+    const { departamento, brigada, semanaDesde, semanaHasta } = req.query
+
+    const onClauses = [
+      `(b.encuestador_id = e.id OR b.nombreEncuestador = e.nombre)`,
+      `b.estadoBoleta IN ('OBSERVADO', 'CORREGIDO')`,
+    ]
+    const params = []
+    const whereClauses = []
+    const whereParams = []
+
+    if (req.user.rol !== 'administrador') {
+      const { conditions } = boletaScopeConditions(req.user, params)
+      if (conditions.length > 0) {
+        onClauses.push(...conditions)
+      } else {
+        onClauses.push('1=0')
+      }
+
+      const userDepartamentos = Array.isArray(req.user.departamento)
+        ? req.user.departamento
+        : parseDepartamentos(req.user.departamento)
+      const parsedBrigadas = parseBrigadas(req.user.brigadas)
+
+      const subqueries = []
+
+      if (userDepartamentos.length > 0) {
+        const deptPlaceholders = userDepartamentos.map(() => '?').join(',')
+        subqueries.push(`br.departamento IN (${deptPlaceholders})`)
+        whereParams.push(...userDepartamentos)
+      }
+
+      if (typeof parsedBrigadas === 'object' && parsedBrigadas !== null && !Array.isArray(parsedBrigadas)) {
+        const pairs = []
+        for (const dept of userDepartamentos) {
+          const names = parsedBrigadas[dept] || []
+          for (const name of names) {
+            pairs.push(`(br.departamento = ? AND br.nombre = ?)`)
+            whereParams.push(dept, name)
+          }
+        }
+        if (pairs.length > 0) {
+          subqueries.push(`(${pairs.join(' OR ')})`)
+        }
+      } else {
+        const allBrigadas = parseBrigadasArray(req.user.brigadas)
+        if (allBrigadas.length > 0) {
+          const namePlaceholders = allBrigadas.map(() => '?').join(',')
+          subqueries.push(`br.nombre IN (${namePlaceholders})`)
+          whereParams.push(...allBrigadas)
+        }
+      }
+
+      if (subqueries.length > 0) {
+        whereClauses.push(`e.id IN (
+          SELECT be.encuestador_id
+          FROM brigada_encuestadores be
+          JOIN brigadas br ON br.id = be.brigada_id
+          WHERE ${subqueries.join(' AND ')}
+        )`)
+      } else {
+        whereClauses.push('1=0')
+      }
+    }
+
+    if (departamento) {
+      onClauses.push('b.departamento = ?')
+      params.push(departamento)
+    }
+    if (brigada) {
+      onClauses.push('b.brigada = ?')
+      params.push(brigada)
+    }
+    if (semanaDesde !== undefined && semanaDesde !== null && semanaDesde !== '') {
+      onClauses.push('CAST(b.semana AS INTEGER) >= ?')
+      params.push(parseInt(semanaDesde, 10))
+    }
+    if (semanaHasta !== undefined && semanaHasta !== null && semanaHasta !== '') {
+      onClauses.push('CAST(b.semana AS INTEGER) <= ?')
+      params.push(parseInt(semanaHasta, 10))
+    }
+
+    const rows = db.prepare(`
+      SELECT
+        e.id AS encuestador_id,
+        e.nombre AS nombre_encuestador,
+        e.codigo,
+        e.rol,
+        COALESCE(GROUP_CONCAT(DISTINCT b.departamento), '') AS departamentos,
+        COUNT(b.id) AS folios_observados,
+        COALESCE(SUM(COALESCE(b.totalObservaciones, 0)), 0) AS total_observaciones
+      FROM encuestadores e
+      LEFT JOIN boletas b ON ${onClauses.map((c) => `(${c})`).join(' AND ')}
+      ${whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''}
+      GROUP BY e.id
+      ORDER BY total_observaciones DESC, folios_observados DESC, e.nombre
+    `).all(...params, ...whereParams)
+
+    res.json(rows)
+  } catch (err) {
+    console.error('Error al obtener ranking de observaciones:', err.message)
+    res.status(500).json({ error: 'Error interno del servidor' })
+  }
+})
+
+router.get('/ranking-semanas', authMiddleware, (req, res) => {
+  try {
+    const db = getDB()
+    const conditions = []
+    const params = []
+
+    if (req.user.rol !== 'administrador') {
+      const { conditions: scope } = boletaScopeConditions(req.user, params)
+      if (scope.length > 0) {
+        conditions.push(...scope)
+      } else {
+        conditions.push('1=0')
+      }
+    }
+
+    const rows = db.prepare(`
+      SELECT DISTINCT CAST(b.semana AS INTEGER) AS semana
+      FROM boletas b
+      ${conditions.length > 0 ? `WHERE ${conditions.map((c) => `(${c})`).join(' AND ')}` : ''}
+      ORDER BY semana
+    `).all(...params)
+
+    res.json(rows.map((r) => r.semana))
+  } catch (err) {
+    console.error('Error al listar semanas del ranking:', err.message)
     res.status(500).json({ error: 'Error interno del servidor' })
   }
 })
