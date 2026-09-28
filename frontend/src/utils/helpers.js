@@ -1,4 +1,4 @@
-import { SEMANA_MIN, SEMANA_MAX, SEMANA_ANCLA, ANCLA_FECHA, MAX_POR_UPM, INCIDENCIA_TRASLADO, ANCLA_FECHA_TRIMESTRE, SEMANA_ANCLA_TRIMESTRE, TRIMESTRES } from './constants'
+import { SEMANA_MIN, SEMANA_MAX, SEMANA_ANCLA, ANCLA_FECHA, MAX_POR_UPM, INCIDENCIA_TRASLADO, TRIMESTRES } from './constants'
 
 export const getEstadoClass = (estado) => {
   switch (estado) {
@@ -72,11 +72,11 @@ export const getSemanaActual = (fecha = new Date()) => {
 export const getTrimestreActual = (fecha = new Date()) => {
   const hoy = new Date(fecha)
   hoy.setHours(0, 0, 0, 0)
-  const ancla = new Date(ANCLA_FECHA_TRIMESTRE)
+  const ancla = new Date(ANCLA_FECHA)
   ancla.setHours(0, 0, 0, 0)
   const diffDias = Math.round((hoy - ancla) / 86400000)
-  const globalWeek = SEMANA_ANCLA_TRIMESTRE + Math.floor(diffDias / 7)
-  const trimestreIndex = Math.floor(globalWeek / SEMANA_MAX) % TRIMESTRES.length
+  const globalWeek = SEMANA_ANCLA + Math.floor(diffDias / 7)
+  const trimestreIndex = (((Math.floor((globalWeek - 1) / SEMANA_MAX) % TRIMESTRES.length) + TRIMESTRES.length) % TRIMESTRES.length)
   return TRIMESTRES[trimestreIndex]
 }
 

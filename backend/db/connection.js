@@ -269,6 +269,21 @@ const MIGRATIONS = [
       database.exec('UPDATE boletas SET trimestre = 3 WHERE trimestre IS NULL')
     },
   },
+  {
+    name: '016_fix_trimestre_boletas',
+    up(database) {
+      const { getTrimestreDesdeSemana } = require('../utils/computeTrimestre')
+      const rows = database.prepare('SELECT id, semana, trimestre, fecha_registro FROM boletas').all()
+      const update = database.prepare('UPDATE boletas SET trimestre = ? WHERE id = ?')
+      for (const row of rows) {
+        const fecha = row.fecha_registro ? new Date(row.fecha_registro) : new Date()
+        const esperado = getTrimestreDesdeSemana(row.semana, fecha)
+        if (esperado !== null && esperado !== row.trimestre) {
+          update.run(esperado, row.id)
+        }
+      }
+    },
+  },
 ]
 
 function runMigrations(database) {
