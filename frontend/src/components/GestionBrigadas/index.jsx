@@ -23,34 +23,43 @@ export default function GestionBrigadas({ sessionUser }) {
     confirmAction,
   } = useModal()
 
-  const cargarBrigadas = useCallback(async () => {
-    setLoading(true)
-    try {
-      if (isAdmin) {
-        const data = await getBrigadas()
-        setBrigadas(data)
-        return
-      }
+  const cargarBrigadas = useCallback(
+    async (isActivo = () => true) => {
+      setLoading(true)
+      try {
+        if (isAdmin) {
+          const data = await getBrigadas()
+          if (isActivo()) setBrigadas(data)
+          return
+        }
 
-      const deptos = Array.isArray(sessionUser?.departamento)
-        ? sessionUser.departamento
-        : sessionUser?.departamento
-          ? [sessionUser.departamento]
-          : []
-      const results = await Promise.all(
-        deptos.map((dept) => getBrigadas(dept).catch(() => [])),
-      )
-      setBrigadas(results.flat())
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Error al cargar brigadas'
-      showAlert(msg, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [showAlert, isAdmin, sessionUser])
+        const deptos = Array.isArray(sessionUser?.departamento)
+          ? sessionUser.departamento
+          : sessionUser?.departamento
+            ? [sessionUser.departamento]
+            : []
+        const results = await Promise.all(
+          deptos.map((dept) => getBrigadas(dept).catch(() => [])),
+        )
+        if (isActivo()) setBrigadas(results.flat())
+      } catch (err) {
+        if (!isActivo()) return
+        const msg = err.response?.data?.error || 'Error al cargar brigadas'
+        showAlert(msg, 'error')
+      } finally {
+        if (isActivo()) setLoading(false)
+      }
+    },
+    [showAlert, isAdmin, sessionUser],
+  )
 
   useEffect(() => {
-    cargarBrigadas()
+    let activo = true
+    const inicial = async () => {
+      await cargarBrigadas(() => activo)
+    }
+    inicial()
+    return () => { activo = false }
   }, [cargarBrigadas])
 
   const handleEliminar = useCallback(async (brigada) => {

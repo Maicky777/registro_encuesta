@@ -1,6 +1,19 @@
-import React, { useMemo } from 'react'
-import { INCIDENCIA_TRASLADO, INCIDENCIA_COMPLETA, INCIDENCIAS } from '../../utils/constants'
-import { calcularAvanceBrigadas } from '../../utils/helpers'
+import React, { useMemo, useState } from 'react'
+import {
+  INCIDENCIA_TRASLADO,
+  INCIDENCIA_COMPLETA,
+  INCIDENCIAS,
+  SEMANA_MIN,
+  SEMANA_MAX,
+  TRIMESTRES,
+} from '../../utils/constants'
+import {
+  calcularAvanceBrigadas,
+  getSemanaActual,
+  getTrimestreActual,
+} from '../../utils/helpers'
+
+const TRIMESTRE_OPCIONES = [...TRIMESTRES].sort((a, b) => a - b)
 
 function getColor(pct) {
   if (pct >= 100) return { bar: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', border: 'border-emerald-200', ring: 'ring-emerald-500/20' }
@@ -107,12 +120,33 @@ const calcularIncidenciasResumen = (registrosDept) => {
   }))
 }
 
-const ReporteAvance = ({ registros, semana }) => {
-  const semanaVal = semana || 3
+const ReporteAvance = ({ registros, semana, trimestre }) => {
+  const [semanaSel, setSemanaSel] = useState(() => {
+    const inicial = parseInt(semana, 10)
+    return inicial >= SEMANA_MIN && inicial <= SEMANA_MAX ? inicial : getSemanaActual()
+  })
+  const [trimestreSel, setTrimestreSel] = useState(() => {
+    const inicial = parseInt(trimestre, 10)
+    return TRIMESTRE_OPCIONES.includes(inicial) ? inicial : getTrimestreActual()
+  })
+
+  const handleSemanaSelChange = (valor) => {
+    const digitos = valor.replace(/\D/g, '')
+    if (digitos === '') {
+      setSemanaSel('')
+      return
+    }
+    setSemanaSel(Math.min(parseInt(digitos, 10), SEMANA_MAX))
+  }
 
   const registrosSemana = useMemo(
-    () => (registros || []).filter((r) => parseInt(r.semana, 10) === semanaVal),
-    [registros, semanaVal],
+    () =>
+      (registros || []).filter((r) => {
+        const matchSemana = parseInt(r.semana, 10) === semanaSel
+        const matchTrimestre = String(r.trimestre) === String(trimestreSel)
+        return matchSemana && matchTrimestre
+      }),
+    [registros, semanaSel, trimestreSel],
   )
 
   const datosPorDepartamento = useMemo(() => {
@@ -127,38 +161,79 @@ const ReporteAvance = ({ registros, semana }) => {
         )
         return {
           departamento,
-          avance: calcularAvanceBrigadas(regsDept, semanaVal),
+          avance: calcularAvanceBrigadas(regsDept, semanaSel),
           usuarios: calcularUsuariosIncidencias(regsDept),
           incidenciasResumen: calcularIncidenciasResumen(regsDept),
         }
       })
-  }, [registrosSemana, semanaVal])
+  }, [registrosSemana, semanaSel])
 
   const avanceTotal = useMemo(
-    () => calcularAvanceBrigadas(registrosSemana, semanaVal),
-    [registrosSemana, semanaVal],
+    () => calcularAvanceBrigadas(registrosSemana, semanaSel, { trimestre: trimestreSel }),
+    [registrosSemana, semanaSel, trimestreSel],
   )
 
-  if (datosPorDepartamento.length === 0) return null
-
   const generalColor = getColor(avanceTotal.pctGeneral)
+
+  const filtroInputClass =
+    'w-full px-3 py-2 text-[0.8rem] font-semibold border-2 border-slate-200 rounded-lg bg-white text-slate-900 transition-all duration-200 outline-none focus:border-indigo-500 focus:ring-3 focus:ring-indigo-500/20'
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
       {/* Header */}
       <div className="px-6 py-5 border-b border-slate-100 bg-linear-to-r from-slate-50 to-white">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h3 className="text-lg font-bold text-slate-900 tracking-tight">Reporte de Avance</h3>
             <p className="text-[0.75rem] text-slate-400 mt-0.5">
-              Semana <span className="font-semibold text-slate-600">{avanceTotal.semana}</span>
+              Trimestre <span className="font-semibold text-slate-600">{trimestreSel}</span>
+              <span className="mx-1.5 text-slate-300">|</span>
+              Semana <span className="font-semibold text-slate-600">{semanaSel || '-'}</span>
               <span className="mx-1.5 text-slate-300">|</span>
               {datosPorDepartamento.length} departamento{datosPorDepartamento.length !== 1 ? 's' : ''}
               <span className="mx-1.5 text-slate-300">|</span>
               {avanceTotal.brigadas.length} brigada{avanceTotal.brigadas.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="flex flex-col">
+              <label
+                className="text-[0.65rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
+                htmlFor="avance-trimestre"
+              >
+                Trimestre
+              </label>
+              <select
+                id="avance-trimestre"
+                className={`${filtroInputClass} w-36`}
+                value={trimestreSel}
+                onChange={(e) => setTrimestreSel(parseInt(e.target.value, 10))}
+              >
+                {TRIMESTRE_OPCIONES.map((t) => (
+                  <option key={t} value={t}>
+                    Trimestre {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col">
+              <label
+                className="text-[0.65rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
+                htmlFor="avance-semana"
+              >
+                Semana
+              </label>
+              <input
+                id="avance-semana"
+                className={`${filtroInputClass} w-24`}
+                type="number"
+                min={SEMANA_MIN}
+                max={SEMANA_MAX}
+                step="1"
+                value={semanaSel}
+                onChange={(e) => handleSemanaSelChange(e.target.value)}
+              />
+            </div>
             <div className="text-right">
               <div className="text-[0.65rem] text-slate-400 uppercase tracking-wider font-medium">Progreso General</div>
               <div className="text-[0.72rem] text-slate-500 mt-0.5">{avanceTotal.totales.validas} / {avanceTotal.totales.max} encuestas</div>
@@ -179,6 +254,17 @@ const ReporteAvance = ({ registros, semana }) => {
         </div>
 
       </div>
+
+      {datosPorDepartamento.length === 0 && (
+        <div className="px-6 py-10 text-center">
+          <p className="text-[0.85rem] font-semibold text-slate-600">
+            Sin registros para el trimestre {trimestreSel} - semana {semanaSel || '-'}
+          </p>
+          <p className="text-[0.72rem] text-slate-400 mt-1">
+            Seleccione otro trimestre o semana para ver el avance.
+          </p>
+        </div>
+      )}
 
       {datosPorDepartamento.map((datos) => {
         const departamento = datos.departamento

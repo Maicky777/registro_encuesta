@@ -88,11 +88,15 @@ router.get('/personal', authMiddleware, (req, res) => {
 router.get('/', authMiddleware, (req, res) => {
   try {
     const db = getDB()
-    const { semana, departamento, brigada } = req.query
+    const { semana, departamento, brigada, trimestre } = req.query
 
     let query = 'SELECT * FROM asistencia WHERE 1=1'
     const params = []
 
+    if (trimestre) {
+      query += ' AND trimestre = ?'
+      params.push(parseInt(trimestre, 10))
+    }
     if (semana) {
       query += ' AND semana = ?'
       params.push(parseInt(semana, 10))
@@ -132,7 +136,7 @@ router.get('/', authMiddleware, (req, res) => {
 router.post('/batch', authMiddleware, (req, res) => {
   try {
     const db = getDB()
-    const { records, semana, departamento, brigada } = req.body
+    const { records, semana, departamento, brigada, trimestre } = req.body
 
     if (!Array.isArray(records)) {
       return res.status(400).json({ error: 'records debe ser un array' })
@@ -194,10 +198,15 @@ router.post('/batch', authMiddleware, (req, res) => {
       }
     }
 
+    const trimestreNum = parseInt(trimestre, 10)
+    if (!Number.isInteger(trimestreNum) || trimestreNum < 1 || trimestreNum > 4) {
+      return res.status(400).json({ error: 'trimestre es requerido y debe estar entre 1 y 4.' })
+    }
+
     const upsert = db.prepare(`
-      INSERT INTO asistencia (encuestador_id, departamento, brigada, semana, dia, turno, estatus, ingreso, fIngreso, salida, fSalida, observacion)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(encuestador_id, semana, dia, turno)
+      INSERT INTO asistencia (encuestador_id, departamento, brigada, trimestre, semana, dia, turno, estatus, ingreso, fIngreso, salida, fSalida, observacion)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(encuestador_id, trimestre, semana, dia, turno)
       DO UPDATE SET estatus = excluded.estatus,
                     ingreso = excluded.ingreso,
                     fIngreso = excluded.fIngreso,
@@ -213,6 +222,7 @@ router.post('/batch', authMiddleware, (req, res) => {
           r.encuestador_id,
           departamento || r.departamento || '',
           brigada || r.brigada || '',
+          trimestreNum,
           parseInt(semana || r.semana || 0, 10),
           r.dia,
           r.turno,
@@ -239,17 +249,24 @@ router.post('/batch', authMiddleware, (req, res) => {
 router.delete('/', authMiddleware, (req, res) => {
   try {
     const db = getDB()
-    const { semana, dia, departamento, brigada } = req.query
+    const { semana, dia, departamento, brigada, trimestre } = req.query
 
     if (semana === undefined || semana === null || semana === '') {
       return res.status(400).json({ error: 'semana es requerida' })
+    }
+    if (trimestre === undefined || trimestre === null || trimestre === '') {
+      return res.status(400).json({ error: 'trimestre es requerido' })
     }
     if (dia === undefined || dia === null || String(dia).trim() === '') {
       return res.status(400).json({ error: 'dia es requerido' })
     }
 
-    let query = 'DELETE FROM asistencia WHERE semana = ? AND dia = ?'
-    const params = [parseInt(semana, 10), String(dia).trim().toUpperCase()]
+    let query = 'DELETE FROM asistencia WHERE trimestre = ? AND semana = ? AND dia = ?'
+    const params = [
+      parseInt(trimestre, 10),
+      parseInt(semana, 10),
+      String(dia).trim().toUpperCase(),
+    ]
 
     if (departamento) {
       query += ' AND departamento = ?'

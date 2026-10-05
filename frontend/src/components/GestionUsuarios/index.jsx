@@ -20,21 +20,31 @@ export default function GestionUsuarios({ currentUserId }) {
     confirmAction,
   } = useModal()
 
-  const cargarUsuarios = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await getUsers()
-      setUsuarios(data)
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Error al cargar usuarios'
-      showAlert(msg, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [showAlert])
+  const cargarUsuarios = useCallback(
+    async (isActivo = () => true) => {
+      setLoading(true)
+      try {
+        const data = await getUsers()
+        if (!isActivo()) return
+        setUsuarios(data)
+      } catch (err) {
+        if (!isActivo()) return
+        const msg = err.response?.data?.error || 'Error al cargar usuarios'
+        showAlert(msg, 'error')
+      } finally {
+        if (isActivo()) setLoading(false)
+      }
+    },
+    [showAlert],
+  )
 
   useEffect(() => {
-    cargarUsuarios()
+    let activo = true
+    const inicial = async () => {
+      await cargarUsuarios(() => activo)
+    }
+    inicial()
+    return () => { activo = false }
   }, [cargarUsuarios])
 
   const handleEliminar = useCallback(async (user) => {

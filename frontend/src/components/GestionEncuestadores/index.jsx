@@ -20,21 +20,31 @@ export default function GestionEncuestadores() {
     confirmAction,
   } = useModal()
 
-  const cargarEncuestadores = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await getEncuestadores()
-      setEncuestadores(data)
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Error al cargar encuestadores'
-      showAlert(msg, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }, [showAlert])
+  const cargarEncuestadores = useCallback(
+    async (isActivo = () => true) => {
+      setLoading(true)
+      try {
+        const data = await getEncuestadores()
+        if (!isActivo()) return
+        setEncuestadores(data)
+      } catch (err) {
+        if (!isActivo()) return
+        const msg = err.response?.data?.error || 'Error al cargar encuestadores'
+        showAlert(msg, 'error')
+      } finally {
+        if (isActivo()) setLoading(false)
+      }
+    },
+    [showAlert],
+  )
 
   useEffect(() => {
-    cargarEncuestadores()
+    let activo = true
+    const inicial = async () => {
+      await cargarEncuestadores(() => activo)
+    }
+    inicial()
+    return () => { activo = false }
   }, [cargarEncuestadores])
 
   const handleEliminar = useCallback(async (enc) => {

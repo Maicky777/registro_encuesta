@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { register, updateUser } from '../../services/authService'
 import { getDepartamentos, getBrigadas } from '../../services/brigadaService'
 
@@ -12,6 +12,27 @@ const INITIAL_STATE = {
   rol: 'usuarios',
 }
 
+function buildFormDataFromUsuario(usuario) {
+  if (!usuario) return INITIAL_STATE
+  const departamentos = Array.isArray(usuario.departamento) ? usuario.departamento : []
+  const brigadas = usuario.brigadas
+  let brigadasPorDepto = {}
+  if (brigadas && typeof brigadas === 'object' && !Array.isArray(brigadas)) {
+    brigadasPorDepto = brigadas
+  } else {
+    for (const dept of departamentos) {
+      brigadasPorDepto[dept] = []
+    }
+  }
+  return {
+    username: usuario.username,
+    password: '',
+    departamentos,
+    brigadasPorDepto,
+    rol: usuario.rol || 'usuarios',
+  }
+}
+
 export default function FormularioUsuario({ onUsuarioCreado, showAlert, usuarioEditar, onCancelarEdicion }) {
   const [formData, setFormData] = useState(INITIAL_STATE)
   const [submitting, setSubmitting] = useState(false)
@@ -20,68 +41,49 @@ export default function FormularioUsuario({ onUsuarioCreado, showAlert, usuarioE
 
   const editando = !!usuarioEditar
 
-  useEffect(() => {
-    if (usuarioEditar) {
-      const deptos = Array.isArray(usuarioEditar.departamento) ? usuarioEditar.departamento : []
-      let brigadasDepto = {}
-      if (typeof usuarioEditar.brigadas === 'object' && !Array.isArray(usuarioEditar.brigadas) && usuarioEditar.brigadas !== null) {
-        brigadasDepto = usuarioEditar.brigadas
-      } else {
-        for (const dept of deptos) {
-          brigadasDepto[dept] = []
-        }
-      }
-      setFormData({
-        username: usuarioEditar.username,
-        password: '',
-        departamentos: deptos,
-        brigadasPorDepto: brigadasDepto,
-        rol: usuarioEditar.rol || 'usuarios',
-      })
-    } else {
-      setFormData(INITIAL_STATE)
-    }
-  }, [usuarioEditar])
+  const [usuarioEditadoAnterior, setUsuarioEditadoAnterior] = useState(usuarioEditar)
+  if (usuarioEditadoAnterior !== usuarioEditar) {
+    setUsuarioEditadoAnterior(usuarioEditar)
+    setFormData(buildFormDataFromUsuario(usuarioEditar))
+  }
 
   useEffect(() => {
-    getDepartamentos()
-      .then(setDepartamentos)
-      .catch(() => {})
+    let cancelled = false
+    const cargar = async () => {
+      try {
+        const data = await getDepartamentos()
+        if (!cancelled) setDepartamentos(data)
+      } catch {
+        if (!cancelled) setDepartamentos([])
+      }
+    }
+    cargar()
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
     const deptos = formData.departamentos
-    if (!editando) {
-      setFormData((prev) => {
-        const cleaned = {}
-        for (const dept of deptos) {
-          cleaned[dept] = prev.brigadasPorDepto[dept] || []
-        }
-        return { ...prev, brigadasPorDepto: cleaned }
-      })
-    }
-    if (deptos.length === 0) {
-      setBrigadasPorDepto({})
-      return
-    }
-    const loaded = {}
-    let pending = deptos.length
-    for (const dept of deptos) {
-      getBrigadas(dept)
-        .then((data) => {
-          loaded[dept] = data.map((b) => b.nombre)
-        })
-        .catch(() => {
-          loaded[dept] = []
-        })
-        .finally(() => {
-          pending--
-          if (pending === 0) {
-            setBrigadasPorDepto(loaded)
+    if (deptos.length === 0) return
+    let cancelled = false
+    const cargar = async () => {
+      const resultados = await Promise.all(
+        deptos.map(async (dept) => {
+          try {
+            const data = await getBrigadas(dept)
+            return [dept, data.map((b) => b.nombre)]
+          } catch {
+            return [dept, []]
           }
-        })
+        }),
+      )
+      if (cancelled) return
+      const loaded = {}
+      for (const [dept, nombres] of resultados) loaded[dept] = nombres
+      setBrigadasPorDepto(loaded)
     }
-  }, [formData.departamentos, editando])
+    cargar()
+    return () => { cancelled = true }
+  }, [formData.departamentos])
 
   const toggleDepartamento = (depto) => {
     setFormData((prev) => {

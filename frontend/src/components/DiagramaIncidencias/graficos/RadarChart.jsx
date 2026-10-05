@@ -2,7 +2,7 @@ import { Radar } from 'react-chartjs-2'
 import { useMemo } from 'react'
 import { externalTooltipHandler } from './customTooltip'
 
-export default function GraficoRadar({ semanas, series, totales, ocultos, folios }) {
+export default function GraficoRadar({ semanas, series, totales, ocultos }) {
   const datasets = useMemo(
     () =>
       series.map((serie) => ({
@@ -54,7 +54,7 @@ export default function GraficoRadar({ semanas, series, totales, ocultos, folios
         },
       },
     }),
-    [series],
+    [],
   )
 
   return <Radar data={{ labels: semanas.map((s) => `Semana ${s}`), datasets }} options={options} />

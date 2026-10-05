@@ -284,6 +284,62 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    name: '017_add_trimestre_to_asistencia',
+    up(database) {
+      const columns = database.prepare('PRAGMA table_info(asistencia)').all()
+      const tieneTrimestre = columns.some((c) => c.name === 'trimestre')
+
+      if (!tieneTrimestre) {
+        // Todos los registros capturados antes de esta migracion pertenecen al
+        // trimestre 3: el trimestre 4 arranca en la globalWeek 14 (05/10/2026),
+        // y desde esa fecha en adelante se captura con el trimestre que elige
+        // el usuario en el formulario.
+        database.exec('ALTER TABLE asistencia ADD COLUMN trimestre INTEGER NOT NULL DEFAULT 3')
+      }
+
+      database.exec('UPDATE asistencia SET trimestre = 3 WHERE trimestre IS NULL OR trimestre != 3')
+
+      // SQLite no permite agregar una columna al UNIQUE existente, por lo que se
+      // reconstruye la tabla con UNIQUE(encuestador_id, trimestre, semana, dia, turno).
+      // No hace falta desactivar foreign_keys: asistencia es tabla hija de
+      // encuestadores, y el UNIQUE viejo es subconjunto del nuevo, asi que
+      // la copia no puede generar colisiones.
+      database.exec(`
+        CREATE TABLE asistencia_nueva (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          encuestador_id INTEGER NOT NULL REFERENCES encuestadores(id) ON DELETE CASCADE,
+          departamento TEXT NOT NULL DEFAULT '',
+          brigada TEXT NOT NULL DEFAULT '',
+          trimestre INTEGER NOT NULL DEFAULT 3,
+          semana INTEGER NOT NULL DEFAULT 0,
+          dia TEXT NOT NULL,
+          turno TEXT NOT NULL,
+          estatus TEXT NOT NULL DEFAULT 'N/A',
+          ingreso TEXT DEFAULT '',
+          fIngreso TEXT DEFAULT '',
+          salida TEXT DEFAULT '',
+          fSalida TEXT DEFAULT '',
+          observacion TEXT DEFAULT '',
+          UNIQUE(encuestador_id, trimestre, semana, dia, turno)
+        )
+      `)
+      database.exec(`
+        INSERT INTO asistencia_nueva
+          (id, encuestador_id, departamento, brigada, trimestre, semana, dia, turno, estatus, ingreso, fIngreso, salida, fSalida, observacion)
+        SELECT id, encuestador_id, departamento, brigada, trimestre, semana, dia, turno, estatus, ingreso, fIngreso, salida, fSalida, observacion
+        FROM asistencia
+      `)
+      database.exec('DROP TABLE asistencia')
+      database.exec('ALTER TABLE asistencia_nueva RENAME TO asistencia')
+      database.exec(`
+        CREATE INDEX IF NOT EXISTS idx_asistencia_semana ON asistencia(semana);
+        CREATE INDEX IF NOT EXISTS idx_asistencia_departamento ON asistencia(departamento);
+        CREATE INDEX IF NOT EXISTS idx_asistencia_brigada ON asistencia(brigada);
+        CREATE INDEX IF NOT EXISTS idx_asistencia_trimestre ON asistencia(trimestre);
+      `)
+    },
+  },
 ]
 
 function runMigrations(database) {

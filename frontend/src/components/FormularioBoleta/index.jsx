@@ -98,56 +98,53 @@ export default function FormularioBoleta({ sessionUser }) {
   const getFormState = useCallback(
     () => ({
       ...INITIAL_FORM_STATE,
-      departamento:
-        sessionUser.rol === 'administrador'
-          ? selectedDepartamento
-          : selectedDepartamento,
+      departamento: selectedDepartamento,
       brigada: brigadas[0]?.nombre || '',
       usuarioEncuestador: '',
       nombreEncuestador: '',
       encuestador_id: '',
     }),
-    [sessionUser, brigadas, selectedDepartamento],
+    [brigadas, selectedDepartamento],
   )
 
   const [formData, setFormData] = useState(() => ({
     ...INITIAL_FORM_STATE,
-    departamento:
-      sessionUser.rol === 'administrador'
-        ? selectedDepartamento
-        : selectedDepartamento,
+    departamento: selectedDepartamento,
   }))
 
   const dataReady = brigadas.length > 0 && encuestadores.length > 0
 
-  useEffect(() => {
-    if (
-      dataReady &&
-      !formData.brigada &&
-      brigadas.length > 0 &&
-      brigadas[0].departamento === selectedDepartamento
-    ) {
-      setFormData(getFormState())
-    }
-  }, [dataReady, formData.brigada, getFormState, brigadas, selectedDepartamento])
+  const brigadaActual = formData.brigada
+  if (
+    dataReady &&
+    !brigadaActual &&
+    brigadas.length > 0 &&
+    brigadas[0].departamento === selectedDepartamento
+  ) {
+    setFormData(getFormState())
+  }
 
   useEffect(() => {
+    const seq = folioCheckSeq
+    const timeoutRef = folioCheckRef
     return () => {
-      folioCheckSeq.current++
-      clearTimeout(folioCheckRef.current)
+      seq.current++
+      clearTimeout(timeoutRef.current)
     }
   }, [])
 
-  const registrosSemana = useMemo(
+  const registrosTabla = useMemo(
     () =>
       registros.filter(
-        (r) => parseInt(r.semana, 10) === parseInt(formData.semana, 10),
+        (r) =>
+          String(r.trimestre) === String(formData.trimestre) &&
+          parseInt(r.semana, 10) === parseInt(formData.semana, 10),
       ),
-    [registros, formData.semana],
+    [registros, formData.trimestre, formData.semana],
   )
 
   const { filtroGeneral, setFiltroGeneral, registrosFiltrados } =
-    useFiltros(registrosSemana)
+    useFiltros(registrosTabla)
 
   const limpiarFormulario = useCallback(() => {
     folioCheckSeq.current++
@@ -551,7 +548,6 @@ export default function FormularioBoleta({ sessionUser }) {
         submitting={submitting}
         registros={registros}
         canEditUpmReemplazo={canEditUpmReemplazo}
-        rol={sessionUser.rol}
         departments={departments}
         selectedDepartamento={selectedDepartamento}
         onDepartamentoChange={handleDepartamentoChange}
@@ -568,6 +564,7 @@ export default function FormularioBoleta({ sessionUser }) {
       <PanelDatos
         registros={registros}
         semana={formData.semana}
+        trimestre={formData.trimestre}
         registrosFiltrados={registrosFiltrados}
         filtroGeneral={filtroGeneral}
         onFiltroChange={setFiltroGeneral}

@@ -25,31 +25,44 @@ export default function AsignacionBrigadas() {
     confirmAction,
   } = useModal()
 
-  const cargarBrigadas = useCallback(async () => {
-    try {
-      const data = await getBrigadas(departamento)
-      setBrigadas(data)
-      setBrigadaSeleccionada(null)
-      setEncuestadoresEnBrigada([])
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Error al cargar brigadas'
-      showAlert(msg, 'error')
-    }
-  }, [departamento, showAlert])
+  const cargarBrigadas = useCallback(
+    async (isActivo = () => true) => {
+      try {
+        const data = await getBrigadas(departamento)
+        if (!isActivo()) return
+        setBrigadas(data)
+        setBrigadaSeleccionada(null)
+        setEncuestadoresEnBrigada([])
+      } catch (err) {
+        if (!isActivo()) return
+        const msg = err.response?.data?.error || 'Error al cargar brigadas'
+        showAlert(msg, 'error')
+      }
+    },
+    [departamento, showAlert],
+  )
 
-  const cargarEncuestadores = useCallback(async () => {
-    try {
-      const data = await getEncuestadores(departamento)
-      setTodosEncuestadores(data)
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Error al cargar encuestadores'
-      showAlert(msg, 'error')
-    }
-  }, [departamento, showAlert])
+  const cargarEncuestadores = useCallback(
+    async (isActivo = () => true) => {
+      try {
+        const data = await getEncuestadores(departamento)
+        if (!isActivo()) setTodosEncuestadores(data)
+      } catch (err) {
+        if (!isActivo()) return
+        const msg = err.response?.data?.error || 'Error al cargar encuestadores'
+        showAlert(msg, 'error')
+      }
+    },
+    [departamento, showAlert],
+  )
 
   useEffect(() => {
-    cargarBrigadas()
-    cargarEncuestadores()
+    let activo = true
+    const inicial = async () => {
+      await Promise.all([cargarBrigadas(() => activo), cargarEncuestadores(() => activo)])
+    }
+    inicial()
+    return () => { activo = false }
   }, [cargarBrigadas, cargarEncuestadores])
 
   const cargarAsignacionesBrigada = useCallback(async (brigadaId) => {

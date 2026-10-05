@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createEncuestador, updateEncuestador } from '../../services/encuestadorService'
 
 const inputClass = 'w-full px-2.5 py-1.5 text-[0.82rem] border border-slate-300 rounded bg-white text-slate-900 transition-colors outline-none focus:border-slate-800 focus:ring-2 focus:ring-slate-800/15'
@@ -14,18 +14,20 @@ export default function FormularioEncuestador({ onEncuestadorCreado, onEncuestad
   const [formData, setFormData] = useState(INITIAL_STATE)
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (encuestadorEditando) {
-      setFormData({
-        nombre: encuestadorEditando.nombre,
-        rol: encuestadorEditando.rol,
-        codigo: encuestadorEditando.codigo,
-        telefono: encuestadorEditando.telefono || '',
-      })
-    } else {
-      setFormData(INITIAL_STATE)
-    }
-  }, [encuestadorEditando])
+  const [encuestadorEditadoAnterior, setEncuestadorEditadoAnterior] = useState(encuestadorEditando)
+  if (encuestadorEditadoAnterior !== encuestadorEditando) {
+    setEncuestadorEditadoAnterior(encuestadorEditando)
+    setFormData(
+      encuestadorEditando
+        ? {
+            nombre: encuestadorEditando.nombre,
+            rol: encuestadorEditando.rol,
+            codigo: encuestadorEditando.codigo,
+            telefono: encuestadorEditando.telefono || '',
+          }
+        : INITIAL_STATE,
+    )
+  }
 
   const esEdicion = !!encuestadorEditando
 

@@ -8,15 +8,23 @@ import {
 } from '../../services/asistenciaService'
 import ModalAlert from '../ui/ModalAlert'
 import ModalConfirm from '../ui/ModalConfirm'
-import { getSemanaActual, getTrimestreActual } from '../../utils/helpers'
+import {
+  getSemanaActual,
+  getTrimestreActual,
+  getGlobalWeekActual,
+  getGlobalWeekDesdeTrimestreSemana,
+} from '../../utils/helpers'
 import {
   DEPARTAMENTOS,
+  TRIMESTRES,
   SEMANA_MIN,
   SEMANA_MAX,
   SEMANA_ANCLA,
   ANCLA_FECHA,
 } from '../../utils/constants'
 import ExcelJS from 'exceljs/dist/exceljs.min.js'
+
+const TRIMESTRE_OPCIONES = [...TRIMESTRES].sort((a, b) => a - b)
 
 const METODOS_VERIFICACION = [
   'FOTOGRAFIA GRUPAL Y PUNTO',
@@ -114,21 +122,28 @@ const TEMAS_DIA = [
 
 const FECHA_ANCLA = new Date(ANCLA_FECHA)
 
-function getFechaSemana(semana, diaIndex) {
+function getGlobalWeek(trimestre, semana) {
+  return (
+    getGlobalWeekDesdeTrimestreSemana(trimestre, semana) ?? getGlobalWeekActual()
+  )
+}
+
+function getFechaSemana(trimestre, semana, diaIndex) {
+  const globalWeek = getGlobalWeek(trimestre, semana)
   const target = new Date(FECHA_ANCLA)
-  target.setDate(target.getDate() + (semana - SEMANA_ANCLA) * 7 + diaIndex)
+  target.setDate(target.getDate() + (globalWeek - SEMANA_ANCLA) * 7 + diaIndex)
   return target
 }
 
-function getDiaFechaShort(diaIndex, semana) {
-  const target = getFechaSemana(semana, diaIndex)
+function getDiaFechaShort(diaIndex, trimestre, semana) {
+  const target = getFechaSemana(trimestre, semana, diaIndex)
   const dd = String(target.getDate()).padStart(2, '0')
   const mm = String(target.getMonth() + 1).padStart(2, '0')
   return `${dd}/${mm}`
 }
 
-function getDiaFechaFull(diaIndex, semana) {
-  const target = getFechaSemana(semana, diaIndex)
+function getDiaFechaFull(diaIndex, trimestre, semana) {
+  const target = getFechaSemana(trimestre, semana, diaIndex)
   const dd = String(target.getDate()).padStart(2, '0')
   const mm = String(target.getMonth() + 1).padStart(2, '0')
   return `${dd}/${mm}/${target.getFullYear()}`
@@ -149,6 +164,7 @@ export default function ReporteAsistencia({ sessionUser }) {
   const userDeptArray = Array.isArray(userDept) ? userDept : (userDept ? [userDept] : [])
   const defaultDept = userDeptArray[0] || ''
 
+  const [trimestre, setTrimestre] = useState(getTrimestreActual())
   const [departamento, setDepartamento] = useState(isAdmin ? '' : defaultDept)
   const [semana, setSemana] = useState(getSemanaActual())
 
@@ -171,50 +187,59 @@ export default function ReporteAsistencia({ sessionUser }) {
 
   const [selectedIds, setSelectedIds] = useState(() => new Set())
 
-  const cargarDatos = useCallback(async () => {
-    if (!departamento || !semana) return
-    setLoading(true)
-    try {
-      const params = { departamento, semana }
-      const [personalData, existingData] = await Promise.all([
-        getPersonalAsistencia(params),
-        getAsistencia(params),
-      ])
-      const vistos = new Set()
-      const personalUnico = personalData.filter((p) => {
-        if (vistos.has(p.encuestador_id)) return false
-        vistos.add(p.encuestador_id)
-        return true
-      })
-      personalUnico.sort((a, b) => {
-        const numA = parseInt((a.codBrigada || '').replace(/\D/g, ''), 10) || 0
-        const numB = parseInt((b.codBrigada || '').replace(/\D/g, ''), 10) || 0
-        if (numA !== numB) return numA - numB
-        return (a.usuario || '').localeCompare(b.usuario || '')
-      })
-      setPersonal(personalUnico)
-      setSelectedIds(new Set())
+  const cargarDatos = useCallback(
+    async (isActivo = () => true) => {
+      if (!departamento || !trimestre || !semana) return
+      setLoading(true)
+      try {
+        const params = { departamento, semana, trimestre }
+        const [personalData, existingData] = await Promise.all([
+          getPersonalAsistencia(params),
+          getAsistencia(params),
+        ])
+        if (!isActivo()) return
+        const vistos = new Set()
+        const personalUnico = personalData.filter((p) => {
+          if (vistos.has(p.encuestador_id)) return false
+          vistos.add(p.encuestador_id)
+          return true
+        })
+        personalUnico.sort((a, b) => {
+          const numA = parseInt((a.codBrigada || '').replace(/\D/g, ''), 10) || 0
+          const numB = parseInt((b.codBrigada || '').replace(/\D/g, ''), 10) || 0
+          if (numA !== numB) return numA - numB
+          return (a.usuario || '').localeCompare(b.usuario || '')
+        })
+        setPersonal(personalUnico)
+        setSelectedIds(new Set())
 
-      const map = {}
-      for (const rec of existingData) {
-        map[`${rec.encuestador_id}_${rec.dia}_${rec.turno}`] = rec
+        const map = {}
+        for (const rec of existingData) {
+          map[`${rec.encuestador_id}_${rec.dia}_${rec.turno}`] = rec
+        }
+        setAttendanceMap(map)
+      } catch (err) {
+        if (!isActivo()) return
+        showAlert(
+          'Error al cargar datos: ' + (err.response?.data?.error || err.message),
+          'error',
+        )
+      } finally {
+        if (isActivo()) setLoading(false)
       }
-      setAttendanceMap(map)
-    } catch (err) {
-      showAlert(
-        'Error al cargar datos: ' + (err.response?.data?.error || err.message),
-        'error',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [departamento, semana, showAlert])
+    },
+    [departamento, trimestre, semana, showAlert],
+  )
 
   useEffect(() => {
-    if (departamento && semana) {
-      cargarDatos()
+    if (!departamento || !trimestre || !semana) return
+    let activo = true
+    const inicial = async () => {
+      await cargarDatos(() => activo)
     }
-  }, [departamento, semana, cargarDatos])
+    inicial()
+    return () => { activo = false }
+  }, [departamento, trimestre, semana, cargarDatos])
 
   const updateField = (encuestadorId, dia, turno, field, value) => {
     const key = `${encuestadorId}_${dia}_${turno}`
@@ -284,6 +309,7 @@ export default function ReporteAsistencia({ sessionUser }) {
         records,
         semana: parseInt(semana, 10),
         departamento,
+        trimestre,
       })
       showAlert(
         `Asistencia guardada correctamente (${records.length} registros).`,
@@ -313,12 +339,12 @@ export default function ReporteAsistencia({ sessionUser }) {
   const handleEliminarDia = async () => {
     const dia = DIAS[diaActivo]
     const confirmado = await showConfirm(
-      `¿Está seguro de eliminar todos los registros de asistencia de ${dia} (${getDiaFechaShort(diaActivo, semana)}) de la semana ${semana}?`,
+      `¿Está seguro de eliminar todos los registros de asistencia de ${dia} (${getDiaFechaShort(diaActivo, trimestre, semana)}) de la semana ${semana} del trimestre ${trimestre}?`,
     )
     if (!confirmado) return
 
     try {
-      const res = await deleteAsistencia({ semana, departamento, dia })
+      const res = await deleteAsistencia({ semana, departamento, dia, trimestre })
       showAlert(`Registros de ${dia} eliminados (${res.count}).`, 'success')
       await cargarDatos()
     } catch (err) {
@@ -446,7 +472,7 @@ export default function ReporteAsistencia({ sessionUser }) {
     try {
       const workbook = new ExcelJS.Workbook()
       workbook.creator = 'Sistema de Asistencia'
-      const sheet = workbook.addWorksheet(`ASISTENCIA SEM ${semana}`)
+      const sheet = workbook.addWorksheet(`ASISTENCIA T${trimestre} SEM ${semana}`)
       sheet.views = [{ state: 'normal', zoomScale: 80 }]
 
       const INFO_COLS = 8
@@ -475,7 +501,6 @@ export default function ReporteAsistencia({ sessionUser }) {
       titleRow.height = 28
       sheet.mergeCells(1, 1, 1, INFO_COLS)
 
-      const trimestre = getTrimestreActual()
       const infoRow2 = sheet.getRow(2)
       infoRow2.getCell(1).value = 'TRIMESTRE'
       infoRow2.getCell(1).font = { name: 'Calibri', size: 20, bold: true, color: { argb: 'FF808080' } }
@@ -511,7 +536,7 @@ export default function ReporteAsistencia({ sessionUser }) {
         const start = dayStart(i)
         const end = start + COLS_PER_DAY - 1
 
-        const fecha = getFechaSemana(semana, i)
+        const fecha = getFechaSemana(trimestre, semana, i)
         const fechaStr = `${String(fecha.getDate()).padStart(2, '0')}/${String(
           fecha.getMonth() + 1,
         ).padStart(2, '0')}/${fecha.getFullYear()}`
@@ -770,7 +795,7 @@ export default function ReporteAsistencia({ sessionUser }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `Reporte_Asistencia_Sem${semana}_${new Date().toISOString().split('T')[0]}.xlsx`
+      a.download = `Reporte_Asistencia_T${trimestre}_Sem${semana}_${new Date().toISOString().split('T')[0]}.xlsx`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -814,6 +839,22 @@ export default function ReporteAsistencia({ sessionUser }) {
               {(isAdmin ? DEPARTAMENTOS : userDeptArray).map((d) => (
                 <option key={d} value={d}>
                   {d}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+              Trimestre
+            </label>
+            <select
+              className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white min-w-[110px] focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+              value={trimestre}
+              onChange={(e) => setTrimestre(parseInt(e.target.value, 10) || 0)}
+            >
+              {TRIMESTRE_OPCIONES.map((t) => (
+                <option key={t} value={t}>
+                  Trimestre {t}
                 </option>
               ))}
             </select>
@@ -913,7 +954,7 @@ export default function ReporteAsistencia({ sessionUser }) {
               <button
                 type="button"
                 className="inline-flex items-center gap-2 bg-slate-600 text-white border-none px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer hover:bg-slate-700 transition-colors shadow-sm"
-                onClick={cargarDatos}
+                onClick={() => cargarDatos()}
               >
                 <svg
                   className="w-3.5 h-3.5"
@@ -957,7 +998,7 @@ export default function ReporteAsistencia({ sessionUser }) {
                 >
                   {DIAS[diaActivo]}
                   <span className="font-normal normal-case">
-                    {getDiaFechaShort(diaActivo, semana)}
+                    {getDiaFechaShort(diaActivo, trimestre, semana)}
                   </span>
                 </span>
                 a los seleccionados (
@@ -1099,7 +1140,7 @@ export default function ReporteAsistencia({ sessionUser }) {
                       activo ? tema.tabFecha : 'text-slate-400'
                     }`}
                   >
-                    {getDiaFechaShort(i, semana)}
+                    {getDiaFechaShort(i, trimestre, semana)}
                   </span>
                   {activo && (
                     <span
@@ -1136,14 +1177,14 @@ export default function ReporteAsistencia({ sessionUser }) {
                   Editando: {DIAS[diaActivo]}
                 </span>
                 <span className="text-xs font-medium bg-white/20 rounded-full px-3 py-1">
-                  {getDiaFechaFull(diaActivo, semana)}
+                  {getDiaFechaFull(diaActivo, trimestre, semana)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <span
                   className={`text-xs font-semibold ${tema.bannerSemana}`}
                 >
-                  Semana N° {semana}
+                  Trimestre N° {trimestre} - Semana N° {semana}
                 </span>
                 {tieneRegistrosDia(diaActivo) && (
                   <button

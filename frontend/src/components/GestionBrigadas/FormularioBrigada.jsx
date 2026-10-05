@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createBrigada, updateBrigada } from '../../services/brigadaService'
 import { DEPARTAMENTOS } from '../../utils/constants'
 
@@ -13,16 +13,15 @@ export default function FormularioBrigada({ onBrigadaCreada, onBrigadaEditada, b
   const [formData, setFormData] = useState(INITIAL_STATE)
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (brigadaEditando) {
-      setFormData({
-        nombre: brigadaEditando.nombre,
-        departamento: brigadaEditando.departamento,
-      })
-    } else {
-      setFormData(INITIAL_STATE)
-    }
-  }, [brigadaEditando])
+  const [brigadaEditadaAnterior, setBrigadaEditadaAnterior] = useState(brigadaEditando)
+  if (brigadaEditadaAnterior !== brigadaEditando) {
+    setBrigadaEditadaAnterior(brigadaEditando)
+    setFormData(
+      brigadaEditando
+        ? { nombre: brigadaEditando.nombre, departamento: brigadaEditando.departamento }
+        : INITIAL_STATE,
+    )
+  }
 
   const esEdicion = !!brigadaEditando
 

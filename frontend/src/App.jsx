@@ -157,7 +157,7 @@ export default function App() {
             {activeTab === 'asignacion' && currentUser.rol === 'administrador' && <AsignacionBrigadas />}
             {activeTab === 'asistencia' && <ReporteAsistencia sessionUser={currentUser} />}
             {activeTab === 'incidencias' && currentUser.rol === 'administrador' && (
-              <DiagramaIncidencias sessionUser={currentUser} />
+              <DiagramaIncidencias />
             )}
             {activeTab === 'contraseñas' && currentUser.rol === 'administrador' && (
               <GestionContraseñas currentUserId={currentUser.id} />

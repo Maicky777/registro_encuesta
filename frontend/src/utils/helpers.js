@@ -1,4 +1,12 @@
-import { SEMANA_MIN, SEMANA_MAX, SEMANA_ANCLA, ANCLA_FECHA, MAX_POR_UPM, INCIDENCIA_TRASLADO, TRIMESTRES } from './constants'
+import {
+  SEMANA_MIN,
+  SEMANA_MAX,
+  SEMANA_ANCLA,
+  ANCLA_FECHA,
+  MAX_POR_UPM,
+  INCIDENCIA_TRASLADO,
+  TRIMESTRES,
+} from './constants'
 
 export const getEstadoClass = (estado) => {
   switch (estado) {
@@ -15,13 +23,13 @@ export const getEstadoClass = (estado) => {
 
 export const calcularPanel = (visita, upm = '') => {
   const numVisita = parseInt(visita, 10)
-  if (numVisita === 4) return 'PANEL 43'
-  if (numVisita === 3) return 'PANEL 44'
-  if (numVisita === 2) return 'PANEL 45'
+  if (numVisita === 4) return 'PANEL 44'
+  if (numVisita === 3) return 'PANEL 45'
+  if (numVisita === 2) return 'PANEL 46'
   if (numVisita === 1) {
     if (upm && upm.length >= 3) {
       const primeros3 = parseInt(upm.substring(0, 3), 10)
-      return primeros3 < 730 ? 'PANEL 46' : 'PANEL 0'
+      return primeros3 < 730 ? 'PANEL 47' : 'PANEL 0'
     }
     return 'PANEL 46 / PANEL 0'
   }
@@ -40,7 +48,11 @@ export const validarFolio = (folio) => {
   return /^\d{3}-\d{11}-[AD]-\d{4}$/.test(folio || '')
 }
 
-export const calcularUPMEfectivo = (folio, upmAdicional = '', upmManual = '') => {
+export const calcularUPMEfectivo = (
+  folio,
+  upmAdicional = '',
+  upmManual = '',
+) => {
   const upmDesdeFolio = calcularUPM(folio)
   const adicional = (upmAdicional || '').trim()
   if (adicional !== '' && upmDesdeFolio === adicional && upmManual) {
@@ -48,7 +60,6 @@ export const calcularUPMEfectivo = (folio, upmAdicional = '', upmManual = '') =>
   }
   return upmDesdeFolio
 }
-
 
 export const formatearFecha = (iso) => {
   if (!iso) return ''
@@ -58,30 +69,74 @@ export const formatearFecha = (iso) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export const getSemanaActual = (fecha = new Date()) => {
+const mod = (n, m) => ((n % m) + m) % m
+
+export const getGlobalWeekActual = (fecha = new Date()) => {
   const hoy = new Date(fecha)
   hoy.setHours(0, 0, 0, 0)
   const ancla = new Date(ANCLA_FECHA)
   ancla.setHours(0, 0, 0, 0)
   const diffDias = Math.round((hoy - ancla) / 86400000)
-  const semana = SEMANA_ANCLA + Math.floor(diffDias / 7)
-  const rango = SEMANA_MAX - SEMANA_MIN + 1
-  return ((((semana - SEMANA_MIN) % rango) + rango) % rango) + SEMANA_MIN
+  return SEMANA_ANCLA + Math.floor(diffDias / 7)
 }
 
-export const getTrimestreActual = (fecha = new Date()) => {
-  const hoy = new Date(fecha)
-  hoy.setHours(0, 0, 0, 0)
-  const ancla = new Date(ANCLA_FECHA)
-  ancla.setHours(0, 0, 0, 0)
-  const diffDias = Math.round((hoy - ancla) / 86400000)
-  const globalWeek = SEMANA_ANCLA + Math.floor(diffDias / 7)
-  const trimestreIndex = (((Math.floor((globalWeek - 1) / SEMANA_MAX) % TRIMESTRES.length) + TRIMESTRES.length) % TRIMESTRES.length)
-  return TRIMESTRES[trimestreIndex]
+export const getTrimestreDesdeGlobalWeek = (globalWeek) =>
+  TRIMESTRES[mod(Math.floor((globalWeek - 1) / SEMANA_MAX), TRIMESTRES.length)]
+
+export const getTrimestreYSemanaActual = (fecha = new Date()) => {
+  const globalWeek = getGlobalWeekActual(fecha)
+  return {
+    trimestre: getTrimestreDesdeGlobalWeek(globalWeek),
+    semana: mod(globalWeek - 1, SEMANA_MAX) + SEMANA_MIN,
+  }
+}
+
+export const getSemanaActual = (fecha = new Date()) =>
+  getTrimestreYSemanaActual(fecha).semana
+
+export const getTrimestreActual = (fecha = new Date()) =>
+  getTrimestreYSemanaActual(fecha).trimestre
+
+// Resuelve el numero de semana global (no ciclico) que corresponde al par
+// trimestre + semana, eligiendo la ocurrencia mas cercana a la fecha actual.
+export const getGlobalWeekDesdeTrimestreSemana = (
+  trimestre,
+  semana,
+  fecha = new Date(),
+) => {
+  const trimestreNum = parseInt(trimestre, 10)
+  const semanaNum = parseInt(semana, 10)
+  if (
+    !TRIMESTRES.includes(trimestreNum) ||
+    !Number.isInteger(semanaNum) ||
+    semanaNum < SEMANA_MIN ||
+    semanaNum > SEMANA_MAX
+  ) {
+    return null
+  }
+
+  const actual = getGlobalWeekActual(fecha)
+  let mejor = null
+  let mejorDif = Infinity
+  for (let ciclo = -TRIMESTRES.length; ciclo <= TRIMESTRES.length; ciclo++) {
+    if (
+      getTrimestreDesdeGlobalWeek(ciclo * SEMANA_MAX + semanaNum) !==
+      trimestreNum
+    )
+      continue
+    const diff = Math.abs(ciclo * SEMANA_MAX + semanaNum - actual)
+    if (diff < mejorDif) {
+      mejorDif = diff
+      mejor = ciclo * SEMANA_MAX + semanaNum
+    }
+  }
+  return mejor
 }
 
 export const computeObservacionFields = (detalleObservaciones) => {
-  const frases = (detalleObservaciones || '').split(';').filter((f) => f.trim().length > 0)
+  const frases = (detalleObservaciones || '')
+    .split(';')
+    .filter((f) => f.trim().length > 0)
   const total = frases.length
   return {
     totalObservaciones: total,
@@ -93,6 +148,7 @@ export const computeObservacionFields = (detalleObservaciones) => {
 
 export const calcularAvanceBrigadas = (registros, semana, opciones = {}) => {
   const contarSoloEstado = opciones.contarSoloEstado === true
+  const trimestre = opciones.trimestre
   const vacio = {
     semana: 0,
     agrupado: {},
@@ -104,9 +160,14 @@ export const calcularAvanceBrigadas = (registros, semana, opciones = {}) => {
   if (!registros) return vacio
 
   const semanaNum = parseInt(semana, 10) || 0
-  const registrosSemana = registros.filter(
-    (r) => parseInt(r.semana, 10) === semanaNum,
-  )
+  const registrosSemana = registros.filter((r) => {
+    const matchSemana = parseInt(r.semana, 10) === semanaNum
+    const matchTrimestre =
+      trimestre === undefined || trimestre === null || trimestre === ''
+        ? true
+        : String(r.trimestre) === String(trimestre)
+    return matchSemana && matchTrimestre
+  })
   if (registrosSemana.length === 0) return vacio
 
   const agrupado = {}
@@ -114,7 +175,13 @@ export const calcularAvanceBrigadas = (registros, semana, opciones = {}) => {
     const brigada = r.brigada
     if (!agrupado[brigada]) agrupado[brigada] = {}
     if (!agrupado[brigada][r.upm])
-      agrupado[brigada][r.upm] = { total: 0, validas: 0, traslados: 0, observadas: 0, incidencias: {} }
+      agrupado[brigada][r.upm] = {
+        total: 0,
+        validas: 0,
+        traslados: 0,
+        observadas: 0,
+        incidencias: {},
+      }
     const info = agrupado[brigada][r.upm]
     info.total++
     info.incidencias[r.incidencia] = (info.incidencias[r.incidencia] || 0) + 1
@@ -133,7 +200,10 @@ export const calcularAvanceBrigadas = (registros, semana, opciones = {}) => {
   }
 
   const brigadas = Object.entries(agrupado).map(([brigada, upms]) => {
-    const upmDetalle = Object.entries(upms).map(([upm, det]) => ({ upm, ...det }))
+    const upmDetalle = Object.entries(upms).map(([upm, det]) => ({
+      upm,
+      ...det,
+    }))
     let validas = 0
     let traslados = 0
     let observadas = 0
@@ -153,7 +223,11 @@ export const calcularAvanceBrigadas = (registros, semana, opciones = {}) => {
       observadas,
       max,
       pct,
-      upmResumen: upmDetalle.map(({ upm, total, observadas }) => ({ upm, total, observadas })),
+      upmResumen: upmDetalle.map(({ upm, total, observadas }) => ({
+        upm,
+        total,
+        observadas,
+      })),
     }
   })
 
@@ -174,6 +248,7 @@ export const calcularAvanceBrigadas = (registros, semana, opciones = {}) => {
     brigadas,
     maxPorUpm: MAX_POR_UPM,
     totales,
-    pctGeneral: totales.max > 0 ? Math.round((totales.validas / totales.max) * 100) : 0,
+    pctGeneral:
+      totales.max > 0 ? Math.round((totales.validas / totales.max) * 100) : 0,
   }
 }

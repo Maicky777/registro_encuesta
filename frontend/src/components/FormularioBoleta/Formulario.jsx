@@ -1,10 +1,13 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import {
   INCIDENCIAS,
   SEMANA_MIN,
   SEMANA_MAX,
+  TRIMESTRES,
 } from '../../utils/constants'
-import { calcularUPM, calcularUPMEfectivo, calcularVOE, calcularPanel, validarFolio, calcularAvanceBrigadas, getTrimestreActual } from '../../utils/helpers'
+import { calcularUPM, calcularUPMEfectivo, calcularVOE, calcularPanel, validarFolio, calcularAvanceBrigadas, getTrimestreActual, getTrimestreYSemanaActual } from '../../utils/helpers'
+
+const TRIMESTRE_OPCIONES = [...TRIMESTRES].sort((a, b) => a - b)
 
 const estadoSelectClass = (estado) => {
   const base =
@@ -28,7 +31,6 @@ const Formulario = ({
   submitting,
   registros,
   canEditUpmReemplazo,
-  rol,
   departments,
   selectedDepartamento,
   onDepartamentoChange,
@@ -117,9 +119,29 @@ const Formulario = ({
     Number(formData.numeroCorrelativo) === 1 &&
     !!(formData.upmAdicional && formData.upmAdicional.trim() !== '')
 
+  const [avanceTrimestre, setAvanceTrimestre] = useState(
+    () => getTrimestreYSemanaActual().trimestre,
+  )
+  const [avanceSemana, setAvanceSemana] = useState(
+    () => getTrimestreYSemanaActual().semana,
+  )
+
+  const handleAvanceSemanaChange = (e) => {
+    const digitos = e.target.value.replace(/\D/g, '')
+    if (digitos === '') {
+      setAvanceSemana('')
+      return
+    }
+    setAvanceSemana(Math.min(parseInt(digitos, 10), SEMANA_MAX))
+  }
+
   const avanceBrigadas = useMemo(
-    () => calcularAvanceBrigadas(registros, formData.semana, { contarSoloEstado: true }).brigadas,
-    [registros, formData.semana],
+    () =>
+      calcularAvanceBrigadas(registros, avanceSemana, {
+        contarSoloEstado: true,
+        trimestre: avanceTrimestre,
+      }).brigadas,
+    [registros, avanceSemana, avanceTrimestre],
   )
 
   return (
@@ -669,11 +691,60 @@ const Formulario = ({
           </button>
         </div>
 
-        {avanceBrigadas.length > 0 && (
-          <div className="mt-5 border-t border-slate-200 pt-4">
-            <p className="text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em] mb-3">
-              Avance UPM - Semana {formData.semana}
+        <div className="mt-5 border-t border-slate-200 pt-4">
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+            <p className="text-[0.7rem] font-bold text-slate-500 uppercase tracking-[0.15em]">
+              Avance UPM
             </p>
+            <div className="flex items-end gap-3">
+              <div className="flex flex-col">
+                <label
+                  className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
+                  htmlFor="avance-trimestre"
+                >
+                  Trimestre
+                </label>
+                <select
+                  id="avance-trimestre"
+                  className={`${inputClass} w-32`}
+                  value={avanceTrimestre}
+                  onChange={(e) =>
+                    setAvanceTrimestre(parseInt(e.target.value, 10))
+                  }
+                >
+                  {TRIMESTRE_OPCIONES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <label
+                  className="text-[0.7rem] font-bold text-slate-500 mb-1 uppercase tracking-[0.15em]"
+                  htmlFor="avance-semana"
+                >
+                  Semana
+                </label>
+                <input
+                  id="avance-semana"
+                  className={`${inputClass} w-24`}
+                  type="number"
+                  min={SEMANA_MIN}
+                  max={SEMANA_MAX}
+                  step="1"
+                  value={avanceSemana}
+                  onChange={handleAvanceSemanaChange}
+                />
+              </div>
+            </div>
+          </div>
+          {avanceBrigadas.length === 0 ? (
+            <p className="text-[0.72rem] font-medium text-slate-400">
+              Sin datos de avance para el trimestre {avanceTrimestre} - semana{' '}
+              {avanceSemana || '-'}.
+            </p>
+          ) : (
             <div className="flex flex-wrap gap-2.5">
               {avanceBrigadas.map((b) => (
                 <div
@@ -790,8 +861,8 @@ const Formulario = ({
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </form>
     </div>
   )

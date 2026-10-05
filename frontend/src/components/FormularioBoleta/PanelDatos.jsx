@@ -37,6 +37,7 @@ const AvanceIcon = () => (
 const PanelDatos = ({
   registros,
   semana,
+  trimestre,
   registrosFiltrados,
   filtroGeneral,
   onFiltroChange,
@@ -108,7 +109,7 @@ const PanelDatos = ({
 
       <div className="p-5">
         {activeTab === 'avance' ? (
-          <ReporteAvance registros={registros} semana={semana} />
+          <ReporteAvance registros={registros} semana={semana} trimestre={trimestre} />
         ) : (
           <TablaRegistros
             registrosFiltrados={registrosFiltrados}

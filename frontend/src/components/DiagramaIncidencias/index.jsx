@@ -3,7 +3,8 @@ import { getComportamientoIncidencias } from '../../services/incidenciaService'
 import { getBrigadas } from '../../services/brigadaService'
 import { useModal } from '../../hooks/useModal'
 import ModalAlert from '../ui/ModalAlert'
-import { INCIDENCIAS, INCIDENCIA_COMPLETA } from '../../utils/constants'
+import { INCIDENCIAS, INCIDENCIA_COMPLETA, TRIMESTRES } from '../../utils/constants'
+import { getTrimestreActual } from '../../utils/helpers'
 import ExcelJS from 'exceljs/dist/exceljs.min.js'
 import {
   GraficoLineas,
@@ -36,6 +37,8 @@ const opcionesSemanas = Array.from(
   (_, i) => SEMANA_MIN + i,
 )
 
+const TRIMESTRE_OPCIONES = [...TRIMESTRES].sort((a, b) => a - b)
+
 function colorScale(value, max, base = BASE_ROJO) {
   if (!value || value <= 0 || !max) {
     return { bg: 'transparent', fg: '#94a3b8' }
@@ -49,7 +52,7 @@ function colorScale(value, max, base = BASE_ROJO) {
   }
 }
 
-export default function DiagramaIncidencias({ sessionUser }) {
+export default function DiagramaIncidencias() {
   const { alertModal, showAlert, closeAlert } = useModal()
 
   const [departamento, setDepartamento] = useState('')
@@ -64,6 +67,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
     INCIDENCIAS.filter((inc) => inc !== INCIDENCIA_COMPLETA),
   )
   const [ocultos, setOcultos] = useState(() => new Set())
+  const [trimestre, setTrimestre] = useState(() => getTrimestreActual())
   const [semanaInicio, setSemanaInicio] = useState(SEMANA_MIN)
   const [semanaFin, setSemanaFin] = useState(SEMANA_MAX)
   const [loading, setLoading] = useState(false)
@@ -72,43 +76,67 @@ export default function DiagramaIncidencias({ sessionUser }) {
   const [todosDepartamentos, setTodosDepartamentos] = useState([])
 
   useEffect(() => {
-    if (departamento) {
-      getBrigadas(departamento).then(setBrigadas).catch(() => {})
-      setBrigada('')
-    } else {
-      setBrigadas([])
-      setBrigada('')
+    if (!departamento) return
+    let cancelled = false
+    getBrigadas(departamento)
+      .then((list) => {
+        if (!cancelled) setBrigadas(list)
+      })
+      .catch(() => {
+        if (!cancelled) setBrigadas([])
+      })
+    return () => {
+      cancelled = true
     }
   }, [departamento])
 
-  const cargar = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = {}
-      if (departamento) params.departamento = departamento
-      if (brigada) params.brigada = brigada
-      const result = await getComportamientoIncidencias(params)
-      setData(result)
-      if (!departamento && !brigada) {
-        setTodosDepartamentos(
-          Array.from(new Set(result.usuarios.map((u) => u.departamento).filter(Boolean))).sort(),
-        )
+  const cambiarDepartamento = useCallback((value) => {
+    setDepartamento(value)
+    setBrigada('')
+    setBrigadas([])
+  }, [])
+
+  const cargar = useCallback(
+    async (isActivo = () => true) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const params = {}
+        if (trimestre) params.trimestre = trimestre
+        if (departamento) params.departamento = departamento
+        if (brigada) params.brigada = brigada
+        const result = await getComportamientoIncidencias(params)
+        if (!isActivo()) return
+        setData(result)
+        if (!departamento && !brigada) {
+          setTodosDepartamentos(
+            Array.from(new Set(result.usuarios.map((u) => u.departamento).filter(Boolean))).sort(),
+          )
+        }
+        setUsuarioSel((prev) => {
+          if (result.usuarios.some((u) => u.usuario === prev)) return prev
+          return result.usuarios[0]?.usuario || ''
+        })
+      } catch (err) {
+        if (!isActivo()) return
+        setError(err.response?.data?.error || err.message)
+        setData(null)
+      } finally {
+        if (isActivo()) setLoading(false)
       }
-      setUsuarioSel((prev) => {
-        if (result.usuarios.some((u) => u.usuario === prev)) return prev
-        return result.usuarios[0]?.usuario || ''
-      })
-    } catch (err) {
-      setError(err.response?.data?.error || err.message)
-      setData(null)
-    } finally {
-      setLoading(false)
-    }
-  }, [departamento, brigada])
+    },
+    [trimestre, departamento, brigada],
+  )
 
   useEffect(() => {
-    cargar()
+    let activo = true
+    const ejecutar = async () => {
+      await cargar(() => activo)
+    }
+    ejecutar()
+    return () => {
+      activo = false
+    }
   }, [cargar])
 
   const departamentoOptions = useMemo(() => todosDepartamentos, [todosDepartamentos])
@@ -335,10 +363,6 @@ export default function DiagramaIncidencias({ sessionUser }) {
     return map
   }, [semanas, usuarioSel, getCount])
 
-  const foliosPorIncidencia = useMemo(() => data?.foliosByIncidencia || {}, [data])
-
-  const foliosPorUsuario = useMemo(() => data?.foliosPorUsuario || {}, [data])
-
   const cambiarAgrupar = (value) => {
     setAgruparPor(value)
     setOcultos(new Set())
@@ -371,10 +395,10 @@ export default function DiagramaIncidencias({ sessionUser }) {
         setUsuarioSel(key)
         setVista('incidencia')
       } else if (agruparPor === 'departamento') {
-        setDepartamento(departamento === key ? '' : key)
+        cambiarDepartamento(departamento === key ? '' : key)
       }
     },
-    [agruparPor, departamento],
+    [agruparPor, departamento, cambiarDepartamento],
   )
 
   const tituloGrafica = {
@@ -397,7 +421,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
       workbook.creator = 'Sistema ECE - Diagrama de Incidencias'
 
       if (vista === 'usuario') {
-        const sheet = workbook.addWorksheet('Matriz por Usuario')
+        const sheet = workbook.addWorksheet(`T${trimestre} Matriz por Usuario`)
         const headers = ['#', 'USUARIO', 'NOMBRE', 'DEPARTAMENTO', 'BRIGADA', ...semanas.map((s) => `S${s}`), 'TOTAL']
         sheet.columns = headers.map((h) => ({ header: h, width: h.startsWith('S') ? 7 : 18 }))
         usuariosFiltrados.forEach((u, i) => {
@@ -416,7 +440,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
           showAlert('Seleccione un usuario para exportar el detalle.', 'warning')
           return
         }
-        const sheet = workbook.addWorksheet(`Detalle ${usuarioSel}`)
+        const sheet = workbook.addWorksheet(`T${trimestre} Detalle ${usuarioSel}`)
         const headers = ['INCIDENCIA', ...semanas.map((s) => `S${s}`), 'TOTAL']
         sheet.columns = headers.map((h) => ({ header: h, width: h.startsWith('S') ? 7 : 30 }))
         INCIDENCIAS.forEach((inc) => {
@@ -435,7 +459,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `Diagrama_Incidencias_${vista}_${new Date().toISOString().split('T')[0]}.xlsx`
+      a.download = `Diagrama_Incidencias_T${trimestre}_${vista}_${new Date().toISOString().split('T')[0]}.xlsx`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -458,7 +482,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
             <select
               className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white min-w-[160px]"
               value={departamento}
-              onChange={(e) => setDepartamento(e.target.value)}
+              onChange={(e) => cambiarDepartamento(e.target.value)}
             >
               <option value="">TODOS</option>
               {departamentoOptions.map((d) => (
@@ -482,6 +506,22 @@ export default function DiagramaIncidencias({ sessionUser }) {
               {brigadas.map((b) => (
                 <option key={b.id} value={b.nombre}>
                   {b.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase mb-1">
+              Trimestre
+            </label>
+            <select
+              className="border border-slate-300 rounded px-3 py-1.5 text-sm bg-white min-w-[110px]"
+              value={trimestre}
+              onChange={(e) => setTrimestre(parseInt(e.target.value, 10))}
+            >
+              {TRIMESTRE_OPCIONES.map((t) => (
+                <option key={t} value={t}>
+                  T{t}
                 </option>
               ))}
             </select>
@@ -613,7 +653,7 @@ export default function DiagramaIncidencias({ sessionUser }) {
           </div>
           <button
             className="bg-slate-600 text-white border-none px-4 py-1.5 rounded text-xs font-semibold cursor-pointer hover:bg-slate-700 transition-colors"
-            onClick={cargar}
+            onClick={() => cargar()}
             disabled={loading}
           >
             Recargar
@@ -648,6 +688,9 @@ export default function DiagramaIncidencias({ sessionUser }) {
                 <h3 className="text-sm font-semibold text-slate-800">{tituloGrafica}</h3>
                 <span className="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2.5 py-1 rounded">
                   Rango: S{semanaInicio} a S{semanaFin}
+                </span>
+                <span className="bg-slate-100 text-slate-700 text-[11px] font-semibold px-2.5 py-1 rounded">
+                  Trimestre: T{trimestre}
                 </span>
                 <div className="flex border border-slate-200 rounded-lg overflow-hidden">
                   {TIPOS_GRAFICO.map((t) => (
@@ -694,7 +737,6 @@ export default function DiagramaIncidencias({ sessionUser }) {
                             : undefined
                         }
                         mostrarValores={mostrarValores}
-                        folios={foliosPorIncidencia}
                       />
                     )}
                     {tipoGrafico === 'circular' && (
@@ -731,7 +773,6 @@ export default function DiagramaIncidencias({ sessionUser }) {
                         series={seriesConColor}
                         totales={totalesPorSerie}
                         ocultos={ocultos}
-                        folios={foliosPorIncidencia}
                       />
                     )}
                   </div>

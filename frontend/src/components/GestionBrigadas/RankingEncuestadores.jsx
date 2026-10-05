@@ -3,7 +3,8 @@ import {
   getRankingObservaciones,
   getRankingSemanas,
 } from '../../services/brigadaService'
-import { DEPARTAMENTOS } from '../../utils/constants'
+import { DEPARTAMENTOS, TRIMESTRES } from '../../utils/constants'
+import { getTrimestreActual } from '../../utils/helpers'
 
 const ORDEN_FOLIOS = 'folios'
 const ORDEN_OBSERVACIONES = 'observaciones'
@@ -26,15 +27,6 @@ const avatarColores = [
   'from-violet-400 to-violet-600',
 ]
 
-const avatarBgs = [
-  'bg-indigo-50',
-  'bg-emerald-50',
-  'bg-amber-50',
-  'bg-rose-50',
-  'bg-sky-50',
-  'bg-violet-50',
-]
-
 const iniciales = (nombre) =>
   String(nombre || '')
     .split(/[\s._]+/)
@@ -44,6 +36,8 @@ const iniciales = (nombre) =>
     .join('') || '—'
 
 const DEPARTAMENTOS_SORT = [...DEPARTAMENTOS].sort((a, b) => a.localeCompare(b))
+
+const TRIMESTRE_OPCIONES = [...TRIMESTRES].sort((a, b) => a - b)
 
 const thClass =
   'px-5 py-3.5 text-left font-semibold text-slate-400 uppercase tracking-wider text-[0.65rem] whitespace-nowrap'
@@ -55,6 +49,7 @@ export default function RankingEncuestadores({ sessionUser }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [departamentoFiltro, setDepartamentoFiltro] = useState('')
+  const [trimestreFiltro, setTrimestreFiltro] = useState(() => getTrimestreActual())
   const [semanas, setSemanas] = useState([])
   const [semanaDesdeFiltro, setSemanaDesdeFiltro] = useState(
     () => localStorage.getItem('rankingSemanaDesde') || '',
@@ -87,27 +82,37 @@ export default function RankingEncuestadores({ sessionUser }) {
     }
   }, [])
 
-  const cargarRanking = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const departamento = isAdmin ? departamentoFiltro : undefined
-      const data = await getRankingObservaciones({
-        departamento,
-        semanaDesde: semanaDesdeFiltro || undefined,
-        semanaHasta: semanaHastaFiltro || undefined,
-      })
-      setRanking(data)
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Error al cargar el ranking de observaciones'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
-  }, [isAdmin, departamentoFiltro, semanaDesdeFiltro, semanaHastaFiltro])
+  const cargarRanking = useCallback(
+    async (isActivo = () => true) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const departamento = isAdmin ? departamentoFiltro : undefined
+        const data = await getRankingObservaciones({
+          departamento,
+          trimestre: trimestreFiltro || undefined,
+          semanaDesde: semanaDesdeFiltro || undefined,
+          semanaHasta: semanaHastaFiltro || undefined,
+        })
+        if (isActivo()) setRanking(data)
+      } catch (err) {
+        if (!isActivo()) return
+        const msg = err.response?.data?.error || 'Error al cargar el ranking de observaciones'
+        setError(msg)
+      } finally {
+        if (isActivo()) setLoading(false)
+      }
+    },
+    [isAdmin, departamentoFiltro, trimestreFiltro, semanaDesdeFiltro, semanaHastaFiltro],
+  )
 
   useEffect(() => {
-    cargarRanking()
+    let activo = true
+    const inicial = async () => {
+      await cargarRanking(() => activo)
+    }
+    inicial()
+    return () => { activo = false }
   }, [cargarRanking])
 
   const rankingOrdenado = useMemo(() => {
@@ -185,6 +190,13 @@ export default function RankingEncuestadores({ sessionUser }) {
             </div>
           </div>
           <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[0.7rem]">
+            <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-1 rounded-full font-semibold">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 3v18h18" />
+                <path d="m19 9-5 5-4-4-3 3" />
+              </svg>
+              Trimestre {trimestreFiltro}
+            </span>
             <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -353,6 +365,26 @@ export default function RankingEncuestadores({ sessionUser }) {
             </select>
           )}
 
+          {/* Trimestre */}
+          <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
+              <path d="M3 3v18h18" />
+              <path d="m19 9-5 5-4-4-3 3" />
+            </svg>
+            <span className="text-[0.68rem] font-semibold text-slate-500 uppercase tracking-wider">Trimestre</span>
+            <select
+              className="bg-transparent px-1 py-0.5 text-[0.8rem] text-slate-700 outline-none cursor-pointer font-medium"
+              value={trimestreFiltro}
+              onChange={(e) => setTrimestreFiltro(parseInt(e.target.value, 10))}
+            >
+              {TRIMESTRE_OPCIONES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Semanas */}
           <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
@@ -391,7 +423,7 @@ export default function RankingEncuestadores({ sessionUser }) {
           <div className="ml-auto">
             <button
               className="inline-flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-[0.72rem] font-semibold cursor-pointer hover:bg-slate-700 active:scale-[0.97] transition-all duration-200 shadow-sm"
-              onClick={cargarRanking}
+              onClick={() => cargarRanking()}
               disabled={loading}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -434,7 +466,7 @@ export default function RankingEncuestadores({ sessionUser }) {
             </svg>
           </div>
           <p className="font-semibold text-slate-500">No hay encuestadores registrados</p>
-          <p className="text-[0.75rem] text-slate-400">Intenta ajustar los filtros de semana</p>
+          <p className="text-[0.75rem] text-slate-400">Intenta ajustar los filtros de trimestre y semana</p>
         </div>
       ) : vista === VISTA_PODIO ? (
         /* ══════════════════════════════════════════════════════════
@@ -467,7 +499,6 @@ export default function RankingEncuestadores({ sessionUser }) {
                 const pct = Math.round((metrica / maximoMetrica) * 100)
                 const esPrimero = posicion === 0
                 const avatarGrad = avatarColores[posicion % avatarColores.length]
-                const avatarBg = avatarBgs[posicion % avatarBgs.length]
 
                 return (
                   <div
@@ -575,7 +606,6 @@ export default function RankingEncuestadores({ sessionUser }) {
                   const metrica = fila[metricaKey] || 0
                   const pct = Math.round((metrica / maximoMetrica) * 100)
                   const avatarGrad = avatarColores[posicion % avatarColores.length]
-                  const avatarBg = avatarBgs[posicion % avatarBgs.length]
 
                   return (
                     <div

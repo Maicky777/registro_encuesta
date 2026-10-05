@@ -80,7 +80,7 @@ router.get('/', authMiddleware, (req, res) => {
 router.get('/ranking-observaciones', authMiddleware, (req, res) => {
   try {
     const db = getDB()
-    const { departamento, brigada, semanaDesde, semanaHasta } = req.query
+    const { departamento, brigada, semanaDesde, semanaHasta, trimestre } = req.query
 
     const onClauses = [
       `(b.encuestador_id = e.id OR b.nombreEncuestador = e.nombre)`,
@@ -151,6 +151,10 @@ router.get('/ranking-observaciones', authMiddleware, (req, res) => {
     if (brigada) {
       onClauses.push('b.brigada = ?')
       params.push(brigada)
+    }
+    if (trimestre !== undefined && trimestre !== null && trimestre !== '') {
+      onClauses.push('CAST(b.trimestre AS INTEGER) = ?')
+      params.push(parseInt(trimestre, 10))
     }
     if (semanaDesde !== undefined && semanaDesde !== null && semanaDesde !== '') {
       onClauses.push('CAST(b.semana AS INTEGER) >= ?')

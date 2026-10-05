@@ -22,11 +22,15 @@ const SEMANA_MAX = 13
 router.get('/comportamiento', authMiddleware, requireRole('administrador'), (req, res) => {
   try {
     const db = getDB()
-    const { departamento, brigada } = req.query
+    const { departamento, brigada, trimestre } = req.query
 
     let where = 'WHERE CAST(b.semana AS INTEGER) BETWEEN ? AND ?'
     const params = [SEMANA_MIN, SEMANA_MAX]
 
+    if (trimestre) {
+      where += ' AND b.trimestre = ?'
+      params.push(parseInt(trimestre, 10))
+    }
     if (departamento) {
       where += ' AND b.departamento = ?'
       params.push(departamento)

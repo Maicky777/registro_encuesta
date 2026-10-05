@@ -19,22 +19,34 @@ export const useBoletas = () => {
   const [error, setError] = useState(null)
   const [pagination, setPagination] = useState({ page: 1, limit: LIMITE_TOTAL, total: 0, totalPages: 1 })
 
-  const fetchRegistros = useCallback(async (page = 1, limit = LIMITE_TOTAL) => {
-    try {
-      const res = await api.get(`/boletas?page=${page}&limit=${limit}`)
-      setRegistros(res.data.data)
-      setPagination(res.data.pagination)
-      setError(null)
-    } catch (err) {
-      console.error('Error al conectar con la API:', err)
-      setError(getErrorMessage(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const fetchRegistros = useCallback(
+    async (isActivo = () => true, page = 1, limit = LIMITE_TOTAL) => {
+      try {
+        const res = await api.get(`/boletas?page=${page}&limit=${limit}`)
+        if (!isActivo()) return
+        setRegistros(res.data.data)
+        setPagination(res.data.pagination)
+        setError(null)
+      } catch (err) {
+        console.error('Error al conectar con la API:', err)
+        if (!isActivo()) return
+        setError(getErrorMessage(err))
+      } finally {
+        if (isActivo()) setLoading(false)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
-    fetchRegistros()
+    let cancelled = false
+    const inicial = async () => {
+      await fetchRegistros(() => !cancelled)
+    }
+    inicial()
+    return () => {
+      cancelled = true
+    }
   }, [fetchRegistros])
 
   const debounceRef = useRef(null)
@@ -65,7 +77,7 @@ export const useBoletas = () => {
       await api.post('/boletas', payload)
       await fetchRegistros()
     } catch (err) {
-      throw new Error(getErrorMessage(err))
+      throw new Error(getErrorMessage(err), { cause: err })
     } finally {
       setSubmitting(false)
     }
@@ -79,7 +91,7 @@ export const useBoletas = () => {
       await api.put(`/boletas/${id}`, payload)
       await fetchRegistros()
     } catch (err) {
-      throw new Error(getErrorMessage(err))
+      throw new Error(getErrorMessage(err), { cause: err })
     } finally {
       setSubmitting(false)
     }
@@ -91,7 +103,7 @@ export const useBoletas = () => {
       await api.delete(`/boletas/${id}`)
       await fetchRegistros()
     } catch (err) {
-      throw new Error(getErrorMessage(err))
+      throw new Error(getErrorMessage(err), { cause: err })
     } finally {
       setSubmitting(false)
     }

@@ -2,12 +2,18 @@ import React, { useRef, useState } from 'react'
 import ExcelJS from 'exceljs/dist/exceljs.min.js'
 import ModalSemanaExcel from './ModalSemanaExcel'
 import { SEMANA_MIN, SEMANA_MAX } from '../../utils/constants'
-import { getTrimestreActual } from '../../utils/helpers'
+import { getTrimestreActual, getSemanaActual } from '../../utils/helpers'
+
+const ROMANOS = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
 
 const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
   const fileInputRef = useRef(null)
   const [showSemanaModal, setShowSemanaModal] = useState(false)
-  const [semanaInput, setSemanaInput] = useState('')
+  const [trimestreInput, setTrimestreInput] = useState(() =>
+    String(getTrimestreActual()),
+  )
+  const [semanaInput, setSemanaInput] = useState(() => String(getSemanaActual()))
+  const [generando, setGenerando] = useState(false)
 
   const columnas = [
     { key: 'departamento', label: 'DEPARTAMENTO' },
@@ -60,7 +66,12 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
     URL.revokeObjectURL(url)
   }
 
-  const crearYDescargarWorkbook = async (departamento, registrosDept) => {
+  const crearYDescargarWorkbook = async (
+    departamento,
+    registrosDept,
+    trimestre,
+    semana,
+  ) => {
     const brigadas = [
       ...new Set(registrosDept.map((r) => r.brigada).filter(Boolean)),
     ].sort((a, b) => {
@@ -97,20 +108,12 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
       row3.getCell(2).font = { name: 'Calibri', size: 14, bold: true }
       row3.getCell(3).value = 'TRIMESTRE:'
       row3.getCell(3).font = { name: 'Calibri', size: 14, bold: true }
-      // row3.getCell(4).value = getTrimestreActual()
-      //
-      // 1. Obtener el trimestre y el año actual
-      const trimestre = getTrimestreActual()
-      const anioActual = new Date().getFullYear()
-
-      // 2. Mapear los números de trimestre a números romanos
-      const romanos = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' }
-
-      // 3. Asignar el valor formateado a la celda (ej: "II/2026")
-      row3.getCell(4).value = `${romanos[trimestre]}/${anioActual}`
-
-      //
+      row3.getCell(4).value = `${ROMANOS[trimestre] || trimestre}/${new Date().getFullYear()}`
       row3.getCell(4).font = { name: 'Calibri', size: 14, bold: true }
+      row3.getCell(5).value = 'SEMANA:'
+      row3.getCell(5).font = { name: 'Calibri', size: 14, bold: true }
+      row3.getCell(6).value = semana
+      row3.getCell(6).font = { name: 'Calibri', size: 14, bold: true }
 
       const headerRow = sheet.getRow(4)
       headers.forEach((h, i) => {
@@ -174,22 +177,30 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
 
     const buffer = await workbook.xlsx.writeBuffer()
     const deptLimpio = sanitizarNombre(departamento)
-    descargarArchivo(buffer, `FORMULARIO_DE_SEGUIMIENTO_${deptLimpio}.xlsx`)
+    descargarArchivo(
+      buffer,
+      `FORMULARIO_DE_SEGUIMIENTO_${deptLimpio}_TRIM${trimestre}_SEM${semana}.xlsx`,
+    )
   }
 
-  const exportarExcel = async (semanaNum) => {
+  const exportarExcel = async (trimestreNum, semanaNum) => {
     if (registros.length === 0) {
       showAlert('No hay datos para exportar.', 'warning')
-      return
+      return false
     }
 
     const filtrados = registros.filter(
-      (r) => parseInt(r.semana, 10) === semanaNum,
+      (r) =>
+        String(r.trimestre) === String(trimestreNum) &&
+        parseInt(r.semana, 10) === semanaNum,
     )
 
     if (filtrados.length === 0) {
-      showAlert(`No hay registros para la semana ${semanaNum}.`, 'warning')
-      return
+      showAlert(
+        `No hay registros para TRIM-${trimestreNum} Semana ${semanaNum}.`,
+        'warning',
+      )
+      return false
     }
 
     const ordenados = [...filtrados].sort((a, b) => {
@@ -208,7 +219,12 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
     const departamentos = Object.keys(porDepartamento)
 
     for (const dept of departamentos) {
-      await crearYDescargarWorkbook(dept, porDepartamento[dept])
+      await crearYDescargarWorkbook(
+        dept,
+        porDepartamento[dept],
+        trimestreNum,
+        semanaNum,
+      )
     }
 
     if (departamentos.length > 1) {
@@ -218,10 +234,12 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
       )
     } else {
       showAlert(
-        `Reporte de la semana ${semanaNum} generado correctamente.`,
+        `Reporte TRIM-${trimestreNum} Semana ${semanaNum} generado correctamente.`,
         'success',
       )
     }
+
+    return true
   }
 
   const exportarJSON = () => {
@@ -243,22 +261,44 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
     downloadAnchor.remove()
   }
 
-  const handleConfirmarSemana = () => {
+  const abrirModalSemana = () => {
+    setTrimestreInput(String(getTrimestreActual()))
+    setSemanaInput(String(getSemanaActual()))
+    setShowSemanaModal(true)
+  }
+
+  const handleConfirmarSemana = async () => {
+    if (generando) return
+
+    const trimestreNum = parseInt(trimestreInput, 10)
     const semanaNum = parseInt(semanaInput, 10)
-    if (!semanaNum || semanaNum < SEMANA_MIN || semanaNum > SEMANA_MAX) {
+
+    if (!trimestreNum || trimestreNum < 1 || trimestreNum > 4) {
+      showAlert('Seleccione un trimestre válido (1 a 4).', 'warning')
+      return
+    }
+
+    if (
+      !Number.isInteger(semanaNum) ||
+      semanaNum < SEMANA_MIN ||
+      semanaNum > SEMANA_MAX
+    ) {
       showAlert(
         `Ingrese un número de semana válido (${SEMANA_MIN} a ${SEMANA_MAX}).`,
         'warning',
       )
       return
     }
-    exportarExcel(semanaNum)
-    showAlert(
-      `Reporte de la semana ${semanaNum} generado correctamente.`,
-      'success',
-    )
-    setShowSemanaModal(false)
-    setSemanaInput('')
+
+    setGenerando(true)
+    try {
+      const ok = await exportarExcel(trimestreNum, semanaNum)
+      if (ok) setShowSemanaModal(false)
+    } catch (err) {
+      showAlert('Error al generar el reporte: ' + err.message, 'error')
+    } finally {
+      setGenerando(false)
+    }
   }
 
   return (
@@ -267,7 +307,7 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
         <div className="flex gap-3 flex-wrap">
           <button
             className="bg-green-800 text-white border-none px-4 py-2 rounded font-semibold cursor-pointer text-xs hover:bg-green-700 transition-colors"
-            onClick={() => setShowSemanaModal(true)}
+            onClick={abrirModalSemana}
           >
             📊 Generar Reporte Excel (.xlsx)
           </button>
@@ -295,13 +335,13 @@ const ToolbarArchivos = ({ registros, showAlert, onCargarJSON }) => {
 
       <ModalSemanaExcel
         show={showSemanaModal}
+        trimestreExcel={trimestreInput}
         semanaExcel={semanaInput}
-        onChange={setSemanaInput}
+        loading={generando}
+        onChangeTrimestre={setTrimestreInput}
+        onChangeSemana={setSemanaInput}
         onConfirm={handleConfirmarSemana}
-        onCancel={() => {
-          setShowSemanaModal(false)
-          setSemanaInput('')
-        }}
+        onCancel={() => setShowSemanaModal(false)}
       />
     </>
   )

@@ -33,7 +33,7 @@ function pluginValores(enabled) {
   }
 }
 
-export default function GraficoLineas({ semanas, series, totales, ocultos, onSelect, mostrarValores, folios }) {
+export default function GraficoLineas({ semanas, series, totales, ocultos, onSelect, mostrarValores }) {
   const datasets = useMemo(
     () =>
       series.map((serie) => ({
