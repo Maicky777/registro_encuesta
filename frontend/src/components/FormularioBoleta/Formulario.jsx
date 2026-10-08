@@ -62,7 +62,7 @@ const Formulario = ({
         folio: val,
         upm: upmFinal,
         voe: voeCalculado,
-        panel: calcularPanel(prev.visita, upmFinal),
+        panel: calcularPanel(prev.visita, upmFinal, prev.trimestre),
       }
     })
   }
@@ -74,7 +74,7 @@ const Formulario = ({
         ...prev,
         upmAdicional: val,
         upm,
-        panel: calcularPanel(prev.visita, upm),
+        panel: calcularPanel(prev.visita, upm, prev.trimestre),
       }
     })
   }
@@ -83,7 +83,7 @@ const Formulario = ({
     setFormData((prev) => ({
       ...prev,
       upm: val,
-      panel: calcularPanel(prev.visita, val),
+      panel: calcularPanel(prev.visita, val, prev.trimestre),
     }))
   }
 
@@ -113,8 +113,12 @@ const Formulario = ({
       ? 'Revisar el folio, Formato invalido'
       : ''
 
+  const visitaNum = Number(formData.visita)
   const canEditUpmAdicional =
-    Number(formData.visita) === 1 && formData.numeroCorrelativo === 1
+    Number.isInteger(visitaNum) &&
+    visitaNum >= 1 &&
+    visitaNum <= 4 &&
+    formData.numeroCorrelativo === 1
   const canEditUpmManual =
     Number(formData.numeroCorrelativo) === 1 &&
     !!(formData.upmAdicional && formData.upmAdicional.trim() !== '')
@@ -596,7 +600,7 @@ const Formulario = ({
               UPM Reemplazo
               {canEditUpmReemplazo && (
                 <span className="ml-1.5 text-[0.6rem] font-bold text-amber-700 normal-case tracking-normal bg-amber-100/80 px-1.5 py-0.5 rounded-md border border-amber-200">
-                  (Visita 1 - 1er registro)
+                  (1er registro de la UPM)
                 </span>
               )}
             </label>
@@ -627,7 +631,7 @@ const Formulario = ({
               UPM Adicional
               {canEditUpmAdicional && (
                 <span className="ml-1.5 text-[0.6rem] font-bold text-amber-700 normal-case tracking-normal bg-amber-100/80 px-1.5 py-0.5 rounded-md border border-amber-200">
-                  (Visita 1 - 1er registro)
+                  (1er registro de la UPM)
                 </span>
               )}
             </label>

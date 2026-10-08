@@ -58,11 +58,19 @@ function validateBoleta(data, { isUpdate = false } = {}) {
     }
   }
 
-  if (data.visita !== undefined && data.visita !== null && data.visita !== '') {
+  if (data.visita !== undefined) {
     const visitaNum = Number(data.visita)
-    if (!Number.isInteger(visitaNum) || visitaNum < 1 || visitaNum > 4) {
+    if (
+      data.visita === null ||
+      data.visita === '' ||
+      !Number.isInteger(visitaNum) ||
+      visitaNum < 1 ||
+      visitaNum > 4
+    ) {
       errors.push('La visita debe ser un número entero entre 1 y 4.')
     }
+  } else if (!isUpdate) {
+    errors.push('La visita debe ser un número entero entre 1 y 4.')
   }
 
   if (data.incidencia !== undefined && data.incidencia !== '') {

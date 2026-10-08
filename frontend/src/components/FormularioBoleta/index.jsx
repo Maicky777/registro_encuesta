@@ -155,9 +155,11 @@ export default function FormularioBoleta({ sessionUser }) {
   }, [getFormState])
 
   const canEditUpmReemplazo = useMemo(() => {
-    const visita = parseInt(formData.visita, 10)
+    const visita = Number(formData.visita)
+    const visitaValida =
+      Number.isInteger(visita) && visita >= 1 && visita <= 4
     return (
-      visita === 1 && formData.numeroCorrelativo === 1 && formData.upm !== ''
+      visitaValida && formData.numeroCorrelativo === 1 && formData.upm !== ''
     )
   }, [formData.visita, formData.numeroCorrelativo, formData.upm])
 
@@ -216,7 +218,7 @@ export default function FormularioBoleta({ sessionUser }) {
             ? primerRegistro.upmAdicional
             : prev.upmAdicional,
           voe: voeCalculado,
-          panel: calcularPanel(visitaAuto, upmAuto),
+          panel: calcularPanel(visitaAuto, upmAuto, prev.trimestre),
           visita: visitaAuto,
           brigada: brigadaAuto,
           numeroCorrelativo: conteoUpmPrevias + 1,
@@ -248,10 +250,12 @@ export default function FormularioBoleta({ sessionUser }) {
   )
 
   const handleVisitaChange = useCallback((val) => {
+    const digitos = String(val).replace(/\D/g, '')
+    const parsed = digitos === '' ? '' : Math.min(4, Math.max(1, parseInt(digitos, 10)))
     setFormData((prev) => ({
       ...prev,
-      visita: val,
-      panel: calcularPanel(val, prev.upm),
+      visita: parsed,
+      panel: calcularPanel(parsed, prev.upm, prev.trimestre),
     }))
   }, [])
 
@@ -345,6 +349,19 @@ export default function FormularioBoleta({ sessionUser }) {
         `La semana debe ser un número entero entre ${SEMANA_MIN} y ${SEMANA_MAX}.`,
         'error',
       )
+      return
+    }
+
+    const visitaNum = Number(formData.visita)
+    if (
+      formData.visita === '' ||
+      formData.visita === null ||
+      formData.visita === undefined ||
+      !Number.isInteger(visitaNum) ||
+      visitaNum < 1 ||
+      visitaNum > 4
+    ) {
+      showAlert('La visita debe ser un número entero entre 1 y 4.', 'error')
       return
     }
 

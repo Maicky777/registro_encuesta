@@ -21,12 +21,21 @@ export const getEstadoClass = (estado) => {
   }
 }
 
-export const calcularPanel = (visita, upm = '') => {
+export const calcularPanel = (visita, upm = '', trimestre = null) => {
   const numVisita = parseInt(visita, 10)
   if (numVisita === 4) return 'PANEL 44'
   if (numVisita === 3) return 'PANEL 45'
   if (numVisita === 2) return 'PANEL 46'
   if (numVisita === 1) {
+    if (Number(trimestre) === 4) {
+      if (upm && upm.length >= 3) {
+        const segundoDigito = upm.charAt(1)
+        if (/^\d$/.test(segundoDigito)) {
+          return parseInt(segundoDigito, 10) > 2 ? 'PANEL 0' : 'PANEL 47'
+        }
+      }
+      return 'PANEL 46 / PANEL 0'
+    }
     if (upm && upm.length >= 3) {
       const primeros3 = parseInt(upm.substring(0, 3), 10)
       return primeros3 < 730 ? 'PANEL 47' : 'PANEL 0'
