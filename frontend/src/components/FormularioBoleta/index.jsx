@@ -171,6 +171,7 @@ export default function FormularioBoleta({ sessionUser }) {
         (r) =>
           r.id !== editandoId &&
           (calcularUPM(r.folio) === upmDesdeFolio ||
+            (r.upm && r.upm === upmDesdeFolio) ||
             (r.upmAdicional &&
               r.upmAdicional.trim() !== '' &&
               r.upmAdicional.trim() === upmDesdeFolio)),
@@ -195,9 +196,15 @@ export default function FormularioBoleta({ sessionUser }) {
         const deptoAuto = primerRegistro
           ? primerRegistro.departamento
           : prev.departamento
-        const visitaAuto = primerRegistro
-          ? String(primerRegistro.visita)
-          : prev.visita
+        const visitaNumReg = primerRegistro
+          ? Number(primerRegistro.visita)
+          : NaN
+        const visitaAuto =
+          primerRegistro &&
+          primerRegistro.visita !== '' &&
+          Number.isFinite(visitaNumReg)
+            ? String(Math.min(4, Math.max(1, Math.trunc(visitaNumReg))))
+            : prev.visita
         const brigadaAuto = primerRegistro
           ? primerRegistro.brigada
           : prev.brigada
@@ -250,8 +257,12 @@ export default function FormularioBoleta({ sessionUser }) {
   )
 
   const handleVisitaChange = useCallback((val) => {
-    const digitos = String(val).replace(/\D/g, '')
-    const parsed = digitos === '' ? '' : Math.min(4, Math.max(1, parseInt(digitos, 10)))
+    const limpio = String(val).replace(/[^\d.]/g, '')
+    const entero = limpio.split('.')[0]
+    const parsed =
+      entero === ''
+        ? ''
+        : Math.min(4, Math.max(1, parseInt(entero, 10)))
     setFormData((prev) => ({
       ...prev,
       visita: parsed,
@@ -435,7 +446,13 @@ export default function FormularioBoleta({ sessionUser }) {
     clearTimeout(folioCheckRef.current)
     setEditandoId(reg.id)
     setSelectedDepartamento(reg.departamento)
-    setFormData({ ...reg, semana: parseInt(reg.semana, 10) || 0 })
+    setFormData({
+      ...reg,
+      semana: parseInt(reg.semana, 10) || 0,
+      visita: reg.visita === '' || reg.visita === null || Number.isNaN(Number(reg.visita))
+        ? ''
+        : Math.min(4, Math.max(1, Math.trunc(Number(reg.visita)))),
+    })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [setSelectedDepartamento])
 

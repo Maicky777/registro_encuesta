@@ -197,9 +197,9 @@ router.post('/', authMiddleware, (req, res) => {
     const username = req.user?.username || ''
 
     const info = db.prepare(sql).run(
-      data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
-      data.upmAdicional, toInteger(data.semana), data.visita, data.panel, data.numeroCorrelativo,
-      data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
+          data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
+          data.upmAdicional, toInteger(data.semana), toInteger(data.visita), data.panel, data.numeroCorrelativo,
+          data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
       data.detalleObservaciones, finalTotal, finalBoletaObs,
       finalEstado, finalObservacion, data.observacionPersonal,
       data.consolidada, data.fechaFinalConsolidacion,
@@ -314,7 +314,7 @@ router.put('/:id', authMiddleware, (req, res) => {
 
     db.prepare(sql).run(
       merged.departamento, merged.brigada, merged.folio, merged.upm, merged.upmReemplazo,
-      merged.upmAdicional, toInteger(merged.semana), merged.visita, merged.panel, merged.numeroCorrelativo,
+      merged.upmAdicional, toInteger(merged.semana), toInteger(merged.visita), merged.panel, merged.numeroCorrelativo,
       merged.voe, merged.usuarioEncuestador, merged.nombreEncuestador, merged.incidencia,
       merged.detalleObservaciones, finalTotal, finalBoletaObs,
       finalEstado, finalObservacion, merged.observacionPersonal,
@@ -424,7 +424,7 @@ router.post('/batch', authMiddleware, (req, res) => {
 
         stmt.run(
           data.departamento, data.brigada, data.folio, data.upm, data.upmReemplazo,
-          data.upmAdicional, toInteger(data.semana), data.visita, data.panel, data.numeroCorrelativo,
+      data.upmAdicional, toInteger(data.semana), toInteger(data.visita), data.panel, data.numeroCorrelativo,
           data.voe, data.usuarioEncuestador, data.nombreEncuestador, data.incidencia,
           data.detalleObservaciones, finalTotal, finalBoletaObs,
           finalEstado, finalObservacion, data.observacionPersonal,

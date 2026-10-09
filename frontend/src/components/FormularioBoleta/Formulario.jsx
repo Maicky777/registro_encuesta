@@ -296,9 +296,11 @@ const Formulario = ({
             <input
               id="cod-visita"
               className={inputClass}
-              type="number"
-              min="1"
-              max="4"
+              type="text"
+              inputMode="numeric"
+              pattern="[1-4]"
+              title="Ingrese un número entero del 1 al 4"
+              autoComplete="off"
               required
               value={formData.visita}
               onChange={(e) => onVisitaChange(e.target.value)}

@@ -209,7 +209,7 @@ const TablaRegistros = ({
                   <td className="px-3 py-2.5 text-slate-500">{reg.voe}</td>
                   <td className="px-3 py-2.5 text-slate-600 font-medium">{reg.brigada}</td>
                   <td className="px-3 py-2.5 text-slate-600 text-center font-medium">{parseInt(reg.semana, 10)}</td>
-                  <td className="px-3 py-2.5 text-slate-600 text-center font-medium">{reg.visita}</td>
+                  <td className="px-3 py-2.5 text-slate-600 text-center font-medium">{reg.visita === '' || reg.visita == null ? '' : Math.trunc(Number(reg.visita))}</td>
                   <td className="px-3 py-2.5 text-slate-500">{reg.panel}</td>
                   <td className="px-3 py-2.5 text-slate-600">{reg.nombreEncuestador}</td>
                   <td className="px-3 py-2.5">
