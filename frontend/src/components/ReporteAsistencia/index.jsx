@@ -795,7 +795,7 @@ export default function ReporteAsistencia({ sessionUser }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `Reporte_Asistencia_T${trimestre}_Sem${semana}_${new Date().toISOString().split('T')[0]}.xlsx`
+      a.download = `Reporte_Asistencia_T${trimestre}_Sem${semana}_${departamento}.xlsx`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
